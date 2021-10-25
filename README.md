@@ -1,4 +1,4 @@
-# NppLSP
+# NppLSPClient
 A [LSP](https://microsoft.github.io/language-server-protocol/) client plugin for Notepad++.
 
 ## Installation
