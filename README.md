@@ -5,7 +5,7 @@ A [LSP](https://microsoft.github.io/language-server-protocol/) client plugin for
 
 - Download and unpack the NppLspClient zip-archive (the NppLspClient_x*86 or 64*.zip) from https://github.com/Ekopalypse/NppLspClient/releases to the folder "Notepad++\plugins".
 - Install a language server of your choice
-- Configure it by calling "Open configuration" from the menu NppLspClient plugin menu. (You will find a more detailed description in the howto.txt file.)
+- Configure it by calling "Open configuration" from the NppLspClient plugin menu. (You will find a more detailed description in the howto.txt file.)
 
 ## Usage example
 
