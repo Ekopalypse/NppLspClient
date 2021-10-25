@@ -1,0 +1,25 @@
+#include <windows.h>
+#include "resource.h"
+
+IDI_LSP ICON "NppLsp.ico"
+
+LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL 
+IDD_ABOUTDLG DIALOGEX 0, 0, 223, 130
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_BORDER | WS_SYSMENU
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "Close", IDOK, 86, 109, 50, 14
+    GROUPBOX        "", IDC_VERSION, 10, 9, 201, 93, BS_CENTER
+    LTEXT           "Author: Ekopalypse <Ekopalypse@gmail.com>", IDC_STATIC, 30, 26, 180, 8
+    LTEXT           "The NppLsp code is hosted on", IDC_STATIC, 30, 43, 180, 8
+    LTEXT           "www.github.com/Ekopalypse", IDC_STATIC, 30, 60, 180, 8
+    LTEXT           "This code is licensed under GPLv2", IDC_STATIC, 30, 80, 180, 8
+	CONTROL			IDI_LSP, IDC_STATIC,"Static", SS_ICON, 171, 65, 32, 32
+END
+
+IDD_CONSOLEDLG DIALOGEX 0, 0, 199, 177
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Dockable Dialog"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+END
