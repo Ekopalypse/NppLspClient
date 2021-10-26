@@ -105,7 +105,7 @@ pub fn on_buffer_modified(file_name string, position isize, text string, length 
 				mut end_char := start_char
 				
 				if was_added {
-					content = text.replace_each(['\r', r'\r', '\n', r'\n', '\t', r'\t', '"', r'\"'])
+					content = text.replace_each(['\\', '\\\\', '\b', r'\b', '\f', r'\f', '\r', r'\r', '\n', r'\n', '\t', r'\t', '"', r'\"'])
 					end_line = start_line + u32(lines_added)
 				} else { // deleted 
 					if lines_added < 0 {

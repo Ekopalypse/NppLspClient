@@ -84,7 +84,7 @@ pub fn (e Editor) get_text() string {
 	if start_ptr == byteptr(0) { return '' }  // should not happen at all but who knows ...
 	
 	mut content := unsafe { cstring_to_vstring(start_ptr) }
-	content = content.replace_each(['\\', '\\\\', '\r', r'\r', '\n', r'\n', '\t', r'\t', '"', r'\"'])
+	content = content.replace_each(['\\', '\\\\', '\b', r'\b', '\f', r'\f', '\r', r'\r', '\n', r'\n', '\t', r'\t', '"', r'\"'])
 	return content
 }
 
