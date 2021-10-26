@@ -86,7 +86,14 @@ pub fn on_file_closed(file_name string) {
 	}
 }
 
-pub fn on_buffer_modified(file_name string, position isize, text string, length isize, lines_added isize, was_added bool) {
+pub fn on_buffer_modified(file_name string, 
+						  start_line u32,
+						  start_char_pos u32, 
+						  end_line u32, 
+						  end_char_pos u32, 
+						  range_length u32, 
+						  text string) {
+
 	if p.lsp_config.lspservers[p.current_language].initialized {
 		p.current_file_version++
 
@@ -98,28 +105,16 @@ pub fn on_buffer_modified(file_name string, position isize, text string, length 
 				)
 			}
 			2 {  // TextDocumentSyncKind.incremental
-				mut content := ''
-				start_line := u32(editor.line_from_position(usize(position)))
-				start_char := u32(position - editor.position_from_line(usize(start_line)))
-				mut end_line := u32(0)
-				mut end_char := start_char
-				
-				if was_added {
-					content = text.replace_each(['\\', '\\\\', '\b', r'\b', '\f', r'\f', '\r', r'\r', '\n', r'\n', '\t', r'\t', '"', r'\"'])
-					end_line = start_line + u32(lines_added)
-				} else { // deleted 
-					if lines_added < 0 {
-						end_line = start_line + (u32(lines_added) * -1)
-						end_char = 0
-					} else { 
-						end_line = start_line
-						end_char = start_char + 1
-					}
-				}
-
+				content := text.replace_each(['\\', '\\\\', '\b', r'\b', '\f', r'\f', '\r', r'\r', '\n', r'\n', '\t', r'\t', '"', r'\"'])
 				lsp.write_to(
 					p.current_stdin,
-					lsp.did_change_incremental(file_name, p.current_file_version, content, start_line, start_char, end_line, end_char)
+					lsp.did_change_incremental(file_name, 
+											   p.current_file_version, 
+											   content, 
+											   start_line, 
+											   start_char_pos, 
+											   end_line, 
+											   end_char_pos)
 				)
 			}
 			else{}
@@ -128,19 +123,15 @@ pub fn on_buffer_modified(file_name string, position isize, text string, length 
 		// trigger_characters might be in both lists, hence two if's
 		// not sure if this is a good idea.
 		if text in p.lsp_config.lspservers[p.current_language].features.compl_trigger_chars {
-			line := editor.line_from_position(usize(position))
-			char_pos := position - editor.position_from_line(usize(line))
 			lsp.write_to(
 				p.current_stdin,
-				lsp.request_completion(file_name, u32(line), u32(char_pos+1), text)  // ?? why +1
+				lsp.request_completion(file_name, start_line, start_char_pos+1, text)  // ?? why +1
 			)
 		}
 		if text in p.lsp_config.lspservers[p.current_language].features.sig_help_trigger_chars {
-			line := editor.line_from_position(usize(position))
-			char_pos := position - editor.position_from_line(usize(line))
 			lsp.write_to(
 				p.current_stdin,
-				lsp.request_signature_help(file_name, u32(line), u32(char_pos+1), text)
+				lsp.request_signature_help(file_name, start_line, start_char_pos+1, text)
 			)
 		}
 	}

@@ -24,6 +24,8 @@ __global (
 	npp notepadpp.Npp
 	dll_instance voidptr
 	p Plugin
+	end_line u32
+	end_char u32
 )
 
 pub struct Plugin {
@@ -175,15 +177,35 @@ fn be_notified(notification &sci.SCNotification) {
 
 		sci.scn_modified {
 			if p.document_is_of_interest {
-				mod_type := notification.modification_type & (sci.sc_mod_inserttext | sci.sc_mod_deletetext)
-				if mod_type > 0 {
-					text := unsafe { cstring_to_vstring(notification.text)[..int(notification.length)] }
-					lsp.on_buffer_modified(p.current_file_path, 
-										   notification.position, 
-										   text, 
-										   notification.length, 
-										   notification.lines_added,
-										   mod_type == 1)
+				if notification.modification_type & sci.sc_mod_beforedelete == sci.sc_mod_beforedelete {
+					end_pos := notification.position + notification.length
+					end_line = u32(editor.line_from_position(usize(end_pos)))
+					end_line_start_pos := editor.position_from_line(usize(end_line))
+					end_char = u32(end_pos - end_line_start_pos)
+				} else {
+					mod_type := notification.modification_type & (sci.sc_mod_inserttext | sci.sc_mod_deletetext)
+					if mod_type > 0 {
+						start_line := u32(editor.line_from_position(usize(notification.position)))
+						line_start_pos := editor.position_from_line(usize(start_line))
+						start_char := u32(notification.position - line_start_pos)
+						mut range_length := u32(notification.length)
+						mut content := ''
+						
+						if mod_type & sci.sc_mod_inserttext == sci.sc_mod_inserttext {
+							end_line = start_line
+							end_char = start_char
+							range_length = 0
+							content = unsafe { cstring_to_vstring(notification.text)[..int(notification.length)] }
+						}
+						
+						lsp.on_buffer_modified(p.current_file_path, 
+											   start_line,
+											   start_char,
+											   end_line, 
+											   end_char,
+											   range_length,
+											   content)
+					}
 				}
 			}
 		}

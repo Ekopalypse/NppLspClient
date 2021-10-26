@@ -70,10 +70,10 @@ fn (e Editor) call(msg int, wparam usize, lparam isize) isize {
 
 pub fn create_editors(main_handle voidptr, second_handle voidptr) Editor {
 	mut editor := Editor{}
-	editor.main_func = SCI_FN_DIRECT(send_message(main_handle, 2184, 0, 0))
-	editor.main_hwnd = voidptr(send_message(main_handle, 2185, 0, 0))
-	editor.second_func = SCI_FN_DIRECT(send_message(second_handle, 2184, 0, 0))
-	editor.second_hwnd = voidptr(send_message(second_handle, 2185, 0, 0))
+	editor.main_func = SCI_FN_DIRECT(send_message(main_handle, sci_getdirectfunction, 0, 0))
+	editor.main_hwnd = voidptr(send_message(main_handle, sci_getdirectpointer, 0, 0))
+	editor.second_func = SCI_FN_DIRECT(send_message(second_handle, sci_getdirectfunction, 0, 0))
+	editor.second_hwnd = voidptr(send_message(second_handle, sci_getdirectpointer, 0, 0))
 	editor.current_func = editor.main_func
 	editor.current_hwnd = editor.main_hwnd
 	return editor
