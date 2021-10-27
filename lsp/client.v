@@ -137,6 +137,49 @@ pub fn on_buffer_modified(file_name string,
 	}
 }
 
+pub fn on_format_document(file_name string) {
+	if p.lsp_config.lspservers[p.current_language].initialized {
+		lsp.write_to(
+			p.current_stdin,
+			lsp.format_document(file_name, editor.get_tab_size(), editor.use_spaces(), true, true, true)
+		)	
+	}
+}
+
+pub fn on_goto_definition(file_name string) {
+	if p.lsp_config.lspservers[p.current_language].initialized {
+		current_pos := editor.get_current_position()
+		current_line := editor.line_from_position(usize(current_pos))
+		line_start_pos := editor.position_from_line(usize(current_line))
+		char_pos := current_pos - line_start_pos
+		lsp.write_to(
+			p.current_stdin,
+			lsp.goto_definition(file_name, u32(current_line), u32(char_pos))
+		)	
+	}
+}
+
+pub fn on_goto_implementation(file_name string) {
+	if p.lsp_config.lspservers[p.current_language].initialized {
+		current_pos := editor.get_current_position()
+		current_line := editor.line_from_position(usize(current_pos))
+		line_start_pos := editor.position_from_line(usize(current_line))
+		char_pos := current_pos - line_start_pos
+		lsp.write_to(
+			p.current_stdin,
+			lsp.goto_implementation(file_name, u32(current_line), u32(char_pos))
+		)	
+	}
+}
+
+pub fn on_peek_definition(file_name string) {
+	p.console_window.log('on_peek_definition not implemented yet', 3)
+}
+
+pub fn on_peek_implementation(file_name string) {
+	p.console_window.log('on_peek_implementation not implemented yet', 3)
+}
+
 fn notification_handler(json_message JsonMessage) {
 	match json_message.method {
 		'textDocument/publishDiagnostics' {
@@ -203,7 +246,7 @@ fn initialize_msg_response(json_message string) {
 	}
 }
 
-fn request_completion_response(json_message string) {
+fn completion_response(json_message string) {
 	cl := json2.decode<CompletionList>(json_message) or { CompletionList{} }
 	mut ci := []CompletionItem{}
 	if cl.items.len != 0 {
@@ -215,11 +258,31 @@ fn request_completion_response(json_message string) {
 	if ci.len > 0 { editor.display_completion_list(ci.map(it.label).join('\n')) }
 }
 
-fn request_signature_help_repsonse(json_message string) {
+fn signature_help_repsonse(json_message string) {
 	p.console_window.log('  signature help response received: $json_message', 0)
 	sh := json2.decode<SignatureHelp>(json_message) or { SignatureHelp{} }
 	if sh.signatures.len > 0 {
 		editor.display_signature_hints(sh.signatures[0].label)
 	}
 	p.console_window.log('$sh', 0)
+}
+
+fn format_document_repsonse(json_message string) {
+	p.console_window.log('  format document response received: $json_message', 0)
+	tea := json2.decode<TextEditArray>(json_message) or { TextEditArray{} }
+	editor.begin_undo_action()
+	for item in tea.items {
+		start_pos := u32(editor.position_from_line(usize(item.range.start.line))) + item.range.start.character
+		end_pos := u32(editor.position_from_line(usize(item.range.end.line))) + item.range.end.character
+		editor.replace_target(start_pos, end_pos, item.new_text)
+	}
+	editor.end_undo_action()
+}
+
+fn goto_definition_repsonse(json_message string) {
+	p.console_window.log('NOT IMPLEMENTED YET: goto definition response received: $json_message', 3)
+}
+
+fn goto_implementation_repsonse(json_message string) {
+	p.console_window.log('NOT IMPLEMENTED YET: goto implementation response received: $json_message', 3)
 }

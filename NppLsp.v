@@ -241,10 +241,16 @@ fn get_funcs_array(mut nb_func &int) &FuncItem {
 		'Restart server for current language': restart_lsp_server
 		'Stop all configured lsp server': stop_all_server
 		'-': voidptr(0)
+		'Format document': format_document
+		'Goto definition': goto_definition
+		'Peek definition': peek_definition
+		'Goto implementation': goto_implementation
+		'Peek implementation': peek_implementation
+		'--': voidptr(0)
 		'toggle_console': toggle_console
 		'Open configuration file': open_config
 		'Apply current configuration': apply_config
-		'--': voidptr(0)
+		'---': voidptr(0)
 		'About': about
 	}
 
@@ -265,8 +271,10 @@ fn get_funcs_array(mut nb_func &int) &FuncItem {
 }
 
 fn check_lexer(buffer_id u64) {
+	p.console_window.log('checking current lexer', 0)
 	p.current_language = npp.get_language_name_from_id(buffer_id)
 	p.document_is_of_interest = p.current_language in p.lsp_config.lspservers
+	p.console_window.log('', 0)
 	check_ls_status(true)
 }
 
@@ -276,6 +284,7 @@ pub fn apply_config() {
 }
 
 fn read_main_config() {
+	p.console_window.log('rereading main config', 0)
 	p.lsp_config = lsp.decode_config(p.main_config_file)
 }
 
@@ -289,6 +298,7 @@ pub fn open_config() {
 }
 
 pub fn start_lsp_server() {
+	p.console_window.log('starting language server: ${p.current_language}', 0)
 	check_ls_status(false)
 	// create and send a fake nppn_bufferactivated event
 	mut sci_header := sci.SCNotification{text: &char(0)}
@@ -300,6 +310,7 @@ pub fn start_lsp_server() {
 }
 
 pub fn stop_lsp_server() {
+	p.console_window.log('stopping language server: ${p.current_language}', 0)
 	p.proc_manager.stop(p.current_language)
 	p.lsp_config.lspservers[p.current_language].initialized = false
 	p.console_window.log('initialized = ${p.lsp_config.lspservers[p.current_language].initialized}', 0)
@@ -307,11 +318,13 @@ pub fn stop_lsp_server() {
 }
 
 pub fn restart_lsp_server() {
+	p.console_window.log('restarting lsp server: ${p.current_language}', 0)
 	stop_lsp_server()
 	start_lsp_server()
 }
 
 pub fn stop_all_server() {
+	p.console_window.log('stop all running language server', 0)
 	p.proc_manager.stop_all_running_processes()
 }
 
@@ -329,28 +342,60 @@ pub fn about() {
 }
 
 fn check_ls_status(check_auto_start bool) {
-
+	p.console_window.log('checking language server status: ${p.current_language}', 0)
 	if p.current_language in p.proc_manager.running_processes {
+		p.console_window.log('  is already running', 0)
 		p.cur_lang_srv_running = true
 		return
 	}
 
 	if check_auto_start && !p.lsp_config.lspservers[p.current_language].auto_start_server {
+		p.console_window.log('  either unknown language or server should not be started automatically', 0)
 		p.cur_lang_srv_running = false
 		return
 	}
-
+	
+	p.console_window.log('  trying to start ${p.lsp_config.lspservers[p.current_language].executable}', 0)
 	proc_status := p.proc_manager.start(p.current_language,
 										p.lsp_config.lspservers[p.current_language].executable,
 										p.lsp_config.lspservers[p.current_language].args.join(' '))
-
-	if proc_status == .running {
+	
+	match proc_status {
+		.running {
+			p.console_window.log('  running', 0)
 			p.console_window.log('${p.current_language} server is running', 0)
 			p.cur_lang_srv_running = true
 			p.current_stdin = p.proc_manager.running_processes[p.current_language].stdin
-	} else {
-		p.cur_lang_srv_running = false
+		}
+		.error_no_executable {
+			p.console_window.log('  cannot find executable', 0)
+			p.cur_lang_srv_running = false
+		}
+		.failed_to_start {
+			p.console_window.log('  failed to start', 0)
+			p.cur_lang_srv_running = false
+		}
 	}
+}
+
+pub fn format_document() {
+	lsp.on_format_document(p.current_file_path)
+}
+
+pub fn goto_definition() {
+	lsp.on_goto_definition(p.current_file_path)
+}
+
+pub fn peek_definition() {
+	lsp.on_peek_definition(p.current_file_path)
+}
+
+pub fn goto_implementation() {
+	lsp.on_goto_implementation(p.current_file_path)
+}
+
+pub fn peek_implementation() {
+	lsp.on_peek_implementation(p.current_file_path)
 }
 
 [windows_stdcall]

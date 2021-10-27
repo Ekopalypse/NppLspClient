@@ -249,3 +249,8 @@ pub fn create_process(
 		startup_info, 
 		process_information) 
 }
+
+fn C.GetLastError() u32
+pub fn get_last_error() int {
+	return int(C.GetLastError())
+}

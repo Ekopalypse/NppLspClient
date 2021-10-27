@@ -100,7 +100,7 @@ pub fn (e Editor) clear_diagnostics() {
 	e.call(sci_annotationclearall, 0, 0)
 }
 
-pub fn (e Editor) add_diagnostics_info(line int, message string, severity int) {
+pub fn (e Editor) add_diagnostics_info(line u32, message string, severity int) {
 	p.console_window.log('add_diagnostics_info', 0)
 	
 	mut style := match severity {
@@ -158,4 +158,31 @@ pub fn (mut e Editor) init_styles() {
 	e.call(sci_stylesetfore, e.error_msg_id_style, 0x756ce0)
 	e.call(sci_stylesetfore, e.warning_msg_id_style, 0x64e0ff)
 	e.call(sci_stylesetfore, e.info_msg_id_style, 0xbfb2ab)
+}
+
+pub fn (e Editor) get_tab_size() u32 {
+	return u32(e.call(sci_gettabwidth, 0, 0))
+}
+
+pub fn (e Editor) use_spaces() bool {
+	return e.call(sci_getusetabs, 0, 0) == 0
+}
+
+
+pub fn (e Editor) begin_undo_action() {
+	e.call(sci_beginundoaction, 0, 0)
+}
+
+pub fn (e Editor) end_undo_action() {
+	e.call(sci_endundoaction, 0, 0)
+}
+
+pub fn (e Editor) replace_target(start_pos u32, end_pos u32, new_text string) {
+	e.call(sci_settargetstart, usize(start_pos), 0)
+	e.call(sci_settargetend, usize(end_pos), 0)
+	e.call(sci_replacetarget, -1, isize(new_text.str))
+}
+
+pub fn (e Editor) get_current_position() u32 {
+	return u32(e.call(sci_getcurrentpos, 0, 0))
 }

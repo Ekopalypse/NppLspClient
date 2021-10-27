@@ -18,13 +18,13 @@ struct Message {
 fn (m Message) encode() string {
 	body := match m.msg_type {
 		.request {
-			'{"jsonrpc": "2.0", "id": $m.id, "method": $m.method, "params": $m.params}'
+			'{"jsonrpc":"2.0","id":$m.id,"method":$m.method,"params":$m.params}'
 		}
 		.response {
-			'{"jsonrpc": "2.0", "id": $m.id}'
+			'{"jsonrpc":"2.0","id":$m.id}'
 		}
 		.notification {
-			'{"jsonrpc": "2.0", "method": $m.method, "params": $m.params}'
+			'{"jsonrpc":"2.0","method":$m.method,"params":$m.params}'
 		}
 	}
 	return 'Content-Length: ${body.len}\r\n\r\n${body}'
@@ -137,7 +137,7 @@ pub fn request_completion(file_path DocumentUri, line u32, char_pos u32, trigger
 		method: '"textDocument/completion"'
 		params: '{"textDocument":{"uri":"file:///$uri_path"}, "position":{"line":$line, "character":$char_pos}, "context":{"triggerKind":1, "triggerCharacter":"$trigger_character"}}'
 	}
-	p.open_response_messages[m.id] = request_completion_response
+	p.open_response_messages[m.id] = completion_response
 	return m.encode()
 }
 
@@ -147,12 +147,53 @@ pub fn request_signature_help(file_path DocumentUri, line u32, char_pos u32, tri
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/signatureHelp"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"}, "position":{"line":$line, "character":$char_pos}, "context":{"isRetrigger":false, "triggerCharacter":"$trigger_character", "triggerKind":1}}'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"line":$line,"character":$char_pos},"context":{"isRetrigger":false,"triggerCharacter":"$trigger_character","triggerKind":2}}'
 	}
-	p.open_response_messages[m.id] = request_signature_help_repsonse
+	p.open_response_messages[m.id] = signature_help_repsonse
 	return m.encode()
 }
 
+pub fn format_document(file_path DocumentUri, 
+					   tab_size u32,
+					   insert_spaces bool,
+					   trim_trailing_whitespace bool,
+					   insert_final_new_line bool,
+					   trim_final_new_lines bool) string {
+
+	uri_path := make_uri(file_path)
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/formatting"'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},"options":{"insertSpaces":$insert_spaces,"tabSize":$tab_size,"trimTrailingWhitespace":$trim_trailing_whitespace,"insertFinalNewline":$insert_final_new_line,"trimFinalNewlines":$trim_final_new_lines}}'
+	}
+	p.open_response_messages[m.id] = format_document_repsonse
+	return m.encode()
+}
+
+pub fn goto_definition(file_path DocumentUri, line u32, char_position u32) string {
+	uri_path := make_uri(file_path)
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/definition"'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
+	}
+	p.open_response_messages[m.id] = goto_definition_repsonse
+	return m.encode()
+}
+
+pub fn goto_implementation(file_path DocumentUri, line u32, char_position u32) string {
+	uri_path := make_uri(file_path)
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/implementation"'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
+	}
+	p.open_response_messages[m.id] = goto_implementation_repsonse
+	return m.encode()
+}
 
 // ****************************************************************************
 // JSON Structures
@@ -204,18 +245,33 @@ pub fn make_uri(path string) string {
 	return path.replace_each(['\\', '/', ':', '%3A'])
 }
 
+pub struct TextDocumentIdentifier {
+pub mut:
+	uri DocumentUri
+}
+
+pub fn (mut tdi TextDocumentIdentifier) from_json(f json2.Any) {
+    obj := f.as_map()
+    for k, v in obj {
+        match k {
+			'uri' { tdi.uri = v.str() }
+            else {}
+        }
+    }
+}
+
 pub struct Position {
 pub mut:
-	line      int
-	character int
+	line      u32
+	character u32
 }
 
 pub fn (mut p Position) from_json(f json2.Any) {
     obj := f.as_map()
     for k, v in obj {
         match k {
-			'line' { p.line = v.int() }
-			'character' { p.character = v.int() }
+			'line' { p.line = u32(v.int()) }
+			'character' { p.character = u32(v.int()) }
             else {}
         }
     }
@@ -240,6 +296,7 @@ pub fn (mut r Range) from_json(f json2.Any) {
 
 pub struct Location {
 pub mut:
+	valid bool = true
 	uri   DocumentUri
 	range Range
 }
@@ -252,6 +309,72 @@ pub fn (mut l Location) from_json(f json2.Any) {
 			'range' { l.range = json2.decode<Range>(v.str()) or { Range{} } } 
             else {}
         }
+    }
+}
+
+pub struct LocationArray {
+pub mut:
+	items []Location
+}
+
+pub fn (mut la LocationArray) from_json(f json2.Any) {
+    for item in f.arr() {
+        la.items << json2.decode<Location>(item.str()) or { Location{} }
+    }
+}
+
+pub struct LocationLink {
+pub mut:
+	/**
+	 * Span of the origin of this link.
+	 *
+	 * Used as the underlined span for mouse interaction. Defaults to the word
+	 * range at the mouse position.
+	 */
+	origin_selection_range Range
+
+	/**
+	 * The target resource identifier of this link.
+	 */
+	target_uri DocumentUri
+
+	/**
+	 * The full target range of this link. If the target for example is a symbol
+	 * then target range is the range enclosing this symbol not including
+	 * leading/trailing whitespace but everything else like comments. This
+	 * information is typically used to highlight the range in the editor.
+	 */
+	target_range Range
+
+	/**
+	 * The range that should be selected and revealed when this link is being
+	 * followed, e.g the name of a function. Must be contained by the the
+	 * `targetRange`. See also `DocumentSymbol#range`
+	 */
+	target_selection_range Range
+}
+
+pub fn (mut ll LocationLink) from_json(f json2.Any) {
+    obj := f.as_map()
+    for k, v in obj {
+        match k {
+			'originSelectionRange' { ll.origin_selection_range = json2.decode<Range>(v.str()) or { Range{} } }
+			'targetUri' { ll.target_uri = v.str() }
+			'targetRange' { ll.target_range = json2.decode<Range>(v.str()) or { Range{} } }
+			'targetSelectionRange' { ll.target_selection_range = json2.decode<Range>(v.str()) or { Range{} } }
+            else {}
+        }
+    }
+}
+
+pub struct LocationLinkArray {
+pub mut:
+	items []LocationLink
+}
+
+pub fn (mut lla LocationLinkArray) from_json(f json2.Any) {
+    for item in f.arr() {
+        lla.items << json2.decode<LocationLink>(item.str()) or { LocationLink{} }
     }
 }
 
@@ -673,3 +796,76 @@ pub fn (mut pi ParameterInformation) from_json(f json2.Any) {
         }
     }
 }
+
+pub struct TextEditArray {
+pub mut:
+	items []TextEdit
+}
+
+pub fn (mut tea TextEditArray) from_json(f json2.Any) {
+	for item in f.arr() {
+		tea.items << json2.decode<TextEdit>(item.str()) or { TextEdit{} }
+	}
+}
+
+pub struct TextEdit {
+pub mut:
+	range Range
+	new_text string
+}
+
+pub fn (mut te TextEdit) from_json(f json2.Any) {
+    obj := f.as_map()
+    for k, v in obj {
+        match k {
+			'range' { te.range = json2.decode<Range>(v.str()) or { Range{} } }
+			'newText' { te.new_text = v.str() }
+            else {}
+        }
+    }
+}
+
+// pub struct DocumentFormattingParams{
+// pub mut:
+	// textDocument: TextDocumentIdentifier
+	// options FormattingOptions
+// }
+
+// pub fn (mut dfp DocumentFormattingParams) from_json(f json2.Any) {
+    // obj := f.as_map()
+    // for k, v in obj {
+        // match k {
+			// 'textDocument' { json2.decode<TextDocumentIdentifier>v.str() or { TextDocumentIdentifier{} } }
+			// 'options' { json2.decode<FormattingOptions>v.str() or { FormattingOptions{} } }
+            // else {}
+        // }
+    // }
+// }
+
+// pub struct FormattingOptions {
+// pub mut:
+	// tab_size: u32
+	// insert_spaces: bool
+	// trim_trailing_whitespace: bool
+	// insert_final_newline: bool
+	// trim_final_newlines: bool
+
+	// /**
+	 // * Signature for further properties.
+	 // */
+	// // [key: string]: boolean | integer | string;
+// }
+
+// pub fn (mut fo FormattingOptions) from_json(f json2.Any) {
+    // obj := f.as_map()
+    // for k, v in obj {
+        // match k {
+			// 'tabSize' { fo.tab_size = u32(v.int()) }
+			// 'insertSpaces' { fo.insert_spaces = v.bool() }
+			// 'trimTrailingWhitespace' { fo.trim_trailing_whitespace = v.bool() }
+			// 'insertFinalNewline' { fo.insert_final_newline = v.bool() }
+			// 'trimFinalNewlines' { fo.trim_final_newlines = v.bool() }
+            // else {}
+        // }
+    // }
+// }

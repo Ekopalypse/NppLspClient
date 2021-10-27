@@ -26,6 +26,7 @@ pub mut:
 }
 
 pub fn (mut pm ProcessManager) start(language string, exe string, args string) ProcessStatus {
+	p.console_window.log('ProcessManager start $exe $args', 0)
 	pm.check_running_processes()
 	if language in pm.running_processes { return ProcessStatus.running }
 	if !os.exists(exe) { return ProcessStatus.error_no_executable }
@@ -53,6 +54,7 @@ pub fn (mut pm ProcessManager) stop_all_running_processes() {
 }
 
 fn (pm ProcessManager) create_child_process(exe string, args string) Process {
+	p.console_window.log('create_child_process $exe $args', 0)
 	mut process := Process{
 		exe: exe
 		args: args
@@ -124,6 +126,9 @@ fn (pm ProcessManager) create_child_process(exe string, args string) Process {
 		process.handle = proc_info.h_process
 		process.pid = proc_info.dw_process_id
 		return process
+	} else {
+		error_message := os.get_error_msg(api.get_last_error())
+		p.console_window.log('create_child_process returned: $error_message', 4)
 	}
 	return Process{}
 }
