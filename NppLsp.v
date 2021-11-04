@@ -13,7 +13,7 @@ fn C.GC_INIT()
 
 const (
 	plugin_name = 'NppLspClient'
-	configuration_file = 'NppLspClientConfig.json'
+	configuration_file = 'NppLspClientConfig.toml'
 	log_file = 'NppLspClient.log'
 )
 
@@ -29,6 +29,13 @@ __global (
 )
 
 pub struct Plugin {
+pub:
+	error_style_id byte = 1
+	warning_style_id byte = 2
+	info_style_id byte = 3
+	hint_style_id byte = 4
+	outgoing_msg_style_id byte = 5
+	incoming_msg_style_id byte = 6
 pub mut:
 	name string = plugin_name
 	main_config_file string
@@ -85,11 +92,7 @@ fn set_info(nppData NppData) {
 fn be_notified(notification &sci.SCNotification) {
 	match notification.nmhdr.code {
 		notepadpp.nppn_ready {
-
-			back_color := npp.get_editor_default_background_color()
-			fore_color := npp.get_editor_default_foreground_color()
-			p.console_window.init_scintilla(fore_color, back_color)
-
+			update_settings()
 			plugin_config_dir := os.join_path(npp.get_plugin_config_dir(), plugin_name)
 			p.main_config_file = os.join_path(plugin_config_dir, configuration_file)
 
@@ -100,7 +103,6 @@ fn be_notified(notification &sci.SCNotification) {
 			if os.exists(p.main_config_file) {
 				read_main_config()
 			}
-			editor.alloc_styles()
 		}
 
 		notepadpp.nppn_bufferactivated {
@@ -115,14 +117,15 @@ fn be_notified(notification &sci.SCNotification) {
 			}
 
 			editor.init_styles()
+			p.current_file_path = npp.get_filename_from_id(notification.nmhdr.id_from)
 			check_lexer(u64(notification.nmhdr.id_from))
+
 			if !(p.document_is_of_interest && p.cur_lang_srv_running) { 
 				editor.clear_diagnostics()
 				return 
 			}
 
 			if p.lsp_config.lspservers[p.current_language].initialized {
-				p.current_file_path = npp.get_filename_from_id(notification.nmhdr.id_from)
 				if p.working_buffer_id == u64(notification.nmhdr.id_from) {
 					return
 				}
@@ -139,7 +142,6 @@ fn be_notified(notification &sci.SCNotification) {
 					lsp.on_file_opened(p.current_file_path)
 				}
 			} else {
-				p.current_file_path = npp.get_filename_from_id(u64(notification.nmhdr.id_from))
 				current_directory := os.dir(p.current_file_path)
 				lsp.on_init(os.getpid(), current_directory)
 			}
@@ -163,6 +165,9 @@ fn be_notified(notification &sci.SCNotification) {
 				p.current_language = npp.get_language_name_from_id(notification.nmhdr.id_from)
 				lsp.on_file_saved(p.current_file_path)
 			}
+			if p.current_file_path == p.main_config_file {
+				lsp.analyze_config(p.main_config_file)
+			}
 		}
 
 		notepadpp.nppn_shutdown {
@@ -178,16 +183,16 @@ fn be_notified(notification &sci.SCNotification) {
 		sci.scn_modified {
 			if p.document_is_of_interest {
 				if notification.modification_type & sci.sc_mod_beforedelete == sci.sc_mod_beforedelete {
-					end_pos := notification.position + notification.length
-					end_line = u32(editor.line_from_position(usize(end_pos)))
-					end_line_start_pos := editor.position_from_line(usize(end_line))
-					end_char = u32(end_pos - end_line_start_pos)
+					end_pos := u32(notification.position + notification.length)
+					end_line = editor.line_from_position(usize(end_pos))
+					end_line_start_pos := editor.position_from_line(end_line)
+					end_char = end_pos - end_line_start_pos
 				} else {
 					mod_type := notification.modification_type & (sci.sc_mod_inserttext | sci.sc_mod_deletetext)
 					if mod_type > 0 {
-						start_line := u32(editor.line_from_position(usize(notification.position)))
-						line_start_pos := editor.position_from_line(usize(start_line))
-						start_char := u32(notification.position - line_start_pos)
+						start_line := editor.line_from_position(usize(notification.position))
+						line_start_pos := editor.position_from_line(start_line)
+						start_char := u32(notification.position) - line_start_pos
 						mut range_length := u32(notification.length)
 						mut content := ''
 						
@@ -242,6 +247,7 @@ fn get_funcs_array(mut nb_func &int) &FuncItem {
 		'Stop all configured lsp server': stop_all_server
 		'-': voidptr(0)
 		'Format document': format_document
+		'Format selected text': format_selected_range
 		'Goto definition': goto_definition
 		'Peek definition': peek_definition
 		'Goto implementation': goto_implementation
@@ -271,10 +277,10 @@ fn get_funcs_array(mut nb_func &int) &FuncItem {
 }
 
 fn check_lexer(buffer_id u64) {
-	p.console_window.log('checking current lexer', 0)
+	p.console_window.log('checking current lexer', p.info_style_id)
 	p.current_language = npp.get_language_name_from_id(buffer_id)
 	p.document_is_of_interest = p.current_language in p.lsp_config.lspservers
-	p.console_window.log('', 0)
+	p.console_window.log('', p.info_style_id)
 	check_ls_status(true)
 }
 
@@ -284,8 +290,9 @@ pub fn apply_config() {
 }
 
 fn read_main_config() {
-	p.console_window.log('rereading main config', 0)
+	p.console_window.log('rereading main config', p.info_style_id)
 	p.lsp_config = lsp.decode_config(p.main_config_file)
+	update_settings()
 }
 
 pub fn open_config() {
@@ -297,8 +304,28 @@ pub fn open_config() {
 	if os.exists(p.main_config_file) { npp.open_document(p.main_config_file) }
 }
 
+fn update_settings() {
+	p.console_window.log('update settings', p.info_style_id)
+	fore_color := npp.get_editor_default_foreground_color()
+	back_color := npp.get_editor_default_background_color()
+	p.console_window.update_settings(fore_color, 
+									 back_color,
+									 p.lsp_config.error_color,
+									 p.lsp_config.warning_color,
+									 p.lsp_config.incoming_msg_color,
+									 p.lsp_config.outgoing_msg_color,
+									 p.lsp_config.enable_logging,
+									 p.lsp_config.log_level)
+
+	editor.error_msg_color = p.lsp_config.error_color
+	editor.warning_msg_color = p.lsp_config.warning_color
+	editor.info_msg_color = fore_color
+	editor.diag_indicator = usize(p.lsp_config.indicator_id)
+	editor.update_styles()
+}
+
 pub fn start_lsp_server() {
-	p.console_window.log('starting language server: ${p.current_language}', 0)
+	p.console_window.log('starting language server: ${p.current_language}', p.info_style_id)
 	check_ls_status(false)
 	// create and send a fake nppn_bufferactivated event
 	mut sci_header := sci.SCNotification{text: &char(0)}
@@ -310,22 +337,26 @@ pub fn start_lsp_server() {
 }
 
 pub fn stop_lsp_server() {
-	p.console_window.log('stopping language server: ${p.current_language}', 0)
+	p.console_window.log('stopping language server: ${p.current_language}', p.info_style_id)
 	p.proc_manager.stop(p.current_language)
 	p.lsp_config.lspservers[p.current_language].initialized = false
-	p.console_window.log('initialized = ${p.lsp_config.lspservers[p.current_language].initialized}', 0)
+	p.console_window.log('initialized = ${p.lsp_config.lspservers[p.current_language].initialized}', p.info_style_id)
 	p.current_file_version = 0
 }
 
 pub fn restart_lsp_server() {
-	p.console_window.log('restarting lsp server: ${p.current_language}', 0)
+	p.console_window.log('restarting lsp server: ${p.current_language}', p.info_style_id)
 	stop_lsp_server()
 	start_lsp_server()
 }
 
 pub fn stop_all_server() {
-	p.console_window.log('stop all running language server', 0)
+	p.console_window.log('stop all running language server', p.info_style_id)
 	p.proc_manager.stop_all_running_processes()
+	for language, _ in p.lsp_config.lspservers {
+		p.lsp_config.lspservers[language].initialized = false
+		p.console_window.log('$language initialized = ${p.lsp_config.lspservers[language].initialized}', p.info_style_id)
+	}
 }
 
 pub fn toggle_console() {
@@ -342,37 +373,37 @@ pub fn about() {
 }
 
 fn check_ls_status(check_auto_start bool) {
-	p.console_window.log('checking language server status: ${p.current_language}', 0)
+	p.console_window.log('checking language server status: ${p.current_language}', p.info_style_id)
 	if p.current_language in p.proc_manager.running_processes {
-		p.console_window.log('  is already running', 0)
+		p.console_window.log('  is already running', p.info_style_id)
 		p.cur_lang_srv_running = true
 		return
 	}
 
 	if check_auto_start && !p.lsp_config.lspservers[p.current_language].auto_start_server {
-		p.console_window.log('  either unknown language or server should not be started automatically', 0)
+		p.console_window.log('  either unknown language or server should not be started automatically', p.info_style_id)
 		p.cur_lang_srv_running = false
 		return
 	}
 	
-	p.console_window.log('  trying to start ${p.lsp_config.lspservers[p.current_language].executable}', 0)
+	p.console_window.log('  trying to start ${p.lsp_config.lspservers[p.current_language].executable}', p.info_style_id)
 	proc_status := p.proc_manager.start(p.current_language,
 										p.lsp_config.lspservers[p.current_language].executable,
-										p.lsp_config.lspservers[p.current_language].args.join(' '))
+										p.lsp_config.lspservers[p.current_language].args)
 	
 	match proc_status {
 		.running {
-			p.console_window.log('  running', 0)
-			p.console_window.log('${p.current_language} server is running', 0)
+			p.console_window.log('  running', p.info_style_id)
+			p.console_window.log('${p.current_language} server is running', p.info_style_id)
 			p.cur_lang_srv_running = true
 			p.current_stdin = p.proc_manager.running_processes[p.current_language].stdin
 		}
 		.error_no_executable {
-			p.console_window.log('  cannot find executable', 0)
+			p.console_window.log('  cannot find executable', p.info_style_id)
 			p.cur_lang_srv_running = false
 		}
 		.failed_to_start {
-			p.console_window.log('  failed to start', 0)
+			p.console_window.log('  failed to start', p.info_style_id)
 			p.cur_lang_srv_running = false
 		}
 	}
@@ -380,6 +411,10 @@ fn check_ls_status(check_auto_start bool) {
 
 pub fn format_document() {
 	lsp.on_format_document(p.current_file_path)
+}
+
+pub fn format_selected_range() {
+	lsp.on_format_selected_range(p.current_file_path)
 }
 
 pub fn goto_definition() {

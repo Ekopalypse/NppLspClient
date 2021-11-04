@@ -1,6 +1,56 @@
 module lsp
+
+import toml
 import os
-import json
+import winapi { message_box }
+
+const (
+	example_config_content = '
+[general]
+indicator_id = 12  # indicator used to draw the squiggle lines
+# the following colors, hex notation of a rgb value, are used by the indicator, the annotation method and the console output window
+error_color = 0x756ce0
+warning_color = 0x64e0ff
+# these two colors are only used in the lsp console window
+incoming_msg_color = 0x7bc399
+outgoing_msg_color = 0xffac59
+
+# enable or disable logging functionality
+enable_logging = false  # values must be either false or true
+
+# logging level: either error, warning, info and debug can be configured.
+# error = only error classified messages will be logged
+# warning = error and warning classified messages will be logged
+# info = warning and info classified messages will be logged
+# debug = all messages defined will be logged.
+log_level = info
+
+# each configured lanugage server needs to start with a section called
+# [lspservers.NAME_OF_THE_LANGUAGE_SERVER]
+# the NAME_OF_THE_LANGUAGE_SERVER must be the same as displayed in the language menu
+
+# Currently, four attributes can be set, which are listed below
+# mode - Note, ONLY IO is implemented currently, value encased in a double quotes.
+# e.g.  mode = "io"
+
+# executable - the full path to the language server executable encased in a single quote 
+# e.g.  executable = \'D:\ProgramData\Python\Python38_64\Scripts\pyls.exe\'
+
+# args - arguments passed to the language server executable encased in a single quote 
+# e.g.  args = \'--check-parent-process --log-file D:\log.txt -vvv\'
+
+# auto_start_server - true or false; indicates whether the language server will be started automatically when a corresponding document gets opened.
+# NOTE: currently only false should be used
+# e.g.  auto_start_server = false
+
+# language server configuration example
+# [lspservers.python]
+# mode = "io"
+# executable = \'D:\ProgramData\Python\Python38_64\Scripts\pyls.exe\'
+# args = \'--check-parent-process --log-file D:\log.txt -vvv\'
+# auto_start_server = false	
+'
+)
 
 pub struct LanguageFeatures {
 pub mut:
@@ -8,20 +58,24 @@ pub mut:
 	compl_trigger_chars []string
 	sig_help_trigger_chars []string
 	sig_help_retrigger_chars []string
+	send_open_close_notif bool
+	definition_provider bool
+	implementation_provider bool
+	document_formatting_provider bool
+	document_range_formatting_provider bool
 }
 
 pub struct ServerConfig {
 pub mut:
-	pipe string
+	mode string
 	executable string
-	args []string
+	args string
 	port int
 	tcpretries int
 	auto_start_server bool
 	message_id_counter int = -1
-	// initialize_msg_sent bool
 	initialized bool
-	features LanguageFeatures
+	features LanguageFeatures  // panics when using ServerCapabilities directly
 }
 
 pub fn (mut sc ServerConfig) get_next_id() int {
@@ -31,43 +85,258 @@ pub fn (mut sc ServerConfig) get_next_id() int {
 
 pub struct Configs {
 pub mut:
-	version string
-	loglevel string
-	logpath string
+	indicator_id int = 12
+	error_color int = 0x756ce0
+	warning_color int = 0x64e0ff
+	incoming_msg_color int = 0x7bc399
+	outgoing_msg_color int = 0xffac59
+	enable_logging bool
+	log_level string = 'info'
 	lspservers map[string]ServerConfig
 }
 
 pub fn create_default() string {
-	pyls := ServerConfig{
-		pipe: 'io or tcp'
-		executable: "full path to language server executable"
-		args: ["paramters", "passed", "to", "language", "server"]
-		auto_start_server: true
-	}
-	rls := ServerConfig{
-		pipe: 'io' 
-		executable: "C:\\Users\\XYZ\\.cargo\\bin\\rls.exe"
-	}
-	lsp_config := Configs {
-		version: '0.1'
-		loglevel: 'info - not implemented yet'
-		logpath: 'full path - can be used to debug lsp. If empty string, no debugging - not implemented yet'
-		lspservers: {
-			'python': pyls
-			'rust': rls
-		}
-	}
-	mut config := json.encode_pretty(lsp_config)
-	config = config.replace_each([':\t', ': ', '\n', '\r\n'])
-	return config
+	return example_config_content
+}
+
+fn is_null(item toml.Any) bool {
+	return item == toml.Any(toml.Null{})
 }
 
 pub fn decode_config(full_file_path string) Configs {
-	config := os.read_file(full_file_path) or { '' }
-	lsp_config := json.decode(Configs, config) or { Configs{} }
+	mut failed := false
+	content := os.read_file(full_file_path) or { '' }
+	doc := toml.parse(content) or { 
+		failed = true
+		toml.parse('') or { panic(err) }
+	}
+	
+	mut lsp_config := Configs{}
+	if failed { 
+		p.console_window.log('error decoding the configuration file', p.error_style_id)
+		analyze_config(full_file_path)
+		return lsp_config
+	}
+	
+	if doc.value('general').string().len == 0 {
+		message_box(npp_data.npp_handle, 'Configuration file is missing the general section', 'ERROR', 3)
+		return lsp_config
+	}
+	
+	if !is_null(doc.value('general.indicator_id')) {
+		lsp_config.indicator_id = doc.value('general.indicator_id').int()
+	}
+
+	if !is_null(doc.value('general.error_color')) {
+		lsp_config.error_color = doc.value('general.error_color').int()
+	}
+
+	if !is_null(doc.value('general.warning_color')) {
+		lsp_config.warning_color = doc.value('general.warning_color').int()
+	}
+
+	if !is_null(doc.value('general.outgoing_msg_color')) {
+		lsp_config.outgoing_msg_color = doc.value('general.outgoing_msg_color').int()
+	}
+	
+	if !is_null(doc.value('general.incoming_msg_color')) {
+		lsp_config.incoming_msg_color = doc.value('general.incoming_msg_color').int()
+	}
+	
+	if !is_null(doc.value('general.enable_logging')) {
+		lsp_config.enable_logging =	doc.value('general.enable_logging').bool()
+	}
+	
+	if doc.value('general.log_level').string() in ['error', 'warning', 'info', 'debug'] {
+		lsp_config.log_level = doc.value('general.log_level').string()
+	}
+
+	// lspservers
+	for k, _ in doc.value('lspservers').as_map() {
+		if k != '0' {
+			mut sc := ServerConfig{}
+			if is_null(doc.value('lspservers.${k}.mode')) {
+				p.console_window.log('$k - mandatory field missing: mode', p.error_style_id)
+				continue
+			}
+			sc.mode = doc.value('lspservers.${k}.mode').string()
+			
+			if is_null(doc.value('lspservers.${k}.executable')) {
+				p.console_window.log('$k - mandatory field missing: executable', p.error_style_id)
+				continue
+			}
+			sc.executable = doc.value('lspservers.${k}.executable').string()
+			
+			if !is_null(doc.value('lspservers.${k}.args')) {
+				sc.args = doc.value('lspservers.${k}.args').string()
+			}
+			
+			if !is_null(doc.value('lspservers.${k}.auto_start_server')) {
+				sc.auto_start_server = doc.value('lspservers.${k}.auto_start_server').bool()
+			}
+			
+			if !is_null(doc.value('lspservers.${k}.port')) {
+				sc.port = doc.value('lspservers.${k}.port').int()
+			}
+			
+			if !is_null(doc.value('lspservers.${k}.tcpretries')) {
+				sc.tcpretries = doc.value('lspservers.${k}.tcpretries').int()
+			}
+			
+			lsp_config.lspservers[k] = sc
+		}
+	}
+	if lsp_config.lspservers.len == 0 {
+		p.console_window.log('cannot identify any configured language server', p.error_style_id)
+		p.console_window.log('$lsp_config', p.info_style_id)
+	}
 	return lsp_config
 }
 
-pub fn is_config_valid(lsp_config Configs) bool {
-	return true
+pub fn analyze_config(full_file_path string) {
+	content := os.read_file(full_file_path) or { '' }
+	if content.len == 0 {
+		p.console_window.log('Config file: $full_file_path seems to be empty', p.error_style_id)
+	}
+	
+	mut in_general_section := false
+	mut in_lspservers_section := false
+	for line in content.split_into_lines() {
+		if line.starts_with('#') || line.trim_space().len == 0 { continue }
+		match true {
+			line.starts_with('[general]') {
+				in_lspservers_section = false
+				in_general_section = true
+			}
+			line.starts_with('[lspservers') {
+				in_general_section = false
+				in_lspservers_section = true
+			}
+			line.starts_with('indicator_id') {
+				if in_general_section {
+					check_if_integer_value(line)
+				} else {
+					p.console_window.log('indicator_id must be a field in general section', p.error_style_id)
+				}
+			}
+			line.starts_with('error_color') {
+				if in_general_section {
+					check_if_integer_value(line)
+				} else {
+					p.console_window.log('error_color must be a field in general section', p.error_style_id)
+				}
+			}
+			line.starts_with('warning_color') {
+				if in_general_section {
+					check_if_integer_value(line)
+				} else {
+					p.console_window.log('warning_color must be a field in general section', p.error_style_id)
+				}
+			}
+			line.starts_with('incoming_msg_color') {
+				if in_general_section {
+					check_if_integer_value(line)
+				} else {
+					p.console_window.log('incoming_msg_color must be a field in general section', p.error_style_id)
+				}
+			}
+			line.starts_with('outgoing_msg_color') {
+				if in_general_section {
+					check_if_integer_value(line)
+				} else {
+					p.console_window.log('outgoing_msg_color must be a field in general section', p.error_style_id)
+				}
+			}
+			line.starts_with('enable_logging') {
+				if in_general_section {
+					check_if_boolean_value(line)
+				} else {
+					p.console_window.log('enable_logging must be a field in general section', p.error_style_id)
+				}
+			}
+			line.starts_with('log_level') {
+				if in_general_section {
+					check_if_string_value(line)
+				} else {
+					p.console_window.log('log_level must be a field in general section', p.error_style_id)
+				}
+			}
+			line.starts_with('mode') {
+				if in_lspservers_section {
+					check_if_string_value(line)
+				} else {
+					p.console_window.log('mode must be in lspservers section', p.error_style_id)
+				}
+			}
+			line.starts_with('executable') {
+				if in_lspservers_section {
+					check_if_string_value(line)
+				} else {
+					p.console_window.log('executable must be in lspservers section', p.error_style_id)
+				}
+			}
+			line.starts_with('args') {
+				if in_lspservers_section {
+					check_if_string_value(line)
+				} else {
+					p.console_window.log('args must be in lspservers section', p.error_style_id)
+				}
+			}
+			line.starts_with('auto_start_server') {
+				if in_lspservers_section {
+					check_if_boolean_value(line)
+				} else {
+					p.console_window.log('auto_start_server must be in lspservers section', p.error_style_id)
+				}
+			}
+			else {
+				p.console_window.log('unexpected line read: $line', p.error_style_id)
+			}
+		}
+	}
+}
+
+fn strip_added_comment(line string) string {
+	return line.all_before('#')
+}
+
+fn check_if_boolean_value(line string) {
+	parts := strip_added_comment(line).split('=')
+	if parts.len != 2 {
+		p.console_window.log('$line\nexpected key=value scheme but received: ${parts.join("=")}', p.error_style_id)
+	}
+	trimmed_string := parts[1].trim_space()
+	if trimmed_string != 'false' && trimmed_string != 'true' {
+		p.console_window.log('$line\nvalue must be either false or true but received: ${parts[1]}', p.error_style_id)
+	}
+}
+
+fn check_if_integer_value(line string) {
+	parts := strip_added_comment(line).split('=')
+	if parts.len != 2 {
+		p.console_window.log('$line\nexpected key=value scheme but received: ${parts.join("=")}', p.error_style_id)
+	}
+	trimmed_string := parts[1].trim_space()
+	if trimmed_string.u64() == 0 {
+		if trimmed_string != '0' && trimmed_string.to_lower() != '0x0' {
+			p.console_window.log('$line\nvalue must be an integer but received: ${trimmed_string}', p.error_style_id)
+		}
+	}
+}
+
+fn check_if_string_value(line string) {
+	stripped_line := strip_added_comment(line)
+	// key := stripped_line.all_before('=').trim_space()
+	value := stripped_line.all_after('=').trim_space()
+
+	start_quote := value[0].ascii_str()
+	end_quote := value[value.len-1].ascii_str()
+
+	if start_quote in ["'", '"'] && end_quote in ["'", '"'] {
+		if start_quote != end_quote {
+			p.console_window.log('$line\nvalue must be using the same start and end quotes but received: $line', p.error_style_id)
+		}
+	} else {
+		p.console_window.log('$line\nvalue must be a quotted string but received: $line', p.error_style_id)
+	}
 }

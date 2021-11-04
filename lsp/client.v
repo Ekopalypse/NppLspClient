@@ -1,12 +1,13 @@
 module lsp
 import x.json2
+import os
 
 const (
 	content_length = 'Content-Length: '
 )
 
 pub fn on_message_received(message string) {
-	p.console_window.log('on_message_received: $message', 2)
+	p.console_window.log('on_message_received: $message', p.incoming_msg_style_id)
 	mut start_position := 0
 	mut length := 0
 	message__ := if p.incomplete_msg.len != 0 { p.incomplete_msg + message } else { message }
@@ -44,7 +45,7 @@ pub fn on_message_received(message string) {
 }
 
 pub fn on_init(npp_pid int, current_directory string) {
-	p.console_window.log('on_init: $npp_pid', 0)
+	p.console_window.log('on_init: $npp_pid', p.info_style_id)
 	lsp.write_to(
 		p.current_stdin, 
 		lsp.initialize_msg(npp_pid, current_directory)
@@ -54,9 +55,11 @@ pub fn on_init(npp_pid int, current_directory string) {
 pub fn on_file_opened(file_name string) {
 	if file_name.len == 0 { return }
 	lang_id := if p.current_language == 'vlang' { 'v' } else { p.current_language }
-	p.console_window.log('on_file_opened:: $p.current_language: $file_name', 0)
-	p.console_window.log('on_file_opened: initialized=${p.lsp_config.lspservers[p.current_language].initialized}', 0)
-	if p.lsp_config.lspservers[p.current_language].initialized {
+	p.console_window.log('on_file_opened:: $p.current_language: $file_name', p.info_style_id)
+	p.console_window.log('on_file_opened: initialized=${p.lsp_config.lspservers[p.current_language].initialized}', p.info_style_id)
+	if p.lsp_config.lspservers[p.current_language].initialized  &&
+	   p.lsp_config.lspservers[p.current_language].features.send_open_close_notif
+   {
 		content := editor.get_text()
 		lsp.write_to(
 			p.current_stdin,
@@ -66,7 +69,7 @@ pub fn on_file_opened(file_name string) {
 }
 
 pub fn on_file_saved(file_name string) {
-	p.console_window.log('on_file_saved: $file_name', 0)
+	p.console_window.log('on_file_saved: $file_name', p.info_style_id)
 	if p.lsp_config.lspservers[p.current_language].initialized {
 		p.current_file_version++
 		lsp.write_to(
@@ -77,8 +80,10 @@ pub fn on_file_saved(file_name string) {
 }
 
 pub fn on_file_closed(file_name string) {
-	p.console_window.log('on_file_closed: $file_name', 0)
-	if p.lsp_config.lspservers[p.current_language].initialized {
+	p.console_window.log('on_file_closed: $file_name', p.info_style_id)
+	if p.lsp_config.lspservers[p.current_language].initialized &&
+	   p.lsp_config.lspservers[p.current_language].features.send_open_close_notif
+	{
 		lsp.write_to(
 			p.current_stdin,
 			lsp.did_close(file_name)
@@ -138,7 +143,9 @@ pub fn on_buffer_modified(file_name string,
 }
 
 pub fn on_format_document(file_name string) {
-	if p.lsp_config.lspservers[p.current_language].initialized {
+	if p.lsp_config.lspservers[p.current_language].initialized &&
+	   p.lsp_config.lspservers[p.current_language].features.document_formatting_provider
+	{
 		lsp.write_to(
 			p.current_stdin,
 			lsp.format_document(file_name, editor.get_tab_size(), editor.use_spaces(), true, true, true)
@@ -146,11 +153,25 @@ pub fn on_format_document(file_name string) {
 	}
 }
 
+pub fn on_format_selected_range(file_name string) {
+	if p.lsp_config.lspservers[p.current_language].initialized &&
+	   p.lsp_config.lspservers[p.current_language].features.document_range_formatting_provider
+	{
+		start_line, end_line, start_char, end_char := editor.get_range_from_selection()
+		lsp.write_to(
+			p.current_stdin,
+			lsp.format_selected_range(file_name, start_line, end_line, start_char, end_char, editor.get_tab_size(), editor.use_spaces(), true, true, true)
+		)	
+	}
+}
+
 pub fn on_goto_definition(file_name string) {
-	if p.lsp_config.lspservers[p.current_language].initialized {
+	if p.lsp_config.lspservers[p.current_language].initialized &&
+	   p.lsp_config.lspservers[p.current_language].features.definition_provider
+	{
 		current_pos := editor.get_current_position()
-		current_line := editor.line_from_position(usize(current_pos))
-		line_start_pos := editor.position_from_line(usize(current_line))
+		current_line := editor.line_from_position(current_pos)
+		line_start_pos := editor.position_from_line(current_line)
 		char_pos := current_pos - line_start_pos
 		lsp.write_to(
 			p.current_stdin,
@@ -160,10 +181,12 @@ pub fn on_goto_definition(file_name string) {
 }
 
 pub fn on_goto_implementation(file_name string) {
-	if p.lsp_config.lspservers[p.current_language].initialized {
+	if p.lsp_config.lspservers[p.current_language].initialized &&
+	   p.lsp_config.lspservers[p.current_language].features.implementation_provider
+	{
 		current_pos := editor.get_current_position()
-		current_line := editor.line_from_position(usize(current_pos))
-		line_start_pos := editor.position_from_line(usize(current_line))
+		current_line := editor.line_from_position(current_pos)
+		line_start_pos := editor.position_from_line(current_line)
 		char_pos := current_pos - line_start_pos
 		lsp.write_to(
 			p.current_stdin,
@@ -173,11 +196,33 @@ pub fn on_goto_implementation(file_name string) {
 }
 
 pub fn on_peek_definition(file_name string) {
-	p.console_window.log('on_peek_definition not implemented yet', 3)
+	if p.lsp_config.lspservers[p.current_language].initialized &&
+	   p.lsp_config.lspservers[p.current_language].features.definition_provider
+	{
+		current_pos := editor.get_current_position()
+		current_line := editor.line_from_position(current_pos)
+		line_start_pos := editor.position_from_line(current_line)
+		char_pos := current_pos - line_start_pos
+		lsp.write_to(
+			p.current_stdin,
+			lsp.peek_definition(file_name, u32(current_line), u32(char_pos))
+		)	
+	}
 }
 
 pub fn on_peek_implementation(file_name string) {
-	p.console_window.log('on_peek_implementation not implemented yet', 3)
+	if p.lsp_config.lspservers[p.current_language].initialized &&
+	   p.lsp_config.lspservers[p.current_language].features.implementation_provider
+	{
+		current_pos := editor.get_current_position()
+		current_line := editor.line_from_position(current_pos)
+		line_start_pos := editor.position_from_line(current_line)
+		char_pos := current_pos - line_start_pos
+		lsp.write_to(
+			p.current_stdin,
+			lsp.peek_implementation(file_name, u32(current_line), u32(char_pos))
+		)	
+	}
 }
 
 fn notification_handler(json_message JsonMessage) {
@@ -185,8 +230,14 @@ fn notification_handler(json_message JsonMessage) {
 		'textDocument/publishDiagnostics' {
 			publish_diagnostics(json_message.params)
 		}
+		'window/showMessage' {
+			log_message(json_message.params)
+		}
+		'window/logMessage' {
+			log_message(json_message.params)
+		}
 		else {
-			p.console_window.log('  unhandled notification $json_message.method received', 3)
+			p.console_window.log('  unhandled notification $json_message.method received', p.warning_style_id)
 		}
 	}
 }
@@ -198,26 +249,30 @@ fn response_handler(json_message JsonMessage) {
 		if func_ptr != voidptr(0) {
 			func_ptr(json_message.result.str())
 		} else {
-			p.console_window.log('  unexpected response received', 3)
+			p.console_window.log('  unexpected response received', p.warning_style_id)
 		}
 	}
 	p.open_response_messages.delete(id)
 }
 
 fn error_response_handler(json_message JsonMessage) {
-	p.console_window.log('  !! ERROR RESPONSE !! received', 4)
+	p.console_window.log('  !! ERROR RESPONSE !! received', p.error_style_id)
 	p.open_response_messages.delete(json_message.id.int())
 }
 
 fn request_handler(json_message JsonMessage) {
-	p.console_window.log('  unhandled request received', 3)
+	p.console_window.log('  unhandled request received', p.warning_style_id)
 }
 
 fn publish_diagnostics(params string) {
 	diag := json2.decode<PublishDiagnosticsParams>(params) or { PublishDiagnosticsParams{} }
 	editor.clear_diagnostics()
 	for d in diag.diagnostics {
-		editor.add_diagnostics_info(d.range.start.line, d.message, d.severity)
+		// editor.add_diagnostics_info(d.range.start.line, d.message, d.severity)
+		start := editor.position_from_line(d.range.start.line) + d.range.start.character
+		end := editor.position_from_line(d.range.end.line) + d.range.end.character
+		editor.add_diag_indicator(start, end-start, d.severity)
+		p.console_window.log('${diag.uri}\n\tline:${d.range.start.line} - ${d.message}', byte(d.severity))
 	}
 }
 
@@ -227,12 +282,16 @@ fn initialize_msg_response(json_message string) {
 	if 'capabilities' in result_map {
 		capabilities := result_map['capabilities'] or { '' }
 		sc := json2.decode<ServerCapabilities>(capabilities.str()) or { ServerCapabilities{} }
-		p.console_window.log('    initialized response received', 0)
+		p.console_window.log('    initialized response received', p.info_style_id)
+		// p.lsp_config.lspservers[p.current_language].features = sc
 		p.lsp_config.lspservers[p.current_language].features.doc_sync_type = sc.text_document_sync
+		p.lsp_config.lspservers[p.current_language].features.send_open_close_notif = sc.send_open_close_notif
 		p.lsp_config.lspservers[p.current_language].features.compl_trigger_chars = sc.completion_provider.trigger_characters
 		p.lsp_config.lspservers[p.current_language].features.sig_help_trigger_chars = sc.signature_help_provider.trigger_characters
 		p.lsp_config.lspservers[p.current_language].features.sig_help_retrigger_chars = sc.signature_help_provider.retrigger_characters
-
+		p.lsp_config.lspservers[p.current_language].features.definition_provider = sc.definition_provider
+		p.lsp_config.lspservers[p.current_language].features.implementation_provider = sc.implementation_provider
+		p.lsp_config.lspservers[p.current_language].features.document_formatting_provider = sc.document_formatting_provider
 		lsp.write_to(
 			p.current_stdin,
 			lsp.initialized_msg()
@@ -242,7 +301,7 @@ fn initialize_msg_response(json_message string) {
 		current_file := npp.get_current_filename()
 		on_file_opened(current_file)
 	} else {
-		p.console_window.log('  unexpected initialize response received', 4)
+		p.console_window.log('  unexpected initialize response received', p.error_style_id)
 	}
 }
 
@@ -259,30 +318,121 @@ fn completion_response(json_message string) {
 }
 
 fn signature_help_repsonse(json_message string) {
-	p.console_window.log('  signature help response received: $json_message', 0)
+	p.console_window.log('  signature help response received: $json_message', p.info_style_id)
 	sh := json2.decode<SignatureHelp>(json_message) or { SignatureHelp{} }
 	if sh.signatures.len > 0 {
 		editor.display_signature_hints(sh.signatures[0].label)
 	}
-	p.console_window.log('$sh', 0)
+	p.console_window.log('$sh', p.info_style_id)
 }
 
 fn format_document_repsonse(json_message string) {
-	p.console_window.log('  format document response received: $json_message', 0)
+	p.console_window.log('  format document response received: $json_message', p.info_style_id)
 	tea := json2.decode<TextEditArray>(json_message) or { TextEditArray{} }
 	editor.begin_undo_action()
 	for item in tea.items {
-		start_pos := u32(editor.position_from_line(usize(item.range.start.line))) + item.range.start.character
-		end_pos := u32(editor.position_from_line(usize(item.range.end.line))) + item.range.end.character
+		start_pos := u32(editor.position_from_line(item.range.start.line)) + item.range.start.character
+		end_pos := u32(editor.position_from_line(item.range.end.line)) + item.range.end.character
 		editor.replace_target(start_pos, end_pos, item.new_text)
 	}
 	editor.end_undo_action()
 }
 
+fn goto_location_helper(json_message string) {
+	mut start_pos := u32(0)
+	if json_message.str().starts_with('[') {
+		if json_message.str().contains('originSelectionRange') {
+			lla := json2.decode<LocationLinkArray>(json_message) or { LocationLinkArray{} }
+			if lla.items.len > 0 {
+				npp.open_document(lla.items[0].target_uri)
+				start_pos = u32(editor.position_from_line(lla.items[0].target_range.start.line))
+				start_pos += lla.items[0].target_range.start.character
+			}
+		} else {
+			loca := json2.decode<LocationArray>(json_message) or { LocationArray{} }
+			if loca.items.len > 0 {
+
+				npp.open_document(loca.items[0].uri)
+				start_pos = u32(editor.position_from_line(loca.items[0].range.start.line))
+				start_pos += loca.items[0].range.start.character
+			}
+		}
+	} else {
+		loc := json2.decode<Location>(json_message) or { Location{} }
+		npp.open_document(loc.uri)
+		start_pos = u32(editor.position_from_line(loc.range.start.line))
+		start_pos += loc.range.start.character
+	}
+	editor.goto_pos(start_pos)	
+}
+
 fn goto_definition_repsonse(json_message string) {
-	p.console_window.log('NOT IMPLEMENTED YET: goto definition response received: $json_message', 3)
+	p.console_window.log('goto definition response received: $json_message', p.info_style_id)
+	goto_location_helper(json_message)
 }
 
 fn goto_implementation_repsonse(json_message string) {
-	p.console_window.log('NOT IMPLEMENTED YET: goto implementation response received: $json_message', 3)
+	p.console_window.log('goto implementation response received: $json_message', p.info_style_id)
+	goto_location_helper(json_message)
+}
+
+fn peek_helper(json_message string) {
+	mut start_line := u32(0)
+	mut end_line := u32(0)
+	mut source_file := ''
+	if json_message.str().starts_with('[') {
+		if json_message.str().contains('originSelectionRange') {
+			lla := json2.decode<LocationLinkArray>(json_message) or { LocationLinkArray{} }
+			if lla.items.len > 0 {
+				source_file = lla.items[0].target_uri
+				start_line = lla.items[0].target_range.start.line
+				end_line = lla.items[0].target_range.end.line
+			}
+		} else {
+			loca := json2.decode<LocationArray>(json_message) or { LocationArray{} }
+			if loca.items.len > 0 {
+				source_file = loca.items[0].uri
+				start_line = loca.items[0].range.start.line
+				end_line = loca.items[0].range.end.line
+			}
+		}
+	} else {
+		loc := json2.decode<Location>(json_message) or { Location{} }
+		source_file = loc.uri
+		start_line = loc.range.start.line
+		end_line = loc.range.end.line
+	}
+	
+	if source_file.len > 0 {
+		if os.exists(source_file) {
+			content := os.read_lines(source_file) or { [''] }
+			first_line := int(start_line)
+			last_line__ := int(end_line)
+			if content.len >= last_line__ {
+				last_line := if content.len >= last_line__ + 4 { last_line__ + 4} else { content.len }
+				peeked_code := '\n${content[first_line..last_line].join("\n")}'
+				editor.show_peeked_info(peeked_code)
+			}
+		}
+	}	
+}
+
+fn peek_definition_repsonse(json_message string) {
+	p.console_window.log('peek definition response received: $json_message', p.info_style_id)
+	peek_helper(json_message)
+}
+
+fn peek_implementation_repsonse(json_message string) {
+	p.console_window.log('peek implementation response received: $json_message', p.info_style_id)
+	peek_helper(json_message)
+}
+
+fn log_message(json_message string) {
+	smp := json2.decode<ShowMessageParams>(json_message) or { ShowMessageParams{} }
+	id := match smp.type_ {
+		1 { 4 }
+		2 { 3 }
+		else { 0 }
+	}
+	p.console_window.log(smp.message, byte(id))
 }

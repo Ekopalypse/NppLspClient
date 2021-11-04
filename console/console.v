@@ -1,6 +1,5 @@
 module console
 
-import os
 import winapi as api
 import notepadpp
 import scintilla as sci
@@ -38,6 +37,8 @@ pub mut:
 	output_editor_func sci.SCI_FN_DIRECT
 	output_editor_hwnd voidptr
 	old_edit_proc api.WndProc
+	logging_enabled bool
+	logging_level string
 }
 
 [inline]
@@ -50,7 +51,6 @@ pub fn (mut d DockableDialog) clear() {
 }
 
 pub fn (mut d DockableDialog) log(text string, style byte) {
-	// write_to_log(text)
 	mut text__ := if text.ends_with('\n') { text } else { text + '\n'}
 	if style == -1 {
 		d.call(sci.sci_appendtext, usize(text__.len), isize(text__.str))
@@ -92,15 +92,21 @@ pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
 	d.output_editor_hwnd = voidptr(api.send_message(d.output_hwnd, 2185, 0, 0))
 }
 
-pub fn (mut d DockableDialog) init_scintilla(fore_color int, back_color int) {
+pub fn (mut d DockableDialog) init_scintilla(fore_color int, 
+											 back_color int,
+											 error_color int,
+											 warning_color int,
+											 incoming_msg_color int,
+											 outgoing_msg_color int) {
 	d.call(sci.sci_stylesetfore, 32, fore_color)
 	d.call(sci.sci_stylesetback, 32, back_color)
 	d.call(sci.sci_styleclearall, 0, 0)
-	d.call(sci.sci_stylesetfore, 0, fore_color) // normal log messages
-	d.call(sci.sci_stylesetfore, 1, 0xFFAC59)  	// outgoing LSP messages
-	d.call(sci.sci_stylesetfore, 2, 0x7BC399)  	// incomming LSP messages
-	d.call(sci.sci_stylesetfore, 3, 0x20C3C9)  	// warning log messages
-	d.call(sci.sci_stylesetfore, 4, 0x756CE0)  	// error log messages
+	d.call(sci.sci_stylesetfore, p.error_style_id, error_color)
+	d.call(sci.sci_stylesetfore, p.warning_style_id, warning_color)
+	d.call(sci.sci_stylesetfore, p.info_style_id, fore_color)			// normal log messages
+	d.call(sci.sci_stylesetfore, p.hint_style_id, fore_color)			// normal log messages
+	d.call(sci.sci_stylesetfore, p.outgoing_msg_style_id, outgoing_msg_color)
+	d.call(sci.sci_stylesetfore, p.incoming_msg_style_id, incoming_msg_color)
 	d.call(sci.sci_setmargins, 0, 0)
 }
 
@@ -114,8 +120,21 @@ pub fn (mut d DockableDialog) hide() {
 	d.is_visible = false
 }
 
-fn write_to_log(msg string) {
-	mut file := os.open_append('D:\\dump.txt') or { return }
-	file.write_string(msg) or { 0 }
-	file.close()
+pub fn (mut d DockableDialog) update_settings(fore_color int,
+											  back_color int,
+											  error_color int,
+											  warning_color int,
+											  incoming_msg_color int,
+											  outgoing_msg_color int,
+											  enable_logging bool,
+											  log_level string) {
+	d.logging_enabled = enable_logging
+	d.logging_level = log_level
+	d.init_scintilla(fore_color,
+					 back_color,
+					 error_color,
+					 warning_color,
+					 incoming_msg_color,
+					 outgoing_msg_color)
+	
 }
