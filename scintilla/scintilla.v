@@ -70,7 +70,7 @@ pub mut:
 
 [inline]
 fn (e Editor) call(msg int, wparam usize, lparam isize) isize {
-	return e.current_func(e.current_hwnd, msg, wparam, lparam)
+	return e.current_func(e.current_hwnd, u32(msg), wparam, lparam)
 }
 
 pub fn create_editors(main_handle voidptr, second_handle voidptr) Editor {
@@ -271,4 +271,11 @@ pub fn (e Editor) show_peeked_info(message string) {
 	e.call(sci_annotationsettext, usize(line), isize(message.str))
 	e.call(sci_annotationsetstyle, usize(line), 2)
 	p.console_window.log('  $message', p.info_style_id)
+}
+
+pub fn (e Editor) get_lsp_position_info() (u32, u32) {
+	pos := e.get_current_position()
+	line := e.line_from_position(pos)
+	start := e.position_from_line(line)
+	return line, pos-start
 }

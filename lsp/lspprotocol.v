@@ -13,6 +13,7 @@ struct Message {
 	method string
 	id int
 	params string
+	response string
 }
 
 fn (m Message) encode() string {
@@ -21,7 +22,7 @@ fn (m Message) encode() string {
 			'{"jsonrpc":"2.0","id":$m.id,"method":$m.method,"params":$m.params}'
 		}
 		.response {
-			'{"jsonrpc":"2.0","id":$m.id}'
+			'{"jsonrpc":"2.0","id":$m.id,$m.response}'	//m.response is either result or an error object
 		}
 		.notification {
 			'{"jsonrpc":"2.0","method":$m.method,"params":$m.params}'
@@ -32,11 +33,84 @@ fn (m Message) encode() string {
 
 pub fn initialize_msg(pid int, file_path string) string {
 	uri_path := make_uri(file_path)
+	client_info := '"clientInfo":{"name":"NppLspClient","version":"0.0.1"}'
+	initialization_options:='"initializationOptions":{}'
+	capabilities:='"capabilities":{
+		"workspace":{
+			"applyEdit":false,
+			"workspaceEdit":{"documentChanges":false},
+			"didChangeConfiguration":{"dynamicRegistration":false},
+			"didChangeWatchedFiles":{"dynamicRegistration":false},
+			"symbol":{
+				"dynamicRegistration":false,
+				"symbolKind":{
+					"valueSet":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26]
+				}
+			},
+			"executeCommand":{"dynamicRegistration":false},
+			"configuration":false,
+			"workspaceFolders":false
+		},
+		"textDocument":{
+			"publishDiagnostics":{"relatedInformation":false},
+			"synchronization":{
+				"dynamicRegistration":false,
+				"willSave":false,
+				"willSaveWaitUntil":false,
+				"didSave":true
+			},
+			"completion":{
+				"dynamicRegistration":false,
+				"contextSupport":false,
+				"completionItem":{
+					"snippetSupport":false,
+					"commitCharactersSupport":false,
+					"documentationFormat":["plaintext"],
+					"deprecatedSupport":false
+				},
+				"completionItemKind":{
+					"valueSet":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]
+				}
+			},
+			"hover":{
+				"dynamicRegistration":false,
+				"contentFormat":["plaintext"]
+			},
+			"signatureHelp":{
+				"dynamicRegistration":false,
+				"signatureInformation":{"documentationFormat":["plaintext"]}
+			},
+			"definition":{"dynamicRegistration":false},
+			"references":{"dynamicRegistration":false},
+			"documentHighlight":{"dynamicRegistration":false},
+			"documentSymbol":{
+				"dynamicRegistration":false,
+				"symbolKind":{"valueSet":[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26]}
+			},
+			"codeAction":{"dynamicRegistration":false},
+			"codeLens":{"dynamicRegistration":false},
+			"formatting":{"dynamicRegistration":false},
+			"rangeFormatting":{"dynamicRegistration":false},
+			"onTypeFormatting":{"dynamicRegistration":false},
+			"rename":{"dynamicRegistration":false},
+			"documentLink":{"dynamicRegistration":false},
+			"typeDefinition":{"dynamicRegistration":false},
+			"implementation":{"dynamicRegistration":false},
+			"colorProvider":{"dynamicRegistration":false},
+			"foldingRange":{
+				"dynamicRegistration":false,
+				"rangeLimit":100,
+				"lineFoldingOnly":true
+			}
+		}
+	}'.replace_each(['\t','','\n','','\r',''])
+	trace := '"trace":"off"'
+	workspace_folders := '"workspaceFolders":null'
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"initialize"'
-		params: '{"processId": $pid, "clientInfo":{"name": "NppLspClient", "version": "0.0.1"}, "rootUri": "file:///$uri_path", "initializationOptions": {}, "capabilities": {"workspace": {"applyEdit": false, "workspaceEdit": {"documentChanges": false}, "didChangeConfiguration": {"dynamicRegistration": false}, "didChangeWatchedFiles": {"dynamicRegistration": false}, "symbol": {"dynamicRegistration": false, "symbolKind": {"valueSet": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]}}, "executeCommand": {"dynamicRegistration": false}, "configuration": false, "workspaceFolders": false}, "textDocument": {"publishDiagnostics": {"relatedInformation": false}, "synchronization": {"dynamicRegistration": false, "willSave": false, "willSaveWaitUntil": false, "didSave": true}, "completion": {"dynamicRegistration": false, "contextSupport": false, "completionItem": {"snippetSupport": false, "commitCharactersSupport": false, "documentationFormat": ["plaintext"], "deprecatedSupport": false}, "completionItemKind": {"valueSet": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]}}, "hover": {"dynamicRegistration": false, "contentFormat": ["plaintext"]}, "signatureHelp": {"dynamicRegistration": false, "signatureInformation": {"documentationFormat": ["plaintext"]}}, "definition": {"dynamicRegistration": false}, "references": {"dynamicRegistration": false}, "documentHighlight": {"dynamicRegistration": false}, "documentSymbol": {"dynamicRegistration": false, "symbolKind": {"valueSet": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]}}, "codeAction": {"dynamicRegistration": false}, "codeLens": {"dynamicRegistration": false}, "formatting": {"dynamicRegistration": false}, "rangeFormatting": {"dynamicRegistration": false}, "onTypeFormatting": {"dynamicRegistration": false}, "rename": {"dynamicRegistration": false}, "documentLink": {"dynamicRegistration": false}, "typeDefinition": {"dynamicRegistration": false}, "implementation": {"dynamicRegistration": false}, "colorProvider": {"dynamicRegistration": false}, "foldingRange": {"dynamicRegistration": false, "rangeLimit": 100, "lineFoldingOnly": true}}}, "trace": "off", "workspaceFolders": null}'
+		params: '{"processId":$pid,$client_info,"rootUri":"file:///$uri_path",$initialization_options,$capabilities,$trace,$workspace_folders}'
 	}
 	p.open_response_messages[m.id] = initialize_msg_response
 	return m.encode()
@@ -76,7 +150,7 @@ pub fn did_open(file_path DocumentUri, file_version u32, language_id string, con
 	m := Message {
 		msg_type: JsonRpcMessageType.notification
 		method: '"textDocument/didOpen"'
-		params: '{"textDocument":{"uri":"file:///$uri_path", "languageId":"$language_id", "version":$file_version, "text":"$content"}}'
+		params: '{"textDocument":{"uri":"file:///$uri_path","languageId":"$language_id","version":$file_version,"text":"$content"}}'
 	}
 	return m.encode()
 }
@@ -109,13 +183,38 @@ pub fn did_change_full(file_path DocumentUri, file_version u32, changes string) 
 	return m.encode()
 }
 
-pub fn did_save(file_path DocumentUri, file_version u32) string {
+pub fn will_save(file_path DocumentUri) string {
 	uri_path := make_uri(file_path)
 	m := Message {
 		msg_type: JsonRpcMessageType.notification
-		method: '"textDocument/didSave"'
-		params: '{"textDocument":{"uri":"file:///$uri_path","version":$file_version}}'
+		method: '"textDocument/willSave"'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},"reason":1'
 	}	
+	return m.encode()
+}
+
+pub fn will_save_wait_until(file_path DocumentUri, reason int) string {
+	uri_path := make_uri(file_path)
+	m := Message {
+		msg_type: JsonRpcMessageType.notification
+		method: '"textDocument/willSaveWaitUntil"'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},"reason":$reason'
+	}	
+	return m.encode()
+}
+
+pub fn did_save(file_path DocumentUri, content string) string {
+	uri_path := make_uri(file_path)
+	params__ := if content.len == 0 {
+		'{"textDocument":{"uri":"file:///$uri_path"}}'
+	} else {
+		'{"textDocument":{"uri":"file:///$uri_path","text":$content}}'
+	}
+	m := Message {
+		msg_type: JsonRpcMessageType.notification
+		method: '"textDocument/didSave"'
+		params: params__
+	}
 	return m.encode()
 }
 
@@ -135,7 +234,7 @@ pub fn request_completion(file_path DocumentUri, line u32, char_pos u32, trigger
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/completion"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"}, "position":{"line":$line, "character":$char_pos}, "context":{"triggerKind":1, "triggerCharacter":"$trigger_character"}}'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"line":$line,"character":$char_pos},"context":{"triggerKind":1,"triggerCharacter":"$trigger_character"}}'
 	}
 	p.open_response_messages[m.id] = completion_response
 	return m.encode()
@@ -149,7 +248,7 @@ pub fn request_signature_help(file_path DocumentUri, line u32, char_pos u32, tri
 		method: '"textDocument/signatureHelp"'
 		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"line":$line,"character":$char_pos},"context":{"isRetrigger":false,"triggerCharacter":"$trigger_character","triggerKind":2}}'
 	}
-	p.open_response_messages[m.id] = signature_help_repsonse
+	p.open_response_messages[m.id] = signature_help_response
 	return m.encode()
 }
 
@@ -168,7 +267,7 @@ pub fn format_document(file_path DocumentUri,
 		method: '"textDocument/formatting"'
 		params: '{$text_document,$options}'
 	}
-	p.open_response_messages[m.id] = format_document_repsonse
+	p.open_response_messages[m.id] = format_document_response
 	return m.encode()
 }
 
@@ -192,7 +291,7 @@ pub fn format_selected_range(file_path DocumentUri,
 		method: '"textDocument/formatting"'
 		params: '{$text_document,$range,$options}'
 	}
-	p.open_response_messages[m.id] = format_document_repsonse
+	p.open_response_messages[m.id] = format_document_response
 	return m.encode()
 }
 
@@ -204,7 +303,7 @@ pub fn goto_definition(file_path DocumentUri, line u32, char_position u32) strin
 		method: '"textDocument/definition"'
 		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
-	p.open_response_messages[m.id] = goto_definition_repsonse
+	p.open_response_messages[m.id] = goto_definition_response
 	return m.encode()
 }
 
@@ -216,7 +315,7 @@ pub fn peek_definition(file_path DocumentUri, line u32, char_position u32) strin
 		method: '"textDocument/definition"'
 		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
-	p.open_response_messages[m.id] = peek_definition_repsonse
+	p.open_response_messages[m.id] = peek_definition_response
 	return m.encode()
 }
 
@@ -228,7 +327,7 @@ pub fn goto_implementation(file_path DocumentUri, line u32, char_position u32) s
 		method: '"textDocument/implementation"'
 		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
-	p.open_response_messages[m.id] = goto_implementation_repsonse
+	p.open_response_messages[m.id] = goto_implementation_response
 	return m.encode()
 }
 
@@ -240,21 +339,619 @@ pub fn peek_implementation(file_path DocumentUri, line u32, char_position u32) s
 		method: '"textDocument/implementation"'
 		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
-	p.open_response_messages[m.id] = peek_implementation_repsonse
+	p.open_response_messages[m.id] = peek_implementation_response
 	return m.encode()
 }
 
-// ****************************************************************************
+pub fn goto_declaration(file_path DocumentUri, line u32, char_position u32) string {
+	uri_path := make_uri(file_path)
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/declaration"'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
+	}
+	p.open_response_messages[m.id] = goto_declaration_response
+	return m.encode()
+}
+
+pub fn find_references(file_path DocumentUri, line u32, char_position u32) string {
+	uri_path := make_uri(file_path)
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/references"'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
+	}
+	p.open_response_messages[m.id] = find_references_response
+	return m.encode()
+}
+
+pub fn document_highlight(file_path DocumentUri, line u32, char_position u32) string {
+	uri_path := make_uri(file_path)
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/documentHighlight"'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
+	}
+	p.open_response_messages[m.id] = document_highlight_response
+	return m.encode()
+}
+
+pub fn document_symbols(file_path DocumentUri) string {
+	uri_path := make_uri(file_path)
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/documentSymbol"'
+		params: '{"textDocument":{"uri":"file:///$uri_path"}}'
+	}
+	p.open_response_messages[m.id] = document_symbols_response
+	return m.encode()
+}
+
+pub fn hover(file_path DocumentUri, line u32, char_position u32) string {
+	uri_path := make_uri(file_path)
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/hover"'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
+	}
+	p.open_response_messages[m.id] = hover_response
+	return m.encode()
+}
+
+pub fn rename(file_path DocumentUri, line u32, char_position u32, replacement string) string {
+	uri_path := make_uri(file_path)
+	position := '"position":{"character":$char_position,"line":$line}'
+	new_name := '"newName":$replacement'
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/rename"'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},$position,$new_name}'
+	}
+	p.open_response_messages[m.id] = rename_response
+	return m.encode()
+}
+
+pub fn prepare_rename(file_path DocumentUri, line u32, char_position u32) string {
+	uri_path := make_uri(file_path)
+	position := '"position":{"character":$char_position,"line":$line}'
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/prepareRename"'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},$position}'
+	}
+	p.open_response_messages[m.id] = prepare_rename_response
+	return m.encode()
+}
+
+pub fn folding_range(file_path DocumentUri) string {
+	uri_path := make_uri(file_path)
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/prepareRename"'
+		params: '{"textDocument":{"uri":"file:///$uri_path"}}'
+	}
+	p.open_response_messages[m.id] = folding_range_response
+	return m.encode()
+}
+
+pub fn selection_range(file_path DocumentUri, line u32, char_position u32) string {
+	uri_path := make_uri(file_path)
+	position := '"position":{"character":$char_position,"line":$line}'
+
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/selectionRange"'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},$position}'
+	}
+	p.open_response_messages[m.id] = selection_range_response
+	return m.encode()
+}
+
+pub fn todo_cancel_request(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"$/cancelRequest"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_cancel_request_response
+	return m.encode()
+}
+
+pub fn todo_log_trace(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"$/logTrace"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_log_trace_response
+	return m.encode()
+}
+
+pub fn todo_progress(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"$/progress"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_progress_response
+	return m.encode()
+}
+
+pub fn todo_set_trace(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"$/setTrace"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_set_trace_response
+	return m.encode()
+}
+
+pub fn todo_incoming_calls(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"callHierarchy/incomingCalls"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_incoming_calls_response
+	return m.encode()
+}
+
+pub fn todo_outgoing_calls(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"callHierarchy/outgoingCalls"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_outgoing_calls_response
+	return m.encode()
+}
+
+pub fn todo_register_capability(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"client/registerCapability"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_register_capability_response
+	return m.encode()
+}
+
+pub fn todo_unregister_capability(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"client/unregisterCapability"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_unregister_capability_response
+	return m.encode()
+}
+
+pub fn todo_code_action_resolve(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"codeAction/resolve"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_code_action_resolve_response
+	return m.encode()
+}
+
+pub fn todo_code_lens_resolve(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"codeLens/resolve"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_code_lens_resolve_response
+	return m.encode()
+}
+
+pub fn todo_completion_item_resolve(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"completionItem/resolve"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_completion_item_resolve_response
+	return m.encode()
+}
+
+pub fn todo_document_link_resolve(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"documentLink/resolve"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_document_link_resolve_response
+	return m.encode()
+}
+
+pub fn todo_telemetry_event(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"telemetry/event"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_telemetry_event_response
+	return m.encode()
+}
+
+pub fn todo_code_action(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/codeAction"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_code_action_response
+	return m.encode()
+}
+
+pub fn todo_code_lens(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/codeLens"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_code_lens_response
+	return m.encode()
+}
+
+pub fn todo_color_presentation(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/colorPresentation"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_color_presentation_response
+	return m.encode()
+}
+
+pub fn todo_document_color(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/documentColor"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_document_color_response
+	return m.encode()
+}
+
+pub fn todo_document_link(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/documentLink"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_document_link_response
+	return m.encode()
+}
+
+pub fn todo_linked_editing_range(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/linkedEditingRange"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_linked_editing_range_response
+	return m.encode()
+}
+
+pub fn todo_moniker(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/moniker"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_moniker_response
+	return m.encode()
+}
+
+pub fn todo_on_type_formatting(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/onTypeFormatting"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_on_type_formatting_response
+	return m.encode()
+}
+
+pub fn todo_prepare_call_hierarchy(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/prepareCallHierarchy"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_prepare_call_hierarchy_response
+	return m.encode()
+}
+
+pub fn todo_semantic_tokens_full(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/semanticTokens/full"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_semantic_tokens_full_response
+	return m.encode()
+}
+
+pub fn todo_semantic_tokens_delta(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/semanticTokens/full/delta"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_semantic_tokens_delta_response
+	return m.encode()
+}
+
+pub fn todo_semantic_tokens_range(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/semanticTokens/range"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_semantic_tokens_range_response
+	return m.encode()
+}
+
+pub fn todo_type_definition(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"textDocument/typeDefinition"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_type_definition_response
+	return m.encode()
+}
+
+pub fn todo_work_done_progress_cancel(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"window/workDoneProgress/cancel"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_work_done_progress_cancel_response
+	return m.encode()
+}
+
+pub fn todo_work_done_progress_create(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"window/workDoneProgress/create"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_work_done_progress_create_response
+	return m.encode()
+}
+
+pub fn todo_workspace_apply_edit(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"workspace/applyEdit"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_workspace_apply_edit_response
+	return m.encode()
+}
+
+pub fn todo_workspace_code_lens_refresh(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"workspace/codeLens/refresh"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_workspace_code_lens_refresh_response
+	return m.encode()
+}
+
+pub fn todo_workspace_configuration(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"workspace/configuration"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_workspace_configuration_response
+	return m.encode()
+}
+
+pub fn todo_workspace_did_change_configuration(file_path DocumentUri) string  {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"workspace/didChangeConfiguration"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_workspace_did_change_configuration_response
+	return m.encode()
+}
+
+pub fn todo_workspace_did_change_watched_files(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"workspace/didChangeWatchedFiles"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_workspace_did_change_watched_files_response
+	return m.encode()
+}
+
+pub fn todo_workspace_did_change_workspace_folders(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"workspace/didChangeWorkspaceFolders"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_workspace_did_change_workspace_folders_response
+	return m.encode()
+}
+
+pub fn todo_workspace_did_create_files(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"workspace/didCreateFiles"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_workspace_did_create_files_response
+	return m.encode()
+}
+
+pub fn todo_workspace_did_delete_files(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"workspace/didDeleteFiles"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_workspace_did_delete_files_response
+	return m.encode()
+}
+
+pub fn todo_workspace_did_rename_files(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"workspace/didRenameFiles"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_workspace_did_rename_files_response
+	return m.encode()
+}
+
+pub fn todo_workspace_execute_command(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"workspace/executeCommand"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_workspace_execute_command_response
+	return m.encode()
+}
+
+pub fn todo_workspace_sematic_tokens_refresh(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"workspace/semanticTokens/refresh"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_workspace_sematic_tokens_refresh_response
+	return m.encode()
+}
+
+pub fn todo_workspace_symbol(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"workspace/symbol"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_workspace_symbol_response
+	return m.encode()
+}
+
+pub fn todo_workspace_will_create_files(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"workspace/willCreateFiles"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_workspace_will_create_files_response
+	return m.encode()
+}
+
+pub fn todo_workspace_will_delete_files(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"workspace/willDeleteFiles"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_workspace_will_delete_files_response
+	return m.encode()
+}
+
+pub fn todo_workspace_will_rename_files(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"workspace/willRenameFiles"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_workspace_will_rename_files_response
+	return m.encode()
+}
+
+pub fn todo_workspace_folders(file_path DocumentUri) string {
+	m := Message {
+		msg_type: JsonRpcMessageType.request
+		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		method: '"workspace/workspaceFolders"'
+		params: '{}'
+	}
+	p.open_response_messages[m.id] = todo_workspace_folders_response
+	return m.encode()
+}
+
+
+//////***********************************************************************
 // JSON Structures
-// ****************************************************************************
+//////***********************************************************************
 
 // pub fn (mut xx XXX) from_json(f json2.Any) {
-    // obj := f.as_map()
-    // for k, v in obj {
-        // match k {
-            // else {}
-        // }
-    // }
+	// obj := f.as_map()
+	// for k, v in obj {
+		// match k {
+			// else {}
+		// }
+	// }
 // }
 
 
@@ -270,18 +967,18 @@ pub mut:
 }
 
 pub fn (mut m JsonMessage) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
-            'jsonrpc' { m.jsonrpc =  v.str() }
-            'method' { m.method = v.str() }
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
+			'jsonrpc' { m.jsonrpc =	 v.str() }
+			'method' { m.method = v.str() }
 			'id' { m.id = v.str() }
 			'params' { m.params = v.str() }
 			'result' { m.result = v.str() }
 			'error' { m.error = v.str() }
-            else {}
-        }
-    }
+			else {}
+		}
+	}
 }
 
 type DocumentUri = string
@@ -300,65 +997,65 @@ pub mut:
 }
 
 pub fn (mut tdi TextDocumentIdentifier) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
 			'uri' { tdi.uri = v.str() }
-            else {}
-        }
-    }
+			else {}
+		}
+	}
 }
 
 pub struct Position {
 pub mut:
-	line      u32
+	line	  u32
 	character u32
 }
 
 pub fn (mut p Position) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
 			'line' { p.line = u32(v.int()) }
 			'character' { p.character = u32(v.int()) }
-            else {}
-        }
-    }
+			else {}
+		}
+	}
 }
 
 pub struct Range {
 pub mut:
 	start Position
-	end   Position
+	end	  Position
 }
 
 pub fn (mut r Range) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
 			'start' { r.start = json2.decode<Position>(v.str()) or { Position{} } }
 			'end' { r.end = json2.decode<Position>(v.str()) or { Position{} } }
-            else {}
-        }
-    }
+			else {}
+		}
+	}
 }
 
 pub struct Location {
 pub mut:
 	valid bool = true
-	uri   DocumentUri
+	uri	  DocumentUri
 	range Range
 }
 
 pub fn (mut l Location) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
 			'uri' { l.uri = make_path(v.str()) }
 			'range' { l.range = json2.decode<Range>(v.str()) or { Range{} } } 
-            else {}
-        }
-    }
+			else {}
+		}
+	}
 }
 
 pub struct LocationArray {
@@ -367,53 +1064,53 @@ pub mut:
 }
 
 pub fn (mut la LocationArray) from_json(f json2.Any) {
-    for item in f.arr() {
-        la.items << json2.decode<Location>(item.str()) or { Location{} }
-    }
+	for item in f.arr() {
+		la.items << json2.decode<Location>(item.str()) or { Location{} }
+	}
 }
 
 pub struct LocationLink {
 pub mut:
-	/**
-	 * Span of the origin of this link.
-	 *
-	 * Used as the underlined span for mouse interaction. Defaults to the word
-	 * range at the mouse position.
-	 */
+	//
+	// Span of the origin of this link.
+	//
+	// Used as the underlined span for mouse interaction. Defaults to the word
+	// range at the mouse position.
+	///
 	origin_selection_range Range
 
-	/**
-	 * The target resource identifier of this link.
-	 */
+	//
+	// The target resource identifier of this link.
+	///
 	target_uri DocumentUri
 
-	/**
-	 * The full target range of this link. If the target for example is a symbol
-	 * then target range is the range enclosing this symbol not including
-	 * leading/trailing whitespace but everything else like comments. This
-	 * information is typically used to highlight the range in the editor.
-	 */
+	//
+	// The full target range of this link. If the target for example is a symbol
+	// then target range is the range enclosing this symbol not including
+	// leading/trailing whitespace but everything else like comments. This
+	// information is typically used to highlight the range in the editor.
+	///
 	target_range Range
 
-	/**
-	 * The range that should be selected and revealed when this link is being
-	 * followed, e.g the name of a function. Must be contained by the the
-	 * `targetRange`. See also `DocumentSymbol#range`
-	 */
+	//
+	// The range that should be selected and revealed when this link is being
+	// followed, e.g the name of a function. Must be contained by the the
+	// `targetRange`. See also `DocumentSymbol#range`
+	///
 	target_selection_range Range
 }
 
 pub fn (mut ll LocationLink) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
 			'originSelectionRange' { ll.origin_selection_range = json2.decode<Range>(v.str()) or { Range{} } }
 			'targetUri' { ll.target_uri = make_path(v.str()) }
 			'targetRange' { ll.target_range = json2.decode<Range>(v.str()) or { Range{} } }
 			'targetSelectionRange' { ll.target_selection_range = json2.decode<Range>(v.str()) or { Range{} } }
-            else {}
-        }
-    }
+			else {}
+		}
+	}
 }
 
 pub struct LocationLinkArray {
@@ -422,150 +1119,19 @@ pub mut:
 }
 
 pub fn (mut lla LocationLinkArray) from_json(f json2.Any) {
-    for item in f.arr() {
-        lla.items << json2.decode<LocationLink>(item.str()) or { LocationLink{} }
-    }
+	for item in f.arr() {
+		lla.items << json2.decode<LocationLink>(item.str()) or { LocationLink{} }
+	}
 }
-
-pub struct CompletionOptions {
-pub mut:
-	resolve_provider   bool
-	trigger_characters []string
-}
-
-pub fn (mut co CompletionOptions) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
-            'resolveProvider' { co.resolve_provider =  v.bool() }
-            'triggerCharacters' { co.trigger_characters = v.arr().map(it.str()) }
-            else {}
-        }
-    }
-}
-
-pub struct SignatureHelpOptions {
-pub mut:
-	trigger_characters   []string
-	retrigger_characters []string
-}
-
-pub fn (mut sho SignatureHelpOptions) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
-            'triggerCharacters' { sho.trigger_characters = v.arr().map(it.str()) }
-            'retriggerCharacters' { sho.retrigger_characters =  v.arr().map(it.str()) }
-            else {}
-        }
-    }
-}
-
-pub struct DocumentOnTypeFormattingOptions {
-pub mut:
-	first_trigger_character string
-	more_trigger_character  []string
-}
-
-pub fn (mut dtfo DocumentOnTypeFormattingOptions) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
-            'firstTriggerCharacter' { dtfo.first_trigger_character =  v.str() }
-            'moreTriggerCharacter' { dtfo.more_trigger_character = v.arr().map(it.str()) }
-            else {}
-        }
-    }
-}
-
-pub struct CodeLensOptions {
-pub mut:
-	resolve_provider bool
-}
-
-pub fn (mut clo CodeLensOptions) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
-            'resolveProvider' { clo.resolve_provider =  v.bool() }
-            else {}
-        }
-    }
-}
-
-pub struct SaveOptions {
-pub mut:
-	/**
-	 * The client is supposed to include the content on save.
-	 */
-	include_text bool
-}
-
-pub fn (mut so SaveOptions) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
-            'includeText' { so.include_text = v.bool() }
-            else {}
-        }
-    }
-}
-
-pub struct TextDocumentSyncOptions {
-pub mut:
-	/**
-	 * Open and close notifications are sent to the server. If omitted open
-	 * close notification should not be sent.
-	 */
-	open_close bool
-	/**
-	 * Change notifications are sent to the server. See
-	 * TextDocumentSyncKind.None, TextDocumentSyncKind.Full and
-	 * TextDocumentSyncKind.Incremental. If omitted it defaults to
-	 * TextDocumentSyncKind.None.
-	 */
-	change int
-	/**
-	 * If present will save notifications are sent to the server. If omitted
-	 * the notification should not be sent.
-	 */
-	will_save bool
-	/**
-	 * If present will save wait until requests are sent to the server. If
-	 * omitted the request should not be sent.
-	 */
-	will_save_wait_until bool
-	/**
-	 * If present save notifications are sent to the server. If omitted the
-	 * notification should not be sent.
-	 */
-	// save bool | SaveOptions
-}
-
-pub fn (mut tdso TextDocumentSyncOptions) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
-            'openClose' { tdso.open_close = v.bool() }
-			'change' { tdso.change = v.int() }
-			'willSave' { tdso.will_save = v.bool() }
-			'willSaveWaitUntil' { tdso.will_save_wait_until = v.bool() }
-			// 'save'
-            else {}
-        }
-    }
-}
-
-
 
 pub struct Diagnostic {
 pub mut:
-	range               Range
-	severity            int		// DiagnosticSeverity
-	code                string
-	code_description 	string	// CodeDescription
-	source              string
-	message             string
+	range				Range
+	severity			int		// DiagnosticSeverity
+	code				string
+	code_description	string	// CodeDescription
+	source				string
+	message				string
 	tags				string	// []DiagnosticTag
 	related_information string	// []DiagnosticRelatedInformation
 	data				string
@@ -573,8 +1139,8 @@ pub mut:
 
 pub fn (mut d Diagnostic) from_json(f json2.Any) {
 	obj_map := f.as_map()
-    for k, v in obj_map {
-        match k {
+	for k, v in obj_map {
+		match k {
 			'range' { d.range = json2.decode<Range>(v.str()) or { Range{} } }
 			'severity' { d.severity = v.int() }
 			'code' { d.code = v.str() }
@@ -592,31 +1158,31 @@ pub fn (mut d Diagnostic) from_json(f json2.Any) {
 pub struct DiagnosticRelatedInformation {
 pub mut:
 	location Location
-	message  string
+	message	 string
 }
 
 pub fn (mut dri DiagnosticRelatedInformation) from_json(f json2.Any) {
 	obj_map := f.as_map()
-    for k, v in obj_map {
-        match k {
+	for k, v in obj_map {
+		match k {
 			'location' { dri.location = json2.decode<Location>(v.str()) or { Location{} } }
 			'message' { dri.message = v.str() }
 			else {}
-        }
+		}
 	}
 }
 
 pub struct PublishDiagnosticsParams {
 pub mut :
-	uri         DocumentUri
+	uri			DocumentUri
 	version		u32
 	diagnostics []Diagnostic
 }
 
 pub fn (mut pd PublishDiagnosticsParams) from_json(f json2.Any) {
 	obj_map := f.as_map()
-    for k, v in obj_map {
-        match k {
+	for k, v in obj_map {
+		match k {
 			'uri' { pd.uri = make_path(v.str()) }
 			'version' { pd.version = u32(v.int()) }
 			'diagnostics' { 
@@ -625,29 +1191,29 @@ pub fn (mut pd PublishDiagnosticsParams) from_json(f json2.Any) {
 				}
 			}
 			else {}
-        }
+		}
 	}
 }
 
 pub struct CompletionList {
 pub mut:
 	is_incomplete bool
-	items         []CompletionItem
+	items		  []CompletionItem
 }
 
 pub fn (mut cl CompletionList) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
 			'is_incomplete' { cl.is_incomplete = v.bool() }
 			'items' { 
 				for item in v.arr() {
 					cl.items << json2.decode<CompletionItem>(item.str()) or { CompletionItem{} }
 				}
 			}
-            else {}
-        }
-    }
+			else {}
+		}
+	}
 }
 
 pub struct CompletionItem {
@@ -656,7 +1222,7 @@ pub mut:
 	label_details			string
 	kind					string
 	tags					string
-	detail 					string
+	detail					string
 	documentation			string
 	deprecated_				bool
 	preselect				bool
@@ -673,9 +1239,9 @@ pub mut:
 }
 
 pub fn (mut ci CompletionItem) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
 			'label' { ci.label = v.str() }
 			'labelDetails' { ci.label_details = v.str() }
 			'kind' { ci.kind = v.str() }
@@ -694,9 +1260,9 @@ pub fn (mut ci CompletionItem) from_json(f json2.Any) {
 			'commitCharacters' { ci.commit_characters = v.str() }
 			'command' { ci.command = v.str() }
 			'data' { ci.data = v.str() }
-            else {}
-        }
-    }
+			else {}
+		}
+	}
 }
 
 pub struct CompletionItemArray {
@@ -718,9 +1284,9 @@ pub mut:
 }
 
 pub fn (mut sh SignatureHelp) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
 			'signatures' { 
 				for item in v.arr() {
 					sh.signatures << json2.decode<SignatureInformation>(item.str()) or { SignatureInformation{} }
@@ -728,9 +1294,9 @@ pub fn (mut sh SignatureHelp) from_json(f json2.Any) {
 			}
 			'activeSignature' { sh.active_signature = u32(v.int()) }
 			'activeParameter' { sh.active_parameter = u32(v.int()) }
-            else {}
-        }
-    }
+			else {}
+		}
+	}
 }
 
 pub struct SignatureInformation {
@@ -742,9 +1308,9 @@ pub mut:
 }
 
 pub fn (mut si SignatureInformation) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
 			'label' { si.label = v.str() }
 			'documentation' { si.documentation = v.str() }
 			'parameters' { 
@@ -753,9 +1319,9 @@ pub fn (mut si SignatureInformation) from_json(f json2.Any) {
 				}			
 			}
 			'activeParameter' { si.active_parameter = u32(v.int()) }
-            else {}
-        }
-    }
+			else {}
+		}
+	}
 }
 
 pub struct ParameterInformation {
@@ -765,14 +1331,14 @@ pub mut:
 }
 
 pub fn (mut pi ParameterInformation) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
 			'label' { pi.label = v.str() }
 			'documentation' { pi.documentation = v.str() }
-            else {}
-        }
-    }
+			else {}
+		}
+	}
 }
 
 pub struct TextEditArray {
@@ -793,14 +1359,14 @@ pub mut:
 }
 
 pub fn (mut te TextEdit) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
 			'range' { te.range = json2.decode<Range>(v.str()) or { Range{} } }
 			'newText' { te.new_text = v.str() }
-            else {}
-        }
-    }
+			else {}
+		}
+	}
 }
 
 pub struct ShowMessageParams {
@@ -810,12 +1376,217 @@ pub mut:
 }
 
 pub fn (mut smp ShowMessageParams) from_json(f json2.Any) {
-    obj := f.as_map()
-    for k, v in obj {
-        match k {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
 			'type' { smp.type_ = v.int() }
 			'message' { smp.message = v.str() }
-            else {}
-        }
-    }
+			else {}
+		}
+	}
+}
+
+pub struct ShowMessageRequestParams {
+pub mut:
+	type_ int
+	message string
+	actions []string
+}
+
+pub fn (mut smrp ShowMessageRequestParams) from_json(f json2.Any) {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
+			'type' { smrp.type_ = v.int() }
+			'message' { smrp.message = v.str() }
+			'actions' { smrp.actions = v.arr().map(it.str()) }
+			else {}
+		}
+	}
+}
+
+pub struct ShowDocumentParams {
+pub mut:
+	uri DocumentUri
+
+	// Indicates to show the resource in an external program.
+	// To show for example `https://code.visualstudio.com/`
+	// in the default WEB browser set `external` to `true`.
+	external bool
+
+	// An optional property to indicate whether the editor
+	// showing the document should take focus or not.
+	// Clients might ignore this property if an external program is started.
+	take_focus bool
+
+	// An optional selection range if the document is a text
+	// document. Clients might ignore the property if an external program is started 
+	// or the file is not a text file.
+	selection Range
+}
+
+pub fn (mut sdp ShowDocumentParams) from_json(f json2.Any) {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
+			'uri' { sdp.uri = v.str() }
+			'external' { sdp.external = v.bool() }
+			'takeFocus' { sdp.take_focus = v.bool() }
+			'selection' { sdp.selection = json2.decode<Range>(v.str()) or { Range{} } }
+			else {}
+		}
+	}
+}
+
+pub struct DocumentHighlight {
+pub mut:
+	// The range this highlight applies to.
+	range Range
+
+	// The highlight kind, default is DocumentHighlightKind.Text.
+	kind int // DocumentHighlightKind
+}
+
+pub fn (mut dh DocumentHighlight) from_json(f json2.Any) {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
+			'range' { dh.range = json2.decode<Range>(v.str()) or { Range{} } }
+			'kind' { dh.kind = v.int() }
+			else {}
+		}
+	}
+}
+
+pub struct DocumentHighlightArray {
+pub mut:
+	items []DocumentHighlight
+}
+
+pub fn (mut dha DocumentHighlightArray) from_json(f json2.Any) {
+	for item in f.arr() {
+		dha.items << json2.decode<DocumentHighlight>(item.str()) or { DocumentHighlight{} }
+	}
+}
+
+pub struct DocumentSymbol {
+pub mut:
+	// The name of this symbol. Will be displayed in the user interface and
+	// therefore must not be an empty string or a string only consisting of
+	// white spaces.
+	name string
+
+	// More detail for this symbol, e.g the signature of a function.
+	detail string
+
+	// The kind of this symbol.
+	kind int  // SymbolKind
+
+	// Tags for this document symbol.
+	// @since 3.16.0
+	tags []int  // SymbolTag[]
+
+	// Indicates if this symbol is deprecated.
+	// @deprecated Use tags instead
+	deprecated bool
+
+	// The range enclosing this symbol not including leading/trailing whitespace
+	// but everything else like comments. This information is typically used to
+	// determine if the clients cursor is inside the symbol to reveal in the
+	// symbol in the UI.
+	range Range
+
+	// The range that should be selected and revealed when this symbol is being
+	// picked, e.g. the name of a function. Must be contained by the `range`.
+	selection_range Range //selectionRange
+
+	// Children of this symbol, e.g. properties of a class.
+	children []DocumentSymbol
+}
+
+pub fn (mut ds DocumentSymbol) from_json(f json2.Any) {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
+			'name' { ds.name = v.str()}
+			'detail' { ds.detail = v.str()}
+			'kind' { ds.kind = v.int()}
+			'tags' { ds.tags << v.arr().map(it.int())}
+			'deprecated' { ds.deprecated = v.bool()}
+			'range' { ds.range = json2.decode<Range>(v.str()) or { Range{} }}
+			'selectionRange' { ds.selection_range = json2.decode<Range>(v.str()) or { Range{} }}
+			'children' { ds.children << json2.decode<DocumentSymbol>(v.str()) or { DocumentSymbol{} }}
+			else {}
+		}
+	}}
+
+pub struct SymbolInformation {
+pub mut:
+	// The name of this symbol.
+	name string
+
+	// The kind of this symbol.
+	kind int // SymbolKind
+
+	// Tags for this symbol.
+	// @since 3.16.0
+	tags []int // SymbolTag
+
+	// Indicates if this symbol is deprecated.
+	// @deprecated Use tags instead
+	deprecated bool
+
+	// The location of this symbol. The location's range is used by a tool
+	// to reveal the location in the editor. If the symbol is selected in the
+	// tool the range's start information is used to position the cursor. So
+	// the range usually spans more then the actual symbol's name and does
+	// normally include things like visibility modifiers.
+	//
+	// The range doesn't have to denote a node range in the sense of a abstract
+	// syntax tree. It can therefore not be used to re-construct a hierarchy of
+	// the symbols.
+	location Location
+
+	// The name of the symbol containing this symbol. This information is for
+	// user interface purposes (e.g. to render a qualifier in the user interface
+	// if necessary). It can't be used to re-infer a hierarchy for the document
+	// symbols.
+	container_name string //containerName
+}
+
+pub fn (mut si SymbolInformation) from_json(f json2.Any) {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
+			'name' { si.name = v.str()}
+			'kind' { si.kind = v.int()}
+			'tags' { si.tags << v.arr().map(it.int())}
+			'deprecated' { si.deprecated = v.bool()}
+			'location' { si.location = json2.decode<Location>(v.str()) or { Location{} }}
+			'containerName' { si.container_name = v.str()}
+			else {}
+		}
+	}
+}
+
+pub struct DocumentSymbolArray {
+pub mut:
+	items []DocumentSymbol
+}
+
+pub fn (mut dsa DocumentSymbolArray) from_json(f json2.Any) {
+	for item in f.arr() {
+		dsa.items << json2.decode<DocumentSymbol>(item.str()) or { DocumentSymbol{} }
+	}
+}
+
+pub struct SymbolInformationArray {
+pub mut:
+	items []SymbolInformation
+}
+
+pub fn (mut sia SymbolInformationArray) from_json(f json2.Any) {
+	for item in f.arr() {
+		sia.items << json2.decode<SymbolInformation>(item.str()) or { SymbolInformation{} }
+	}
 }

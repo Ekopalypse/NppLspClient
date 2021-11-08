@@ -159,7 +159,12 @@ fn be_notified(notification &sci.SCNotification) {
 				p.file_version_map.delete(u64(notification.nmhdr.id_from))
 			}
 		}
-
+		notepadpp.nppn_filebeforesave {
+			if p.document_is_of_interest {
+				p.current_language = npp.get_language_name_from_id(notification.nmhdr.id_from)
+				lsp.on_file_before_saved(p.current_file_path)
+			}
+		}
 		notepadpp.nppn_filesaved {
 			if p.document_is_of_interest {
 				p.current_language = npp.get_language_name_from_id(notification.nmhdr.id_from)
@@ -246,17 +251,21 @@ fn get_funcs_array(mut nb_func &int) &FuncItem {
 		'Restart server for current language': restart_lsp_server
 		'Stop all configured lsp server': stop_all_server
 		'-': voidptr(0)
+		'toggle_console': toggle_console
+		'Open configuration file': open_config
+		'Apply current configuration': apply_config
+		'---': voidptr(0)
 		'Format document': format_document
 		'Format selected text': format_selected_range
 		'Goto definition': goto_definition
 		'Peek definition': peek_definition
 		'Goto implementation': goto_implementation
 		'Peek implementation': peek_implementation
+		'Goto declaration': goto_declaration
+		'Find references': find_references
+		'Highlight in document': document_highlight
+		'List all symbols from document': document_symbols
 		'--': voidptr(0)
-		'toggle_console': toggle_console
-		'Open configuration file': open_config
-		'Apply current configuration': apply_config
-		'---': voidptr(0)
 		'About': about
 	}
 
@@ -431,6 +440,23 @@ pub fn goto_implementation() {
 
 pub fn peek_implementation() {
 	lsp.on_peek_implementation(p.current_file_path)
+}
+
+pub fn goto_declaration() {
+	lsp.on_goto_declaration(p.current_file_path)	
+}
+
+pub fn find_references() {
+	lsp.on_find_references(p.current_file_path)	
+}
+
+pub fn document_highlight() {
+	// TODO: isn't that npps smarthighlight feature?? If it is, is there any benefit using it?
+	lsp.on_document_highlight(p.current_file_path)		
+}
+
+pub fn document_symbols() {
+	lsp.on_document_symbols(p.current_file_path)		
 }
 
 [windows_stdcall]

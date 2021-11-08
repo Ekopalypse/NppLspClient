@@ -71,8 +71,8 @@ pub fn (n Npp) get_language_name_from_id(buffer_id usize) string {
 	mut buffer := alloc_wide(buffer_size)
 	
 	n.call(nppm_getlanguagename, usize(lang_type), voidptr(buffer))
-	lang_name := unsafe { string_from_wide(buffer) }
-	return lang_name.to_lower()
+	mut lang_name := unsafe { string_from_wide(buffer) }
+	return if lang_name.starts_with('udf - ') { lang_name[6..].to_lower() } else { lang_name.to_lower() }
 }
 
 pub fn (n Npp) get_language_name_for_current_buffer() string {

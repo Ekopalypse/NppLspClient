@@ -52,19 +52,6 @@ log_level = info
 '
 )
 
-pub struct LanguageFeatures {
-pub mut:
-	doc_sync_type int
-	compl_trigger_chars []string
-	sig_help_trigger_chars []string
-	sig_help_retrigger_chars []string
-	send_open_close_notif bool
-	definition_provider bool
-	implementation_provider bool
-	document_formatting_provider bool
-	document_range_formatting_provider bool
-}
-
 pub struct ServerConfig {
 pub mut:
 	mode string
@@ -75,7 +62,7 @@ pub mut:
 	auto_start_server bool
 	message_id_counter int = -1
 	initialized bool
-	features LanguageFeatures  // panics when using ServerCapabilities directly
+	features ServerCapabilities
 }
 
 pub fn (mut sc ServerConfig) get_next_id() int {

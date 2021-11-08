@@ -43,7 +43,7 @@ pub mut:
 
 [inline]
 fn (mut d DockableDialog) call(msg int, wparam usize, lparam isize) isize {
-	return d.output_editor_func(d.output_editor_hwnd, msg, wparam, lparam)
+	return d.output_editor_func(d.output_editor_hwnd, u32(msg), wparam, lparam)
 }
 
 pub fn (mut d DockableDialog) clear() {
