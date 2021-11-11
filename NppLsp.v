@@ -54,6 +54,7 @@ pub mut:
 	document_is_of_interest bool
 	new_file_opened u64
 	open_response_messages map[int]fn(json_message string)
+	current_hover_position u32
 }
 
 pub struct NppData {
@@ -61,6 +62,10 @@ pub mut:
 	npp_handle voidptr
 	scintilla_main_handle voidptr
 	scintilla_second_handle voidptr
+}
+
+fn (nd NppData) is_valid(handle voidptr) bool {
+	return handle == nd.npp_handle || handle == nd.scintilla_main_handle || handle == nd.scintilla_second_handle
 }
 
 struct FuncItem {
@@ -90,6 +95,7 @@ fn set_info(nppData NppData) {
 
 [export: beNotified]
 fn be_notified(notification &sci.SCNotification) {
+	if !npp_data.is_valid(notification.nmhdr.hwnd_from) { return }
 	match notification.nmhdr.code {
 		notepadpp.nppn_ready {
 			update_settings()
@@ -116,7 +122,7 @@ fn be_notified(notification &sci.SCNotification) {
 				editor.current_hwnd = editor.second_hwnd
 			}
 
-			editor.init_styles()
+			editor.initialize()
 			p.current_file_path = npp.get_filename_from_id(notification.nmhdr.id_from)
 			check_lexer(u64(notification.nmhdr.id_from))
 
@@ -143,7 +149,7 @@ fn be_notified(notification &sci.SCNotification) {
 				}
 			} else {
 				current_directory := os.dir(p.current_file_path)
-				lsp.on_init(os.getpid(), current_directory)
+				lsp.on_initialize(os.getpid(), current_directory)
 			}
 		}
 
@@ -219,6 +225,19 @@ fn be_notified(notification &sci.SCNotification) {
 				}
 			}
 		}
+		
+		sci.scn_dwellend {
+			editor.cancel_calltip()
+			p.current_hover_position = 0
+		}
+		
+		sci.scn_dwellstart {
+			if notification.position != -1 {
+				p.current_hover_position = u32(notification.position)
+				lsp.on_hover(p.current_file_path, p.current_hover_position)
+			}
+		}
+		
 		else {}  // make match happy
 	}
 }

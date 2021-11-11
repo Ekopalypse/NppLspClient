@@ -4,6 +4,7 @@ import os
 
 const (
 	content_length = 'Content-Length: '
+	report_at = 'please report this as an issue at https://github.com/Ekopalypse/NppLspClient/issues'
 )
 
 pub fn on_message_received(message string) {
@@ -44,12 +45,35 @@ pub fn on_message_received(message string) {
 	}
 }
 
-pub fn on_init(npp_pid int, current_directory string) {
-	p.console_window.log('on_init: $npp_pid', p.info_style_id)
+pub fn on_initialize(npp_pid int, current_directory string) {
+	p.console_window.log('on_initialize: $npp_pid', p.info_style_id)
 	lsp.write_to(
 		p.current_stdin, 
-		lsp.initialize_msg(npp_pid, current_directory)
+		lsp.initialize(npp_pid, current_directory)
 	)
+}
+
+fn initialize_response(json_message string) {
+	result := json2.raw_decode(json_message) or { '' }
+	result_map := result.as_map()
+	if 'capabilities' in result_map {
+		capabilities := result_map['capabilities'] or { '' }
+		sc := json2.decode<ServerCapabilities>(capabilities.str()) or { ServerCapabilities{} }
+		p.console_window.log('    initialized response received', p.info_style_id)
+
+		p.lsp_config.lspservers[p.current_language].features = sc
+		
+		lsp.write_to(
+			p.current_stdin,
+			lsp.initialized()
+		)
+
+		p.lsp_config.lspservers[p.current_language].initialized = true
+		current_file := npp.get_current_filename()
+		on_file_opened(current_file)
+	} else {
+		p.console_window.log('  unexpected initialize response received', p.error_style_id)
+	}
 }
 
 pub fn on_file_opened(file_name string) {
@@ -60,11 +84,16 @@ pub fn on_file_opened(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.send_open_close_notif
    {
+		if file_name in p.lsp_config.lspservers[p.current_language].open_documents {
+			lsp.on_file_closed(file_name)
+		}
+		
 		content := editor.get_text()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.did_open(file_name, 0, lang_id, content)
 		)
+		p.lsp_config.lspservers[p.current_language].open_documents << file_name
 	}
 }
 
@@ -95,6 +124,7 @@ pub fn on_file_saved(file_name string) {
 		)
 	}
 }
+
 pub fn on_will_save_wait_until(file_name string) {
 	// TODO: make this an lspclient configuration parameter?
 	p.console_window.log('on_file_saved: $file_name', p.info_style_id)
@@ -117,6 +147,10 @@ pub fn on_file_closed(file_name string) {
 			p.current_stdin,
 			lsp.did_close(file_name)
 		)
+		array_index := p.lsp_config.lspservers[p.current_language].open_documents.index(file_name)
+		if array_index > -1  {
+			p.lsp_config.lspservers[p.current_language].open_documents.delete(array_index)
+		}		
 	}
 }
 
@@ -173,6 +207,27 @@ pub fn on_buffer_modified(file_name string,
 	}
 }
 
+fn completion_response(json_message string) {
+	cl := json2.decode<CompletionList>(json_message) or { CompletionList{} }
+	mut ci := []CompletionItem{}
+	if cl.items.len != 0 {
+		ci = cl.items
+	} else {
+		cia := json2.decode<CompletionItemArray>(json_message) or { CompletionItemArray{} }
+		ci = cia.items
+	}
+	if ci.len > 0 { editor.display_completion_list(ci.map(it.label).join('\n')) }
+}
+
+fn signature_help_response(json_message string) {
+	p.console_window.log('  signature help response received: $json_message', p.info_style_id)
+	sh := json2.decode<SignatureHelp>(json_message) or { SignatureHelp{} }
+	if sh.signatures.len > 0 {
+		editor.display_signature_hints(sh.signatures[0].label)
+	}
+	p.console_window.log('$sh', p.info_style_id)
+}
+
 pub fn on_format_document(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.document_formatting_provider
@@ -182,6 +237,18 @@ pub fn on_format_document(file_name string) {
 			lsp.format_document(file_name, editor.get_tab_size(), editor.use_spaces(), true, true, true)
 		)	
 	}
+}
+
+fn format_document_response(json_message string) {
+	p.console_window.log('  format document response received: $json_message', p.info_style_id)
+	tea := json2.decode<TextEditArray>(json_message) or { TextEditArray{} }
+	editor.begin_undo_action()
+	for item in tea.items {
+		start_pos := u32(editor.position_from_line(item.range.start.line)) + item.range.start.character
+		end_pos := u32(editor.position_from_line(item.range.end.line)) + item.range.end.character
+		editor.replace_target(start_pos, end_pos, item.new_text)
+	}
+	editor.end_undo_action()
 }
 
 pub fn on_format_selected_range(file_name string) {
@@ -208,6 +275,11 @@ pub fn on_goto_definition(file_name string) {
 	}
 }
 
+fn goto_definition_response(json_message string) {
+	p.console_window.log('goto definition response received: $json_message', p.info_style_id)
+	goto_location_helper(json_message)
+}
+
 pub fn on_goto_implementation(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.implementation_provider
@@ -218,6 +290,39 @@ pub fn on_goto_implementation(file_name string) {
 			lsp.goto_implementation(file_name, current_line, char_pos)
 		)	
 	}
+}
+
+fn goto_implementation_response(json_message string) {
+	p.console_window.log('goto implementation response received: $json_message', p.info_style_id)
+	goto_location_helper(json_message)
+}
+
+fn goto_location_helper(json_message string) {
+	mut start_pos := u32(0)
+	if json_message.starts_with('[') {
+		if json_message.contains('originSelectionRange') {
+			lla := json2.decode<LocationLinkArray>(json_message) or { LocationLinkArray{} }
+			if lla.items.len > 0 {
+				npp.open_document(lla.items[0].target_uri)
+				start_pos = u32(editor.position_from_line(lla.items[0].target_range.start.line))
+				start_pos += lla.items[0].target_range.start.character
+			}
+		} else {
+			loca := json2.decode<LocationArray>(json_message) or { LocationArray{} }
+			if loca.items.len > 0 {
+
+				npp.open_document(loca.items[0].uri)
+				start_pos = u32(editor.position_from_line(loca.items[0].range.start.line))
+				start_pos += loca.items[0].range.start.character
+			}
+		}
+	} else {
+		loc := json2.decode<Location>(json_message) or { Location{} }
+		npp.open_document(loc.uri)
+		start_pos = u32(editor.position_from_line(loc.range.start.line))
+		start_pos += loc.range.start.character
+	}
+	editor.goto_pos(start_pos)	
 }
 
 pub fn on_peek_definition(file_name string) {
@@ -232,6 +337,11 @@ pub fn on_peek_definition(file_name string) {
 	}
 }
 
+fn peek_definition_response(json_message string) {
+	p.console_window.log('peek definition response received: $json_message', p.info_style_id)
+	peek_helper(json_message)
+}
+
 pub fn on_peek_implementation(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.implementation_provider
@@ -242,6 +352,52 @@ pub fn on_peek_implementation(file_name string) {
 			lsp.peek_implementation(file_name, current_line, char_pos)
 		)	
 	}
+}
+
+fn peek_implementation_response(json_message string) {
+	p.console_window.log('peek implementation response received: $json_message', p.info_style_id)
+	peek_helper(json_message)
+}
+
+fn peek_helper(json_message string) {
+	mut start_line := u32(0)
+	mut end_line := u32(0)
+	mut source_file := ''
+	if json_message.starts_with('[') {
+		if json_message.contains('originSelectionRange') {
+			lla := json2.decode<LocationLinkArray>(json_message) or { LocationLinkArray{} }
+			if lla.items.len > 0 {
+				source_file = lla.items[0].target_uri
+				start_line = lla.items[0].target_range.start.line
+				end_line = lla.items[0].target_range.end.line
+			}
+		} else {
+			loca := json2.decode<LocationArray>(json_message) or { LocationArray{} }
+			if loca.items.len > 0 {
+				source_file = loca.items[0].uri
+				start_line = loca.items[0].range.start.line
+				end_line = loca.items[0].range.end.line
+			}
+		}
+	} else {
+		loc := json2.decode<Location>(json_message) or { Location{} }
+		source_file = loc.uri
+		start_line = loc.range.start.line
+		end_line = loc.range.end.line
+	}
+	
+	if source_file.len > 0 {
+		if os.exists(source_file) {
+			content := os.read_lines(source_file) or { [''] }
+			first_line := int(start_line)
+			last_line__ := int(end_line)
+			if content.len >= last_line__ {
+				last_line := if content.len >= last_line__ + 4 { last_line__ + 4} else { content.len }
+				peeked_code := '\n${content[first_line..last_line].join("\n")}'
+				editor.show_peeked_info(peeked_code)
+			}
+		}
+	}	
 }
 
 pub fn on_goto_declaration(file_name string) {
@@ -256,6 +412,11 @@ pub fn on_goto_declaration(file_name string) {
 	}
 }
 
+fn goto_declaration_response(json_message string) {
+	p.console_window.log('declaration response received: $json_message', p.info_style_id)
+	goto_location_helper(json_message)
+}
+
 pub fn on_find_references(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.references_provider
@@ -265,6 +426,19 @@ pub fn on_find_references(file_name string) {
 			p.current_stdin,
 			lsp.find_references(file_name, current_line, char_pos)
 		)
+	}
+}
+
+fn find_references_response(json_message string) {
+	p.console_window.log('find references response received: $json_message', p.info_style_id)
+	if json_message.starts_with('[') {
+		loca := json2.decode<LocationArray>(json_message) or { LocationArray{} }
+		if loca.items.len > 0 {
+			// TODO: simulate a find in files output seems to make sense but means another docked panel or a tabbed panel??
+			for item in loca.items {
+				p.console_window.log('  ${item.uri} ${item.range.start.line}', p.info_style_id)	
+			}
+		}
 	}
 }
 
@@ -280,6 +454,19 @@ pub fn on_document_highlight(file_name string) {
 	}
 }
 
+fn document_highlight_response(json_message string) {
+	// TODO: is this feature really needed??
+	p.console_window.log('document highlight response received: $json_message', p.info_style_id)
+	if json_message.starts_with('[') {
+		dha := json2.decode<DocumentHighlightArray>(json_message) or { DocumentHighlightArray{} }
+		if dha.items.len > 0 {
+			for item in dha.items {
+				p.console_window.log('  ${item.kind} ${item.range}', p.info_style_id)	
+			}
+		}
+	}
+}
+
 pub fn on_document_symbols(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.document_symbol_provider
@@ -291,12 +478,29 @@ pub fn on_document_symbols(file_name string) {
 	}
 }
 
-pub fn on_hover(file_name string) {
-	// TODO: use dwellstart and dwellend events to call this method
+fn document_symbols_response(json_message string) {
+	p.console_window.log('document symbols response received: $json_message', p.info_style_id)
+	if json_message.starts_with('[') {
+		if json_message.contains('selectionRange') {
+			dsa := json2.decode<DocumentSymbolArray>(json_message) or { DocumentSymbolArray{} }
+			for item in dsa.items {
+				p.console_window.log('  ${item.name} ${item.detail} ${item.kind} ', p.info_style_id)
+			}
+		} else {
+			sia := json2.decode<SymbolInformationArray>(json_message) or { SymbolInformationArray{} }
+			for item in sia.items {
+				p.console_window.log('  ${item.name} ${item.kind} ', p.info_style_id)
+			}
+		}
+	}
+}
+
+pub fn on_hover(file_name string, position u32) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.hover_provider
 	{
-		current_line, char_pos := editor.get_lsp_position_info()
+		current_line := editor.line_from_position(usize(position))
+		char_pos := position - editor.position_from_line(current_line)
 		lsp.write_to(
 			p.current_stdin,
 			lsp.hover(file_name, current_line, char_pos)
@@ -304,8 +508,14 @@ pub fn on_hover(file_name string) {
 	}
 }
 
+fn hover_response(json_message string) {
+	p.console_window.log('hover response received: $json_message', p.info_style_id)
+	h := json2.decode<Hover>(json_message) or { Hover{} }
+	editor.display_hover_hints(p.current_hover_position, h.contents)
+}
+
 pub fn on_rename(file_name string, new_name string) {
-	// TODO: use dwellstart and dwellend events to call this method
+	// TODO: really needed ?? - Npp offers replace in files, opened documents etc...
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.rename_provider
 	{
@@ -317,8 +527,14 @@ pub fn on_rename(file_name string, new_name string) {
 	}
 }
 
+fn rename_response(json_message string) {
+	p.console_window.log('rename response received: $json_message', p.info_style_id)
+	// TODO
+
+}
+
 pub fn on_prepare_rename(file_name string) {
-	// TODO: how to use ??
+	// TODO: really needed ?? - Could be interesting to see if the name given is valid
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.rename_provider
 	{
@@ -330,8 +546,14 @@ pub fn on_prepare_rename(file_name string) {
 	}
 }
 
+fn prepare_rename_response(json_message string) {
+	p.console_window.log('prepare rename response received: $json_message', p.info_style_id)
+	// TODO
+
+}
+
 pub fn on_folding_range(file_name string) {
-	// TODO: how to use ??
+	// TODO: really needed ?? Could be interesting to fold the next folding level from a given position ??
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.folding_range_provider
 	{
@@ -342,8 +564,14 @@ pub fn on_folding_range(file_name string) {
 	}
 }
 
+fn folding_range_response(json_message string) {
+	p.console_window.log('folding range response received: $json_message', p.info_style_id)
+	// TODO
+
+}
+
 pub fn on_selection_range(file_name string) {
-	// TODO: how to use ??
+	// TODO: really needed ?? would be another way of selecting text ??
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.selection_range_provider
 	{
@@ -355,46 +583,39 @@ pub fn on_selection_range(file_name string) {
 	}
 }
 
-pub fn todo_on_cancel_request(file_name string) {
-	if p.lsp_config.lspservers[p.current_language].initialized &&
-	   p.lsp_config.lspservers[p.current_language].features.fake
-	{
+fn selection_range_response(json_message string) {
+	p.console_window.log('selection range response received: $json_message', p.info_style_id)
+	// TODO
+}
+
+pub fn on_cancel_request(request_id int) {
+	// TODO: which requests should be cancellable??
+	if p.lsp_config.lspservers[p.current_language].initialized {
 		lsp.write_to(
 			p.current_stdin,
-			lsp.todo_cancel_request(file_name)
+			lsp.cancel_request(request_id)
 		)
 	}
 }
 
-pub fn todo_on_log_trace(file_name string) {
-	if p.lsp_config.lspservers[p.current_language].initialized &&
-	   p.lsp_config.lspservers[p.current_language].features.fake
-	{
+pub fn on_progress(token int, value string) {
+	// TODO: why would a client sent a progress notification to a server ??
+	if p.lsp_config.lspservers[p.current_language].initialized {
 		lsp.write_to(
 			p.current_stdin,
-			lsp.todo_log_trace(file_name)
+			lsp.progress(token, value)
 		)
 	}
 }
 
-pub fn todo_on_progress(file_name string) {
+pub fn on_set_trace(trace_value string) {
+	// TODO: find out where the valid values come from
 	if p.lsp_config.lspservers[p.current_language].initialized &&
-	   p.lsp_config.lspservers[p.current_language].features.fake
+	   (trace_value == 'off' || trace_value ==  'messages' || trace_value == 'verbose')
 	{
 		lsp.write_to(
 			p.current_stdin,
-			lsp.todo_progress(file_name)
-		)
-	}
-}
-
-pub fn todo_on_set_trace(file_name string) {
-	if p.lsp_config.lspservers[p.current_language].initialized &&
-	   p.lsp_config.lspservers[p.current_language].features.fake
-	{
-		lsp.write_to(
-			p.current_stdin,
-			lsp.todo_set_trace(file_name)
+			lsp.set_trace(trace_value)
 		)
 	}
 }
@@ -410,6 +631,10 @@ pub fn todo_on_incoming_calls(file_name string) {
 	}
 }
 
+fn incoming_calls_response(json_message string) {
+	p.console_window.log('incoming_calls_response: $json_message', p.info_style_id)
+}
+
 pub fn todo_on_outgoing_calls(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.fake
@@ -421,26 +646,8 @@ pub fn todo_on_outgoing_calls(file_name string) {
 	}
 }
 
-pub fn todo_on_register_capability(file_name string) {
-	if p.lsp_config.lspservers[p.current_language].initialized &&
-	   p.lsp_config.lspservers[p.current_language].features.fake
-	{
-		lsp.write_to(
-			p.current_stdin,
-			lsp.todo_register_capability(file_name)
-		)
-	}
-}
-
-pub fn todo_on_unregister_capability(file_name string) {
-	if p.lsp_config.lspservers[p.current_language].initialized &&
-	   p.lsp_config.lspservers[p.current_language].features.fake
-	{
-		lsp.write_to(
-			p.current_stdin,
-			lsp.todo_unregister_capability(file_name)
-		)
-	}
+fn outgoing_calls_response(json_message string) {
+	p.console_window.log('outgoing_calls_response: $json_message', p.info_style_id)
 }
 
 pub fn todo_on_code_action_resolve(file_name string) {
@@ -454,6 +661,10 @@ pub fn todo_on_code_action_resolve(file_name string) {
 	}
 }
 
+fn code_action_resolve_response(json_message string) {
+	p.console_window.log('resolve_response: $json_message', p.info_style_id)
+}
+
 pub fn todo_on_code_lens_resolve(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.fake
@@ -463,6 +674,10 @@ pub fn todo_on_code_lens_resolve(file_name string) {
 			lsp.todo_code_lens_resolve(file_name)
 		)
 	}
+}
+
+fn code_lens_resolve_response(json_message string) {
+	p.console_window.log('resolve_response: $json_message', p.info_style_id)
 }
 
 pub fn todo_on_completion_item_resolve(file_name string) {
@@ -476,6 +691,10 @@ pub fn todo_on_completion_item_resolve(file_name string) {
 	}
 }
 
+fn completion_item_resolve_response(json_message string) {
+	p.console_window.log('resolve_response: $json_message', p.info_style_id)
+}
+
 pub fn todo_on_document_link_resolve(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.fake
@@ -487,15 +706,8 @@ pub fn todo_on_document_link_resolve(file_name string) {
 	}
 }
 
-pub fn todo_on_telemetry_event(file_name string) {
-	if p.lsp_config.lspservers[p.current_language].initialized &&
-	   p.lsp_config.lspservers[p.current_language].features.fake
-	{
-		lsp.write_to(
-			p.current_stdin,
-			lsp.todo_telemetry_event(file_name)
-		)
-	}
+fn document_link_resolve_response(json_message string) {
+	p.console_window.log('resolve_response: $json_message', p.info_style_id)
 }
 
 pub fn todo_on_code_action(file_name string) {
@@ -509,6 +721,10 @@ pub fn todo_on_code_action(file_name string) {
 	}
 }
 
+fn code_action_response(json_message string) {
+	p.console_window.log('code_action_response: $json_message', p.info_style_id)
+}
+
 pub fn todo_on_code_lens(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.fake
@@ -518,6 +734,10 @@ pub fn todo_on_code_lens(file_name string) {
 			lsp.todo_code_lens(file_name)
 		)
 	}
+}
+
+fn code_lens_response(json_message string) {
+	p.console_window.log('code_lens_response: $json_message', p.info_style_id)
 }
 
 pub fn todo_on_color_presentation(file_name string) {
@@ -531,6 +751,10 @@ pub fn todo_on_color_presentation(file_name string) {
 	}
 }
 
+fn color_presentation_response(json_message string) {
+	p.console_window.log('color_presentation_response: $json_message', p.info_style_id)
+}
+
 pub fn todo_on_document_color(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.fake
@@ -540,6 +764,10 @@ pub fn todo_on_document_color(file_name string) {
 			lsp.todo_document_color(file_name)
 		)
 	}
+}
+
+fn document_color_response(json_message string) {
+	p.console_window.log('document_color_response: $json_message', p.info_style_id)
 }
 
 pub fn todo_on_document_link(file_name string) {
@@ -553,6 +781,10 @@ pub fn todo_on_document_link(file_name string) {
 	}
 }
 
+fn document_link_response(json_message string) {
+	p.console_window.log('document_link_response: $json_message', p.info_style_id)
+}
+
 pub fn todo_on_linked_editing_range(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.fake
@@ -562,6 +794,10 @@ pub fn todo_on_linked_editing_range(file_name string) {
 			lsp.todo_linked_editing_range(file_name)
 		)
 	}
+}
+
+fn linked_editing_range_response(json_message string) {
+	p.console_window.log('linked_editing_range_response: $json_message', p.info_style_id)
 }
 
 pub fn todo_on_moniker(file_name string) {
@@ -575,6 +811,10 @@ pub fn todo_on_moniker(file_name string) {
 	}
 }
 
+fn moniker_response(json_message string) {
+	p.console_window.log('moniker_response: $json_message', p.info_style_id)
+}
+
 pub fn todo_on_on_type_formatting(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.fake
@@ -584,6 +824,10 @@ pub fn todo_on_on_type_formatting(file_name string) {
 			lsp.todo_on_type_formatting(file_name)
 		)
 	}
+}
+
+fn on_type_formatting_response(json_message string) {
+	p.console_window.log('on_type_formatting_response: $json_message', p.info_style_id)
 }
 
 pub fn todo_on_prepare_call_hierarchy(file_name string) {
@@ -597,6 +841,10 @@ pub fn todo_on_prepare_call_hierarchy(file_name string) {
 	}
 }
 
+fn prepare_call_hierarchy_response(json_message string) {
+	p.console_window.log('prepare_call_hierarchy_response: $json_message', p.info_style_id)
+}
+
 pub fn todo_on_semantic_tokens_full(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.fake
@@ -606,6 +854,10 @@ pub fn todo_on_semantic_tokens_full(file_name string) {
 			lsp.todo_semantic_tokens_full(file_name)
 		)
 	}
+}
+
+fn semantic_tokens_full_response(json_message string) {
+	p.console_window.log('full_response: $json_message', p.info_style_id)
 }
 
 pub fn todo_on_semantic_tokens_delta(file_name string) {
@@ -619,6 +871,10 @@ pub fn todo_on_semantic_tokens_delta(file_name string) {
 	}
 }
 
+fn semantic_tokens_delta_response(json_message string) {
+	p.console_window.log('delta_response: $json_message', p.info_style_id)
+}
+
 pub fn todo_on_semantic_tokens_range(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.fake
@@ -628,6 +884,10 @@ pub fn todo_on_semantic_tokens_range(file_name string) {
 			lsp.todo_semantic_tokens_range(file_name)
 		)
 	}
+}
+
+fn semantic_tokens_range_response(json_message string) {
+	p.console_window.log('range_response: $json_message', p.info_style_id)
 }
 
 pub fn todo_on_type_definition(file_name string) {
@@ -641,6 +901,10 @@ pub fn todo_on_type_definition(file_name string) {
 	}
 }
 
+fn type_definition_response(json_message string) {
+	p.console_window.log('type_definition_response: $json_message', p.info_style_id)
+}
+
 pub fn todo_on_work_done_progress_cancel(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.fake
@@ -648,50 +912,6 @@ pub fn todo_on_work_done_progress_cancel(file_name string) {
 		lsp.write_to(
 			p.current_stdin,
 			lsp.todo_work_done_progress_cancel(file_name)
-		)
-	}
-}
-
-pub fn todo_on_work_done_progress_create(file_name string) {
-	if p.lsp_config.lspservers[p.current_language].initialized &&
-	   p.lsp_config.lspservers[p.current_language].features.fake
-	{
-		lsp.write_to(
-			p.current_stdin,
-			lsp.todo_work_done_progress_create(file_name)
-		)
-	}
-}
-
-pub fn todo_on_workspace_apply_edit(file_name string) {
-	if p.lsp_config.lspservers[p.current_language].initialized &&
-	   p.lsp_config.lspservers[p.current_language].features.fake
-	{
-		lsp.write_to(
-			p.current_stdin,
-			lsp.todo_workspace_apply_edit(file_name)
-		)
-	}
-}
-
-pub fn todo_on_workspace_code_lens_refresh(file_name string) {
-	if p.lsp_config.lspservers[p.current_language].initialized &&
-	   p.lsp_config.lspservers[p.current_language].features.fake
-	{
-		lsp.write_to(
-			p.current_stdin,
-			lsp.todo_workspace_code_lens_refresh(file_name)
-		)
-	}
-}
-
-pub fn todo_on_workspace_configuration(file_name string) {
-	if p.lsp_config.lspservers[p.current_language].initialized &&
-	   p.lsp_config.lspservers[p.current_language].features.fake
-	{
-		lsp.write_to(
-			p.current_stdin,
-			lsp.todo_workspace_configuration(file_name)
 		)
 	}
 }
@@ -773,15 +993,8 @@ pub fn todo_on_workspace_execute_command(file_name string) {
 	}
 }
 
-pub fn todo_on_workspace_sematic_tokens_refresh(file_name string) {
-	if p.lsp_config.lspservers[p.current_language].initialized &&
-	   p.lsp_config.lspservers[p.current_language].features.fake
-	{
-		lsp.write_to(
-			p.current_stdin,
-			lsp.todo_workspace_sematic_tokens_refresh(file_name)
-		)
-	}
+fn workspace_execute_command_response(json_message string) {
+	p.console_window.log('execute_command_response: $json_message', p.info_style_id)
 }
 
 pub fn todo_on_workspace_symbol(file_name string) {
@@ -795,6 +1008,10 @@ pub fn todo_on_workspace_symbol(file_name string) {
 	}
 }
 
+fn workspace_symbol_response(json_message string) {
+	p.console_window.log('symbol_response: $json_message', p.info_style_id)
+}
+
 pub fn todo_on_workspace_will_create_files(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.fake
@@ -804,6 +1021,10 @@ pub fn todo_on_workspace_will_create_files(file_name string) {
 			lsp.todo_workspace_will_create_files(file_name)
 		)
 	}
+}
+
+fn workspace_will_create_files_response(json_message string) {
+	p.console_window.log('will_create_files_response: $json_message', p.info_style_id)
 }
 
 pub fn todo_on_workspace_will_delete_files(file_name string) {
@@ -817,6 +1038,10 @@ pub fn todo_on_workspace_will_delete_files(file_name string) {
 	}
 }
 
+fn workspace_will_delete_files_response(json_message string) {
+	p.console_window.log('will_delete_files_response: $json_message', p.info_style_id)
+}
+
 pub fn todo_on_workspace_will_rename_files(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.fake
@@ -828,78 +1053,25 @@ pub fn todo_on_workspace_will_rename_files(file_name string) {
 	}
 }
 
-pub fn todo_on_workspace_folders(file_name string) {
-	if p.lsp_config.lspservers[p.current_language].initialized &&
-	   p.lsp_config.lspservers[p.current_language].features.fake
-	{
-		lsp.write_to(
-			p.current_stdin,
-			lsp.todo_workspace_folders(file_name)
-		)
-	}
+fn workspace_will_rename_files_response(json_message string) {
+	p.console_window.log('will_rename_files_response: $json_message', p.info_style_id)
 }
 
 fn notification_handler(json_message JsonMessage) {
 	match json_message.method {
-		'textDocument/publishDiagnostics' {
-			publish_diagnostics(json_message.params)
-		}
-		'window/showMessage' {
-			log_message(json_message.params)
-		}
-		'window/logMessage' {
-			log_message(json_message.params)
-		}
+		'textDocument/publishDiagnostics' { publish_diagnostics(json_message.params) }
+		'window/showMessage' { log_message(json_message.params) }
+		'window/logMessage' { log_message(json_message.params) }
+		// TODO
+		'$/cancelRequest' { decode_cancel_request_notification(json_message.params) }
+		'$/progress' { decode_progress_notification(json_message.params) }
+		'window/workDoneProgress/cancel' { decode_window_work_done_progress_cancel(json_message.params) }
+		'telemetry/event' { decode_telemetry_event(json_message.params) }
+		// 'workspace/didCreateFiles' { decode_workspace_did_create_files(json_message.params) }
+		// 'workspace/didRenameFiles' { decode_workspace_did_rename_files(json_message.params) }
+		// 'workspace/didDeleteFiles' { decode_workspace_did_delete_files(json_message.params) }
 		else {
-			p.console_window.log('  unhandled notification $json_message.method received', p.warning_style_id)
-		}
-	}
-}
-
-fn response_handler(json_message JsonMessage) {
-	id := json_message.id.int()
-	if json_message.result != 'null' {
-		func_ptr := p.open_response_messages[id]
-		if func_ptr != voidptr(0) {
-			func_ptr(json_message.result.str())
-		} else {
-			p.console_window.log('  unexpected response received', p.warning_style_id)
-		}
-	}
-	p.open_response_messages.delete(id)
-}
-
-fn error_response_handler(json_message JsonMessage) {
-	p.console_window.log('  !! ERROR RESPONSE !! received', p.error_style_id)
-	p.open_response_messages.delete(json_message.id.int())
-}
-
-fn request_handler(json_message JsonMessage) {
-	match json_message.method {
-		'window/showMessageRequest' {
-			smrp := json2.decode<ShowMessageRequestParams>(json_message.params) or { ShowMessageRequestParams{} }
-			p.console_window.log('$smrp.message\n${smrp.actions.join("\n")}', byte(smrp.type_))
-			m := Message {
-				msg_type: JsonRpcMessageType.response
-				id: json_message.id.int()
-				response: '"result":null'
-			}
-			lsp.write_to(p.current_stdin, m.encode())
-		}
-		'window/showDocument' {
-			sdp := json2.decode<ShowDocumentParams>(json_message.params) or { ShowDocumentParams{} }
-			// TODO: need some examples
-			p.console_window.log('window/showDocument\n $sdp', p.info_style_id)
-			m := Message {
-				msg_type: JsonRpcMessageType.response
-				id: json_message.id.int()
-				response: '"result":{"success": false}'  // TODO: 
-			}
-			lsp.write_to(p.current_stdin, m.encode())
-
-		}
-		else {
-			p.console_window.log('  unhandled request received', p.warning_style_id)
+			p.console_window.log('An unexpected notification has been received, ${report_at}.', p.warning_style_id)
 		}
 	}
 }
@@ -916,482 +1088,180 @@ fn publish_diagnostics(params string) {
 	}
 }
 
-fn initialize_msg_response(json_message string) {
-	result := json2.raw_decode(json_message) or { '' }
-	result_map := result.as_map()
-	if 'capabilities' in result_map {
-		capabilities := result_map['capabilities'] or { '' }
-		sc := json2.decode<ServerCapabilities>(capabilities.str()) or { ServerCapabilities{} }
-		p.console_window.log('    initialized response received', p.info_style_id)
-
-		p.lsp_config.lspservers[p.current_language].features = sc
-		// p.lsp_config.lspservers[p.current_language].features.text_document_sync = sc.text_document_sync
-		// p.lsp_config.lspservers[p.current_language].features.send_open_close_notif = sc.send_open_close_notif
-		// p.lsp_config.lspservers[p.current_language].features.send_save_notif = sc.send_save_notif
-		// p.lsp_config.lspservers[p.current_language].features.include_text_in_save_notif = sc.include_text_in_save_notif
-		// p.lsp_config.lspservers[p.current_language].features.compl_trigger_chars = sc.completion_provider.trigger_characters
-		// p.lsp_config.lspservers[p.current_language].features.sig_help_trigger_chars = sc.signature_help_provider.trigger_characters
-		// p.lsp_config.lspservers[p.current_language].features.sig_help_retrigger_chars = sc.signature_help_provider.retrigger_characters
-		// p.lsp_config.lspservers[p.current_language].features.definition_provider = sc.definition_provider
-		// p.lsp_config.lspservers[p.current_language].features.implementation_provider = sc.implementation_provider
-		// p.lsp_config.lspservers[p.current_language].features.document_formatting_provider = sc.document_formatting_provider
-		// p.lsp_config.lspservers[p.current_language].features.document_range_formatting_provider = sc.document_range_formatting_provider
-		// p.lsp_config.lspservers[p.current_language].features.declaration_provider = sc.declaration_provider
-		// p.lsp_config.lspservers[p.current_language].features.references_provider = sc.references_provider
-		// p.lsp_config.lspservers[p.current_language].features.document_highlight_provider = sc.document_highlight_provider
-		// p.lsp_config.lspservers[p.current_language].features.document_symbol_provider = sc.document_symbol_provider
-		// p.lsp_config.lspservers[p.current_language].features.supports_will_save = sc.supports_will_save
-		// p.lsp_config.lspservers[p.current_language].features.supports_will_save_wait_until = sc.supports_will_save_wait_until
-		// p.lsp_config.lspservers[p.current_language].features.hover_provider = sc.hover_provider
-		// p.lsp_config.lspservers[p.current_language].features.rename_provider = sc.rename_provider
-		// p.lsp_config.lspservers[p.current_language].features.folding_range_provider = sc.folding_range_provider
-		// p.lsp_config.lspservers[p.current_language].features.selection_range_provider = sc.selection_range_provider
-		
-		
-		// lsp.ServerCapabilities{
-			// type_definition_provider: true
-			// code_action_provider: true
-			// code_lens_provider: lsp.CodeLensOptions{
-				// resolve_provider: false
-			// }
-			// document_link_provider: false
-			// color_provider: false
-			// document_on_type_formatting_provider: lsp.DocumentOnTypeFormattingOptions{
-				// first_trigger_character: ''
-				// more_trigger_character: []
-			// }
-			// execute_command_provider: '{"commands":["gopls.add_dependency","gopls.add_import","gopls.apply_fix","gopls.check_upgrades","gopls.gc_details","gopls.generate","gopls.generate_gopls_mod","gopls.go_get_package","gopls.list_known_packages","gopls.regenerate_cgo","gopls.remove_dependency","gopls.run_tests","gopls.start_debugging","gopls.test","gopls.tidy","gopls.toggle_gc_details","gopls.update_go_sum","gopls.upgrade_dependency","gopls.vendor","gopls.workspace_metadata"]}'
-			// linked_editing_range_provider: false
-			// call_hierarchy_provider: true
-			// semantic_tokens_provider: false
-			// moniker_provider: false
-			// experimental: {}
-			// workspace_symbol_provider: true
-			// workspace_capabilities: lsp.WorkspaceCapabilities{
-				// workspace_folders: lsp.WorkspaceFoldersServerCapabilities{
-					// supported: true
-					// change_notifications: 'workspace/didChangeWorkspaceFolders'
-				// }
-				// file_operations: lsp.FileOperation{
-					// did_create: lsp.FileOperationRegistrationOptions{
-						// filters: []
-					// }
-					// will_create: lsp.FileOperationRegistrationOptions{
-						// filters: []
-					// }
-					// did_rename: lsp.FileOperationRegistrationOptions{
-						// filters: []
-					// }
-					// will_rename: lsp.FileOperationRegistrationOptions{
-						// filters: []
-					// }
-					// did_delete: lsp.FileOperationRegistrationOptions{
-						// filters: []
-					// }
-					// will_delete: lsp.FileOperationRegistrationOptions{
-						// filters: []
-					// }
-				// }
-			// }
-		// }		
-		
-		
-		
-		
-		lsp.write_to(
-			p.current_stdin,
-			lsp.initialized_msg()
-		)
-
-		p.lsp_config.lspservers[p.current_language].initialized = true
-		current_file := npp.get_current_filename()
-		on_file_opened(current_file)
-	} else {
-		p.console_window.log('  unexpected initialize response received', p.error_style_id)
-	}
-}
-
-fn completion_response(json_message string) {
-	cl := json2.decode<CompletionList>(json_message) or { CompletionList{} }
-	mut ci := []CompletionItem{}
-	if cl.items.len != 0 {
-		ci = cl.items
-	} else {
-		cia := json2.decode<CompletionItemArray>(json_message) or { CompletionItemArray{} }
-		ci = cia.items
-	}
-	if ci.len > 0 { editor.display_completion_list(ci.map(it.label).join('\n')) }
-}
-
-fn signature_help_response(json_message string) {
-	p.console_window.log('  signature help response received: $json_message', p.info_style_id)
-	sh := json2.decode<SignatureHelp>(json_message) or { SignatureHelp{} }
-	if sh.signatures.len > 0 {
-		editor.display_signature_hints(sh.signatures[0].label)
-	}
-	p.console_window.log('$sh', p.info_style_id)
-}
-
-fn format_document_response(json_message string) {
-	p.console_window.log('  format document response received: $json_message', p.info_style_id)
-	tea := json2.decode<TextEditArray>(json_message) or { TextEditArray{} }
-	editor.begin_undo_action()
-	for item in tea.items {
-		start_pos := u32(editor.position_from_line(item.range.start.line)) + item.range.start.character
-		end_pos := u32(editor.position_from_line(item.range.end.line)) + item.range.end.character
-		editor.replace_target(start_pos, end_pos, item.new_text)
-	}
-	editor.end_undo_action()
-}
-
-fn goto_location_helper(json_message string) {
-	mut start_pos := u32(0)
-	if json_message.starts_with('[') {
-		if json_message.contains('originSelectionRange') {
-			lla := json2.decode<LocationLinkArray>(json_message) or { LocationLinkArray{} }
-			if lla.items.len > 0 {
-				npp.open_document(lla.items[0].target_uri)
-				start_pos = u32(editor.position_from_line(lla.items[0].target_range.start.line))
-				start_pos += lla.items[0].target_range.start.character
-			}
-		} else {
-			loca := json2.decode<LocationArray>(json_message) or { LocationArray{} }
-			if loca.items.len > 0 {
-
-				npp.open_document(loca.items[0].uri)
-				start_pos = u32(editor.position_from_line(loca.items[0].range.start.line))
-				start_pos += loca.items[0].range.start.character
-			}
-		}
-	} else {
-		loc := json2.decode<Location>(json_message) or { Location{} }
-		npp.open_document(loc.uri)
-		start_pos = u32(editor.position_from_line(loc.range.start.line))
-		start_pos += loc.range.start.character
-	}
-	editor.goto_pos(start_pos)	
-}
-
-fn goto_definition_response(json_message string) {
-	p.console_window.log('goto definition response received: $json_message', p.info_style_id)
-	goto_location_helper(json_message)
-}
-
-fn goto_implementation_response(json_message string) {
-	p.console_window.log('goto implementation response received: $json_message', p.info_style_id)
-	goto_location_helper(json_message)
-}
-
-fn peek_helper(json_message string) {
-	mut start_line := u32(0)
-	mut end_line := u32(0)
-	mut source_file := ''
-	if json_message.starts_with('[') {
-		if json_message.contains('originSelectionRange') {
-			lla := json2.decode<LocationLinkArray>(json_message) or { LocationLinkArray{} }
-			if lla.items.len > 0 {
-				source_file = lla.items[0].target_uri
-				start_line = lla.items[0].target_range.start.line
-				end_line = lla.items[0].target_range.end.line
-			}
-		} else {
-			loca := json2.decode<LocationArray>(json_message) or { LocationArray{} }
-			if loca.items.len > 0 {
-				source_file = loca.items[0].uri
-				start_line = loca.items[0].range.start.line
-				end_line = loca.items[0].range.end.line
-			}
-		}
-	} else {
-		loc := json2.decode<Location>(json_message) or { Location{} }
-		source_file = loc.uri
-		start_line = loc.range.start.line
-		end_line = loc.range.end.line
-	}
-	
-	if source_file.len > 0 {
-		if os.exists(source_file) {
-			content := os.read_lines(source_file) or { [''] }
-			first_line := int(start_line)
-			last_line__ := int(end_line)
-			if content.len >= last_line__ {
-				last_line := if content.len >= last_line__ + 4 { last_line__ + 4} else { content.len }
-				peeked_code := '\n${content[first_line..last_line].join("\n")}'
-				editor.show_peeked_info(peeked_code)
-			}
-		}
-	}	
-}
-
-fn peek_definition_response(json_message string) {
-	p.console_window.log('peek definition response received: $json_message', p.info_style_id)
-	peek_helper(json_message)
-}
-
-fn peek_implementation_response(json_message string) {
-	p.console_window.log('peek implementation response received: $json_message', p.info_style_id)
-	peek_helper(json_message)
-}
-
 fn log_message(json_message string) {
 	smp := json2.decode<ShowMessageParams>(json_message) or { ShowMessageParams{} }
 	p.console_window.log(smp.message, byte(smp.type_))
 }
 
-fn goto_declaration_response(json_message string) {
-	p.console_window.log('declaration response received: $json_message', p.info_style_id)
-	goto_location_helper(json_message)
+fn decode_cancel_request_notification(json_message string) {
+	// TODO: once supported it needs some kind of stored requests container
+	cp := json2.decode<CancelParams>(json_message) or { CancelParams{} }
+	p.console_window.log('cancel_request_notification: ${cp.str()}', p.info_style_id)
 }
 
-fn find_references_response(json_message string) {
-	p.console_window.log('find references response received: $json_message', p.info_style_id)
-	if json_message.starts_with('[') {
-		loca := json2.decode<LocationArray>(json_message) or { LocationArray{} }
-		if loca.items.len > 0 {
-			// TODO: simulate a find in files output seems to make sense but means another docked panel or a tabbed panel??
-			for item in loca.items {
-				p.console_window.log('  ${item.uri} ${item.range.start.line}', p.info_style_id)	
-			}
-		}
-	}
+fn decode_progress_notification(json_message string) {
+	// TODO: is supposed to show any progress - how should this be implemented in Npp?
+	pp := json2.decode<ProgressParams>(json_message) or { ProgressParams{} }
+	p.console_window.log('progress_notification: ${pp.str()}', p.info_style_id)
 }
 
-fn document_highlight_response(json_message string) {
-	// TODO: is this feature really needed??
-	p.console_window.log('document highlight response received: $json_message', p.info_style_id)
-	if json_message.starts_with('[') {
-		dha := json2.decode<DocumentHighlightArray>(json_message) or { DocumentHighlightArray{} }
-		if dha.items.len > 0 {
-			for item in dha.items {
-				p.console_window.log('  ${item.kind} ${item.range}', p.info_style_id)	
-			}
-		}
-	}
+fn decode_window_work_done_progress_cancel(json_message string) {
+	// TODO: is supposed to end a progress widget(?).
+	wdpcp := json2.decode<WorkDoneProgressCancelParams>(json_message) or { WorkDoneProgressCancelParams{} }
+	p.console_window.log('window_work_done_progress_cancel: ${wdpcp.str()}', p.info_style_id)
 }
 
-fn document_symbols_response(json_message string) {
-	p.console_window.log('document symbols response received: $json_message', p.info_style_id)
-	if json_message.starts_with('[') {
-		if json_message.contains('selectionRange') {
-			dsa := json2.decode<DocumentSymbolArray>(json_message) or { DocumentSymbolArray{} }
-			for item in dsa.items {
-				p.console_window.log('  ${item.name} ${item.detail} ${item.kind} ', p.info_style_id)
-			}
+fn decode_telemetry_event(json_message string) {
+	// TODO: to quote from lsp specification
+	// The protocol doesn’t specify the payload
+	// since no interpretation of the data happens in the protocol. 
+	// Most clients even don’t handle the event directly but forward 
+	// them to the extensions owing the corresponding server issuing the event.
+	// The open question is: how to forward ??
+	p.console_window.log('telemetry_event: $json_message', p.info_style_id)
+}
+
+// fn decode_workspace_did_create_files(json_message string) {
+	// // TODO: why and how to implement?
+	// cfp := json2.decode<CreateFilesParams>(json_message) or { CreateFilesParams{} }
+	// p.console_window.log('workspace_did_create_files:', p.info_style_id)
+	// for file__ in cfp.files {
+		// p.console_window.log('  ${file__.uri}', p.info_style_id)
+	// }	
+// }
+
+// fn decode_workspace_did_rename_files(json_message string) {
+	// // TODO: why and how to implement?
+	// rfp := json2.decode<RenameFilesParams>(json_message) or { RenameFilesParams{} }
+	// p.console_window.log('workspace_did_rename_files:', p.info_style_id)
+	// for file__ in rfp.files {
+		// p.console_window.log('  old: ${file__.old_uri}\n  new: ${file__.new_uri}\n', p.info_style_id)
+	// }
+// }
+
+// fn decode_workspace_did_delete_files(json_message string) {
+	// dfp := json2.decode<DeleteFilesParams>(json_message) or { DeleteFilesParams{} }
+	// p.console_window.log('workspace_did_delete_files:', p.info_style_id)
+	// for file__ in dfp.files {
+		// p.console_window.log('  ${file__.uri}', p.info_style_id)
+	// }
+// }
+
+
+fn response_handler(json_message JsonMessage) {
+	id := json_message.id.int()
+	if json_message.result != 'null' {
+		func_ptr := p.open_response_messages[id]
+		if func_ptr != voidptr(0) {
+			func_ptr(json_message.result.str())
 		} else {
-			sia := json2.decode<SymbolInformationArray>(json_message) or { SymbolInformationArray{} }
-			for item in sia.items {
-				p.console_window.log('  ${item.name} ${item.kind} ', p.info_style_id)
+			p.console_window.log('An unexpected response has been received, ${report_at}.', p.warning_style_id)
+		}
+	}
+	p.open_response_messages.delete(id)
+}
+
+fn error_response_handler(json_message JsonMessage) {
+	p.console_window.log('  !! ERROR RESPONSE !! received', p.error_style_id)
+	p.open_response_messages.delete(json_message.id.int())
+}
+
+fn request_handler(json_message JsonMessage) {
+	match json_message.method {
+		'window/showMessageRequest' {
+			smrp := json2.decode<ShowMessageRequestParams>(json_message.params) or { ShowMessageRequestParams{} }
+			p.console_window.log('$smrp.message\n${smrp.actions.join("\n")}', byte(smrp.type_))
+			send_null_response(json_message.id.int())
+		}
+		'window/showDocument' {
+			sdp := json2.decode<ShowDocumentParams>(json_message.params) or { ShowDocumentParams{} }
+			// TODO: need some examples
+			p.console_window.log('window/showDocument\n $sdp', p.info_style_id)
+			m := Message {
+				msg_type: JsonRpcMessageType.response
+				id: json_message.id.int()
+				response: '"result":{"success": false}'  // TODO: 
 			}
+			lsp.write_to(p.current_stdin, m.encode())
+		}
+		'client/registerCapability' {
+			// TODO: need some examples how this should work and what it is for.
+			rp := json2.decode<RegistrationParams>(json_message.params) or { RegistrationParams{} }
+			p.console_window.log('registerCapability: ${rp.str()}', p.info_style_id)
+			send_null_response(json_message.id.int())	
+		}
+		'client/unregisterCapability' {
+			// TODO: need some examples how this should work and what it is for.
+			up := json2.decode<UnregistrationParams>(json_message.params) or { UnregistrationParams{} }
+			p.console_window.log('unregisterCapability: ${up.str()}', p.info_style_id)
+			send_null_response(json_message.id.int())	
+		}
+		'window/workDoneProgress/create' {
+			// TODO: is supposed to inform that the progress widget(?) can be closed.
+			wdpcp := json2.decode<WorkDoneProgressCreateParams>(json_message.params) or { WorkDoneProgressCreateParams{} }
+			p.console_window.log('window_work_done_progress_create: ${wdpcp.str()}', p.info_style_id)
+			send_null_response(json_message.id.int())
+		}
+		'workspace/workspaceFolders' {
+			// TODO: once this is supported it needs to send
+			// an array of 
+			/*
+				export interface WorkspaceFolder {
+					// The associated URI for this workspace folder.
+					uri: DocumentUri;
+
+					// The name of the workspace folder. Used to refer to this
+					// workspace folder in the user interface.
+					name: string
+				}			
+			*/
+			p.console_window.log('workspace/workspaceFolders', p.info_style_id)
+			send_null_response(json_message.id.int())
+		}
+		'workspace/configuration' {
+			// TODO: once this is supported it needs to send
+			// an array of 
+			/*
+				export interface ConfigurationParams {
+					items: ConfigurationItem[];
+				}
+				export interface ConfigurationItem {
+					// The scope to get the configuration section for.
+					scopeUri?: DocumentUri;
+
+					// The configuration section asked for.
+					section?: string;
+				}
+			*/
+			p.console_window.log('workspace/configuration', p.info_style_id)
+			send_null_response(json_message.id.int())			
+		}
+		'workspace/applyEdit' {
+			m := Message {
+				msg_type: JsonRpcMessageType.response
+				id: json_message.id.int()
+				response: '"result":{"applied": false}'  // TODO: 
+			}
+			lsp.write_to(p.current_stdin, m.encode())
+		}
+		'workspace/codeLens/refresh' {
+			send_null_response(json_message.id.int())
+		}
+		'workspace/semanticTokens/refresh' {
+			send_null_response(json_message.id.int())
+		}
+		
+		else {
+			p.console_window.log('An unexpected request has been received, ${report_at}.', p.warning_style_id)
 		}
 	}
 }
 
-fn hover_response(json_message string) {
-	p.console_window.log('hover response received: $json_message', p.info_style_id)
-	// TODO: contents: MarkedString | MarkedString[] | MarkupContent;
-	if json_message.contains('contents') {
-		//
+fn send_null_response(id int) {
+	m := Message {
+		msg_type: JsonRpcMessageType.response
+		id: id
+		response: '"result":null'
 	}
-}
-
-fn rename_response(json_message string) {
-	p.console_window.log('rename response received: $json_message', p.info_style_id)
-	// TODO
-
-}
-
-fn prepare_rename_response(json_message string) {
-	p.console_window.log('prepare rename response received: $json_message', p.info_style_id)
-	// TODO
-
-}
-
-fn folding_range_response(json_message string) {
-	p.console_window.log('folding range response received: $json_message', p.info_style_id)
-	// TODO
-
-}
-
-fn selection_range_response(json_message string) {
-	p.console_window.log('selection range response received: $json_message', p.info_style_id)
-	// TODO
-
-}
-
-
-
-fn todo_cancel_request_response(json_message string) {
-	p.console_window.log('cancel_request_response: $json_message', p.info_style_id)
-}
-
-fn todo_log_trace_response(json_message string) {
-	p.console_window.log('log_trace_response: $json_message', p.info_style_id)
-}
-
-fn todo_progress_response(json_message string) {
-	p.console_window.log('progress_response: $json_message', p.info_style_id)
-}
-
-fn todo_set_trace_response(json_message string) {
-	p.console_window.log('set_trace_response: $json_message', p.info_style_id)
-}
-
-fn todo_incoming_calls_response(json_message string) {
-	p.console_window.log('incoming_calls_response: $json_message', p.info_style_id)
-}
-
-fn todo_outgoing_calls_response(json_message string) {
-	p.console_window.log('outgoing_calls_response: $json_message', p.info_style_id)
-}
-
-fn todo_register_capability_response(json_message string) {
-	p.console_window.log('register_capability_response: $json_message', p.info_style_id)
-}
-
-fn todo_unregister_capability_response(json_message string) {
-	p.console_window.log('unregister_capability_response: $json_message', p.info_style_id)
-}
-
-fn todo_code_action_resolve_response(json_message string) {
-	p.console_window.log('resolve_response: $json_message', p.info_style_id)
-}
-
-fn todo_code_lens_resolve_response(json_message string) {
-	p.console_window.log('resolve_response: $json_message', p.info_style_id)
-}
-
-fn todo_completion_item_resolve_response(json_message string) {
-	p.console_window.log('resolve_response: $json_message', p.info_style_id)
-}
-
-fn todo_document_link_resolve_response(json_message string) {
-	p.console_window.log('resolve_response: $json_message', p.info_style_id)
-}
-
-fn todo_telemetry_event_response(json_message string) {
-	p.console_window.log('event_response: $json_message', p.info_style_id)
-}
-
-fn todo_code_action_response(json_message string) {
-	p.console_window.log('code_action_response: $json_message', p.info_style_id)
-}
-
-fn todo_code_lens_response(json_message string) {
-	p.console_window.log('code_lens_response: $json_message', p.info_style_id)
-}
-
-fn todo_color_presentation_response(json_message string) {
-	p.console_window.log('color_presentation_response: $json_message', p.info_style_id)
-}
-
-fn todo_document_color_response(json_message string) {
-	p.console_window.log('document_color_response: $json_message', p.info_style_id)
-}
-
-fn todo_document_link_response(json_message string) {
-	p.console_window.log('document_link_response: $json_message', p.info_style_id)
-}
-
-fn todo_linked_editing_range_response(json_message string) {
-	p.console_window.log('linked_editing_range_response: $json_message', p.info_style_id)
-}
-
-fn todo_moniker_response(json_message string) {
-	p.console_window.log('moniker_response: $json_message', p.info_style_id)
-}
-
-fn todo_on_type_formatting_response(json_message string) {
-	p.console_window.log('on_type_formatting_response: $json_message', p.info_style_id)
-}
-
-fn todo_prepare_call_hierarchy_response(json_message string) {
-	p.console_window.log('prepare_call_hierarchy_response: $json_message', p.info_style_id)
-}
-
-fn todo_semantic_tokens_full_response(json_message string) {
-	p.console_window.log('full_response: $json_message', p.info_style_id)
-}
-
-fn todo_semantic_tokens_delta_response(json_message string) {
-	p.console_window.log('delta_response: $json_message', p.info_style_id)
-}
-
-fn todo_semantic_tokens_range_response(json_message string) {
-	p.console_window.log('range_response: $json_message', p.info_style_id)
-}
-
-fn todo_type_definition_response(json_message string) {
-	p.console_window.log('type_definition_response: $json_message', p.info_style_id)
-}
-
-fn todo_work_done_progress_cancel_response(json_message string) {
-	p.console_window.log('cancel_response: $json_message', p.info_style_id)
-}
-
-fn todo_work_done_progress_create_response(json_message string) {
-	p.console_window.log('create_response: $json_message', p.info_style_id)
-}
-
-fn todo_workspace_apply_edit_response(json_message string) {
-	p.console_window.log('apply_edit_response: $json_message', p.info_style_id)
-}
-
-fn todo_workspace_code_lens_refresh_response(json_message string) {
-	p.console_window.log('refresh_response: $json_message', p.info_style_id)
-}
-
-fn todo_workspace_configuration_response(json_message string) {
-	p.console_window.log('configuration_response: $json_message', p.info_style_id)
-}
-
-fn todo_workspace_did_change_configuration_response(json_message string) {
-	p.console_window.log('did_change_configuration_response: $json_message', p.info_style_id)
-}
-
-fn todo_workspace_did_change_watched_files_response(json_message string) {
-	p.console_window.log('did_change_watched_files_response: $json_message', p.info_style_id)
-}
-
-fn todo_workspace_did_change_workspace_folders_response(json_message string) {
-	p.console_window.log('did_change_workspace_folders_response: $json_message', p.info_style_id)
-}
-
-fn todo_workspace_did_create_files_response(json_message string) {
-	p.console_window.log('did_create_files_response: $json_message', p.info_style_id)
-}
-
-fn todo_workspace_did_delete_files_response(json_message string) {
-	p.console_window.log('did_delete_files_response: $json_message', p.info_style_id)
-}
-
-fn todo_workspace_did_rename_files_response(json_message string) {
-	p.console_window.log('did_rename_files_response: $json_message', p.info_style_id)
-}
-
-fn todo_workspace_execute_command_response(json_message string) {
-	p.console_window.log('execute_command_response: $json_message', p.info_style_id)
-}
-
-fn todo_workspace_sematic_tokens_refresh_response(json_message string) {
-	p.console_window.log('refresh_response: $json_message', p.info_style_id)
-}
-
-fn todo_workspace_symbol_response(json_message string) {
-	p.console_window.log('symbol_response: $json_message', p.info_style_id)
-}
-
-fn todo_workspace_will_create_files_response(json_message string) {
-	p.console_window.log('will_create_files_response: $json_message', p.info_style_id)
-}
-
-fn todo_workspace_will_delete_files_response(json_message string) {
-	p.console_window.log('will_delete_files_response: $json_message', p.info_style_id)
-}
-
-fn todo_workspace_will_rename_files_response(json_message string) {
-	p.console_window.log('will_rename_files_response: $json_message', p.info_style_id)
-}
-
-fn todo_workspace_folders_response(json_message string) {
-	p.console_window.log('workspace_folders_response: $json_message', p.info_style_id)
+	lsp.write_to(p.current_stdin, m.encode())	
 }

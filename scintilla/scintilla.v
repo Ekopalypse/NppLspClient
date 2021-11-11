@@ -185,10 +185,12 @@ pub fn (mut e Editor) alloc_styles(indicator_id int,
 	e.info_msg_color = info_msg_color
 	
 	// initialize the current view
-	e.init_styles()
+	e.initialize()
 }
 
-pub fn (mut e Editor) init_styles() {
+pub fn (mut e Editor) initialize() {
+	e.call(sci_setmousedwelltime, 500, 0)
+
 	e.call(sci_annotationsetstyleoffset, e.diagnostic_offset, 0)
 	e.call(sci_annotationsetvisible, usize(annotation_boxed), 0)
 
@@ -278,4 +280,12 @@ pub fn (e Editor) get_lsp_position_info() (u32, u32) {
 	line := e.line_from_position(pos)
 	start := e.position_from_line(line)
 	return line, pos-start
+}
+
+pub fn (e Editor) cancel_calltip() {
+	e.call(sci_calltipcancel, 0, 0)
+}
+
+pub fn (e Editor) display_hover_hints(position u32, hints string) {
+	e.call(sci_calltipshow, usize(position), isize(hints.str))
 }

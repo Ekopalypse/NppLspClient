@@ -5,7 +5,7 @@ pub struct ServerCapabilities {
 pub mut:
 	text_document_sync                   int
 	send_open_close_notif				 bool = true
-	send_save_notif						 bool
+	send_save_notif						 bool = true
 	include_text_in_save_notif			 bool	
 	supports_will_save					 bool
 	supports_will_save_wait_until		 bool

@@ -26,17 +26,19 @@ enable_logging = false  # values must be either false or true
 log_level = info
 
 # each configured lanugage server needs to start with a section called
-# [lspservers.NAME_OF_THE_LANGUAGE_SERVER]
+# [lspservers.NAME_OF_THE_LANGUAGE_SERVER] eg. [lspservers.python]
 # the NAME_OF_THE_LANGUAGE_SERVER must be the same as displayed in the language menu
+# if the name contains non ASCII letters like C++, then it needs to be encased in double quotes like
+# [lspservers."c++"]
 
 # Currently, four attributes can be set, which are listed below
 # mode - Note, ONLY IO is implemented currently, value encased in a double quotes.
 # e.g.  mode = "io"
 
-# executable - the full path to the language server executable encased in a single quote 
+# executable - the full path to the language server executable encased in SINGLE quotes.
 # e.g.  executable = \'D:\ProgramData\Python\Python38_64\Scripts\pyls.exe\'
 
-# args - arguments passed to the language server executable encased in a single quote 
+# args - arguments passed to the language server executable encased in SINGLE quotes.
 # e.g.  args = \'--check-parent-process --log-file D:\log.txt -vvv\'
 
 # auto_start_server - true or false; indicates whether the language server will be started automatically when a corresponding document gets opened.
@@ -62,6 +64,7 @@ pub mut:
 	auto_start_server bool
 	message_id_counter int = -1
 	initialized bool
+	open_documents []string  // used to prevent sending didOpen multiple times
 	features ServerCapabilities
 }
 

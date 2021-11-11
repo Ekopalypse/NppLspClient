@@ -42,8 +42,8 @@ pub fn (mut pm ProcessManager) start(language string, exe string, args string) P
 
 pub fn (mut pm ProcessManager) stop(language string) {
 	if language !in pm.running_processes { return }
-	write_to(pm.running_processes[language].stdin, lsp.exit_msg())
 	write_to(pm.running_processes[language].stdin, lsp.shutdown_msg())
+	write_to(pm.running_processes[language].stdin, lsp.exit_msg())
 	pm.running_processes.delete(language)
 }
 
