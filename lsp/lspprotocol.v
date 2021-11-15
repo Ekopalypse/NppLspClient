@@ -491,332 +491,468 @@ pub fn set_trace(trace_value string) string {
 	return m.encode()
 }
 
-pub fn todo_incoming_calls(file_path DocumentUri) string {
+pub fn incoming_calls(token int, value string) string {
+	//  TODO: WorkDoneProgressParams
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"callHierarchy/incomingCalls"'
-		params: '{"workDoneToken":{"token":"","value":null},}'
+		// params: '{"workDoneToken":{"token":"","value":null}}'
+		params: '{}'
 	}
 	p.open_response_messages[m.id] = incoming_calls_response
 	return m.encode()
 }
 
-pub fn todo_outgoing_calls(file_path DocumentUri) string {
+pub fn outgoing_calls(token int, value string) string {
+	//  TODO: WorkDoneProgressParams
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"callHierarchy/outgoingCalls"'
+		// params: '{"workDoneToken":{"token":"","value":null}}'
 		params: '{}'
 	}
 	p.open_response_messages[m.id] = outgoing_calls_response
 	return m.encode()
 }
 
-pub fn todo_code_action_resolve(file_path DocumentUri) string {
+pub fn code_action_resolve(title string) string {
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"codeAction/resolve"'
-		params: '{}'
+		params: '{"title":"$title"}'
 	}
 	p.open_response_messages[m.id] = code_action_resolve_response
 	return m.encode()
 }
 
-pub fn todo_code_lens_resolve(file_path DocumentUri) string {
+pub fn code_lens_resolve(file_path DocumentUri) string {
+	//  TODO: WorkDoneProgressParams
+	uri_path := make_uri(file_path)
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"codeLens/resolve"'
-		params: '{}'
+		params: '{"textDocument":{"uri":"file:///$uri_path"}}'
 	}
 	p.open_response_messages[m.id] = code_lens_resolve_response
 	return m.encode()
 }
 
-pub fn todo_completion_item_resolve(file_path DocumentUri) string {
+pub fn completion_item_resolve(label string) string {
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"completionItem/resolve"'
-		params: '{}'
+		params: '{"label":"$label"}'
 	}
 	p.open_response_messages[m.id] = completion_item_resolve_response
 	return m.encode()
 }
 
-pub fn todo_document_link_resolve(file_path DocumentUri) string {
+pub fn document_link_resolve(start_line u32, 
+							 start_char u32, 
+							 end_line u32, 
+							 end_char u32) string {
+	range := '"range":{"start":{"line":$start_line,"character":$start_char},"end":{"line":$end_line,"character":$end_char}'	
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"documentLink/resolve"'
-		params: '{}'
+		params: '{$range}'
 	}
 	p.open_response_messages[m.id] = document_link_resolve_response
 	return m.encode()
 }
 
-pub fn todo_code_action(file_path DocumentUri) string {
+pub fn todo_code_action(file_path DocumentUri,
+						start_line u32, 
+						start_char u32, 
+						end_line u32, 
+						end_char u32) string {
+	//  TODO: WorkDoneProgressParams
+	uri_path := make_uri(file_path)
+	text_document := '"textDocument":{"uri":"file:///$uri_path"}'
+	range := '"range":{"start":{"line":$start_line,"character":$start_char},"end":{"line":$end_line,"character":$end_char}'	
+	// export interface CodeActionContext {
+		// /**
+		 // * An array of diagnostics known on the client side overlapping the range
+		 // * provided to the `textDocument/codeAction` request. They are provided so
+		 // * that the server knows which errors are currently presented to the user
+		 // * for the given range. There is no guarantee that these accurately reflect
+		 // * the error state of the resource. The primary parameter
+		 // * to compute code actions is the provided range.
+		 // */
+		// diagnostics: Diagnostic[];
+
+		// /**
+		 // * Requested kind of actions to return.
+		 // *
+		 // * Actions not of this kind are filtered out by the client before being
+		 // * shown. So servers can omit computing them.
+		 // */
+		// only?: CodeActionKind[];
+
+		// /**
+		 // * The reason why code actions were requested.
+		 // *
+		 // * @since 3.17.0
+		 // */
+		// triggerKind?: CodeActionTriggerKind;
+	// }
+	context := '{"diagnostics":[]}'
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/codeAction"'
-		params: '{}'
+		params: '{$text_document,$range,$context}'
 	}
 	p.open_response_messages[m.id] = code_action_response
 	return m.encode()
 }
 
-pub fn todo_code_lens(file_path DocumentUri) string {
+pub fn code_lens(file_path DocumentUri) string {
+	// TODO: WorkDoneProgressParams
+	uri_path := make_uri(file_path)
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/codeLens"'
-		params: '{}'
+		params: '{"textDocument":{"uri":"file:///$uri_path"}}'
 	}
 	p.open_response_messages[m.id] = code_lens_response
 	return m.encode()
 }
 
-pub fn todo_color_presentation(file_path DocumentUri) string {
+pub fn color_presentation(file_path DocumentUri,
+						  start_line u32, 
+						  start_char u32, 
+						  end_line u32, 
+						  end_char u32,
+						  red f32,
+						  green f32,
+						  blue f32,
+						  alpha f32) string {
+	// TODO: WorkDoneProgressParams
+	uri_path := make_uri(file_path)
+	text_document := '"textDocument":{"uri":"file:///$uri_path"}'
+	color := '"color":{"red":$red,"green":$green,"blue":$blue,"alpha":$alpha}'
+	range := '"range":{"start":{"line":$start_line,"character":$start_char},"end":{"line":$end_line,"character":$end_char}'
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/colorPresentation"'
-		params: '{}'
+		params: '{$text_document,$color,$range}'
 	}
 	p.open_response_messages[m.id] = color_presentation_response
 	return m.encode()
 }
 
-pub fn todo_document_color(file_path DocumentUri) string {
+pub fn document_color(file_path DocumentUri) string {
+	// TODO: WorkDoneProgressParams
+	uri_path := make_uri(file_path)
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/documentColor"'
-		params: '{}'
+		params: '{"textDocument":{"uri":"file:///$uri_path"}}'
 	}
 	p.open_response_messages[m.id] = document_color_response
 	return m.encode()
 }
 
-pub fn todo_document_link(file_path DocumentUri) string {
+pub fn document_link(file_path DocumentUri) string {
+	uri_path := make_uri(file_path)
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/documentLink"'
-		params: '{}'
+		params: '{"textDocument":{"uri":"file:///$uri_path"}}'
 	}
 	p.open_response_messages[m.id] = document_link_response
 	return m.encode()
 }
 
-pub fn todo_linked_editing_range(file_path DocumentUri) string {
+pub fn linked_editing_range(file_path DocumentUri, line u32, char_position u32) string {
+	// TODO: WorkDoneProgressParams
+	uri_path := make_uri(file_path)
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/linkedEditingRange"'
-		params: '{}'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
 	p.open_response_messages[m.id] = linked_editing_range_response
 	return m.encode()
 }
 
-pub fn todo_moniker(file_path DocumentUri) string {
+pub fn moniker(file_path DocumentUri, line u32, char_position u32) string {
+	// TODO: WorkDoneProgressParams
+	uri_path := make_uri(file_path)
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/moniker"'
-		params: '{}'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
 	p.open_response_messages[m.id] = moniker_response
 	return m.encode()
 }
 
-pub fn todo_on_type_formatting(file_path DocumentUri) string {
+pub fn on_type_formatting(file_path DocumentUri, 
+						  line u32, 
+						  char_position u32, 
+						  ch string, 
+						  tab_size u32, 
+						  insert_spaces bool) string {
+	uri_path := make_uri(file_path)
+	
+	text_document := '"textDocument":{"uri":"file:///$uri_path"}'
+	position := '"position":{"character":$char_position,"line":$line}'
+	character := '"ch":"$ch"'
+	// FormattingOptions
+	// Size of a tab in spaces.
+	// tabSize: u32
+
+	// Prefer spaces over tabs.
+	// insertSpaces: bool
+
+	// Trim trailing whitespace on a line.
+	// trimTrailingWhitespace?: bool
+
+	// Insert a newline character at the end of the file if one does not exist.
+	// insertFinalNewline?: bool
+
+	// Trim all newlines after the final newline at the end of the file.
+	// trimFinalNewlines?: bool
+
+	// Signature for further properties.
+	// [key: string]: bool | integer | string;
+	options := '{"tabSize":tab_size,"insertSpaces":$insert_spaces}'
+	
+
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/onTypeFormatting"'
-		params: '{}'
+		params: '{$text_document,$position,$character,$options}'
 	}
 	p.open_response_messages[m.id] = on_type_formatting_response
 	return m.encode()
 }
 
-pub fn todo_prepare_call_hierarchy(file_path DocumentUri) string {
+pub fn prepare_call_hierarchy(file_path DocumentUri,
+								   line u32, 
+								   char_position u32, ) string {
+	// TODO: WorkDoneProgressParams
+	uri_path := make_uri(file_path)
+	text_document := '"textDocument":{"uri":"file:///$uri_path"}'
+	position := '"position":{"character":$char_position,"line":$line}'
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/prepareCallHierarchy"'
-		params: '{}'
+		params: '{$text_document,$position}'
 	}
 	p.open_response_messages[m.id] = prepare_call_hierarchy_response
 	return m.encode()
 }
 
-pub fn todo_semantic_tokens_full(file_path DocumentUri) string {
+pub fn semantic_tokens_full(file_path DocumentUri) string {
+	// TODO: WorkDoneProgressParams
+	uri_path := make_uri(file_path)
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/semanticTokens/full"'
-		params: '{}'
+		params: '{"textDocument":{"uri":"file:///$uri_path"}}'
 	}
 	p.open_response_messages[m.id] = semantic_tokens_full_response
 	return m.encode()
 }
 
-pub fn todo_semantic_tokens_delta(file_path DocumentUri) string {
+pub fn semantic_tokens_delta(file_path DocumentUri, previous_result_id string) string {
+	// TODO: WorkDoneProgressParams
+	uri_path := make_uri(file_path)
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/semanticTokens/full/delta"'
-		params: '{}'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},"previousResultId":"previous_result_id"}'
 	}
 	p.open_response_messages[m.id] = semantic_tokens_delta_response
 	return m.encode()
 }
 
-pub fn todo_semantic_tokens_range(file_path DocumentUri) string {
+pub fn semantic_tokens_range(file_path DocumentUri,
+							 start_line u32, 
+							 start_char u32, 
+							 end_line u32, 
+							 end_char u32) string {
+	// TODO: WorkDoneProgressParams
+	uri_path := make_uri(file_path)
+	text_document := '"textDocument":{"uri":"file:///$uri_path"}'
+	range := '"range":{"start":{"line":$start_line,"character":$start_char},"end":{"line":$end_line,"character":$end_char}'
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/semanticTokens/range"'
-		params: '{}'
+		params: '{$text_document,$range}'
 	}
 	p.open_response_messages[m.id] = semantic_tokens_range_response
 	return m.encode()
 }
 
-pub fn todo_type_definition(file_path DocumentUri) string {
+pub fn type_definition(file_path DocumentUri, line u32, char_position u32) string {
+	uri_path := make_uri(file_path)
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/typeDefinition"'
-		params: '{}'
+		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
 	p.open_response_messages[m.id] = type_definition_response
 	return m.encode()
 }
 
-pub fn todo_work_done_progress_cancel(file_path DocumentUri) string {
+pub fn work_done_progress_cancel(token int, value string) string {
+	// TODO:
 	m := Message {
 		msg_type: JsonRpcMessageType.notification
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"window/workDoneProgress/cancel"'
-		params: '{}'
+		params: '{"token":$token,"value":"$value"}'
 	}
 	return m.encode()
 }
 
-pub fn todo_workspace_did_change_workspace_folders(file_path DocumentUri) string {
+pub fn workspace_did_change_workspace_folders(added_folders WorkspaceFolderArray, 
+											  removed_folders WorkspaceFolderArray) string {
+	added := added_folders.make_lsp_message()
+	removed := removed_folders.make_lsp_message()
+	
 	m := Message {
 		msg_type: JsonRpcMessageType.notification
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"workspace/didChangeWorkspaceFolders"'
-		params: '{}'
+		params: '{"event":{"added":$added,"removed":$removed}}'
 	}
 	return m.encode()
 }
-pub fn todo_workspace_did_change_configuration(file_path DocumentUri) string {
+pub fn workspace_did_change_configuration(settings string) string {
 	m := Message {
 		msg_type: JsonRpcMessageType.notification
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
-		method: '"workspace.didChangeConfiguration"'
-		params: '{}'
+		method: '"workspace/didChangeConfiguration"'
+		params: '{"settings":$settings}'
 	}
 	return m.encode()
 }
 
-pub fn todo_workspace_did_change_watched_files(file_path DocumentUri) string {
+pub fn workspace_did_change_watched_files(file_events FileEventArray) string {
+	changes := file_events.make_lsp_message()
 	m := Message {
 		msg_type: JsonRpcMessageType.notification
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
-		method: '"workspace.didChangeWatchedFiles"'
-		params: '{}'
+		method: '"workspace/didChangeWatchedFiles"'
+		params: '{"changes":$changes}'
 	}
 	return m.encode()
 }
 		
-pub fn todo_workspace_did_rename_files(file_path DocumentUri) string {
+pub fn workspace_did_rename_files(files_renamed FileRenameArray) string {
+	renamed_files := files_renamed.make_lsp_message()
 	m := Message {
 		msg_type: JsonRpcMessageType.notification
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"workspace/didRenameFiles"'
-		params: '{}'
+		params: '{"files":$renamed_files}'
 	}
 	return m.encode()
 }
 		
-pub fn todo_workspace_did_create_files(file_path DocumentUri) string {
+pub fn workspace_did_create_files(files_created FileCreateArray) string {
+	created_files := files_created.make_lsp_message()
 	m := Message {
 		msg_type: JsonRpcMessageType.notification
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"workspace/didCreateFiles"'
-		params: '{}'
+		params: '{"files":$created_files}'
 	}
 	return m.encode()
 }		
-pub fn todo_workspace_did_delete_files(file_path DocumentUri) string {
+pub fn workspace_did_delete_files(files_deleted FileDeleteArray) string {
+	deleted_files := files_deleted.make_lsp_message()
 	m := Message {
 		msg_type: JsonRpcMessageType.notification
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"workspace/didDeleteFiles"'
-		params: '{}'
+		params: '{"files":$deleted_files}'
 	}
 	return m.encode()
 }
-pub fn todo_workspace_execute_command(file_path DocumentUri) string {
+pub fn workspace_execute_command(command string, args []string) string {
+	params__ := if args.len == 0 {
+		'"command":"$command"'
+	} else {
+		
+		'"command":"$command","arguments":[${args.join(",")}]'
+	}
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"workspace/executeCommand"'
-		params: '{}'
+		params: '{$params__}'
 	}
 	p.open_response_messages[m.id] = workspace_execute_command_response
 	return m.encode()
 }
 
-pub fn todo_workspace_symbol(file_path DocumentUri) string {
+pub fn workspace_symbol(query string) string {
+	// TODO: WorkDoneProgressParams
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"workspace/symbol"'
-		params: '{}'
+		params: '{"query":"$query"}'
 	}
 	p.open_response_messages[m.id] = workspace_symbol_response
 	return m.encode()
 }
 
-pub fn todo_workspace_will_create_files(file_path DocumentUri) string {
+pub fn workspace_will_create_files(files_created FileCreateArray) string {
+	created_files := files_created.make_lsp_message()
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"workspace/willCreateFiles"'
-		params: '{}'
+		params: '{"files":$created_files}'
 	}
 	p.open_response_messages[m.id] = workspace_will_create_files_response
 	return m.encode()
 }
 
-pub fn todo_workspace_will_delete_files(file_path DocumentUri) string {
+pub fn workspace_will_delete_files(files_deleted FileDeleteArray) string {
+	deleted_files := files_deleted.make_lsp_message()
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"workspace/willDeleteFiles"'
-		params: '{}'
+		params: '{"files":$deleted_files}'
 	}
 	p.open_response_messages[m.id] = workspace_will_delete_files_response
 	return m.encode()
 }
 
-pub fn todo_workspace_will_rename_files(file_path DocumentUri) string {
+pub fn workspace_will_rename_files(files_renamed FileRenameArray) string {
+	renamed_files := files_renamed.make_lsp_message()
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"workspace/willRenameFiles"'
-		params: '{}'
+		params: '{"files":$renamed_files}'
 	}
 	p.open_response_messages[m.id] = workspace_will_rename_files_response
 	return m.encode()
@@ -1718,4 +1854,190 @@ pub fn (mut u Unregistration) from_json(f json2.Any) {
 			else {}
 		}
 	}	
+}
+
+pub struct ColorInformationArray {
+pub mut:
+	items []ColorInformation
+}
+
+pub fn (mut cia ColorInformationArray) from_json(f json2.Any) {
+	items := f.arr()
+	for item in items {
+		cia.items << json2.decode<ColorInformation>(item.str()) or { ColorInformation{} }
+	}	
+}
+
+pub struct ColorInformation {
+pub mut:
+	// The range in the document where this color appears.
+	range Range
+	// The actual color value for this color range.
+	color Color
+}
+
+pub fn (mut ci ColorInformation) from_json(f json2.Any) {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
+			'range' { ci.range = json2.decode<Range>(v.str()) or { Range{}} }
+			'color' { ci.color = json2.decode<Color>(v.str()) or { Color{}} }
+			else {}
+		}
+	}	
+}
+
+pub struct Color {
+pub mut:
+	// The red component of this color in the range [0-1].
+	red f32
+	// The green component of this color in the range [0-1].
+	green f32
+	// The blue component of this color in the range [0-1].
+	blue f32
+	// The alpha component of this color in the range [0-1].
+	alpha f32
+}
+
+pub fn (mut c Color) from_json(f json2.Any) {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
+			'red' { c.red = v.f32() }
+			'green' { c.green = v.f32() }
+			'blue' { c.blue = v.f32() }
+			'alpha' { c.alpha = v.f32() }
+			else {}
+		}
+	}	
+}
+
+pub struct ColorPresentationArray {
+pub mut:
+	items []ColorPresentation
+}
+
+
+pub fn (mut cpa ColorPresentationArray) from_json(f json2.Any) {
+	items := f.arr()
+	for item in items {
+		cpa.items << json2.decode<ColorPresentation>(item.str()) or { ColorPresentation{} }
+	}	
+}
+
+pub struct ColorPresentation {
+pub mut:
+	// The label of this color presentation. It will be shown on the color
+	// picker header. By default this is also the text that is inserted when
+	// selecting this color presentation.
+	label string
+	// An [edit](#TextEdit) which is applied to a document when selecting
+	// this presentation for the color. When `falsy` the
+	// [label](#ColorPresentation.label) is used.
+	text_edit TextEdit
+
+	// An optional array of additional [text edits](#TextEdit) that are applied
+	// when selecting this color presentation.
+	// Edits must not overlap with the main [edit](#ColorPresentation.textEdit) nor with themselves.
+	additional_text_edits []TextEdit
+}
+
+pub fn (mut cp ColorPresentation) from_json(f json2.Any) {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
+			'label' { cp.label = v.str() }
+			'TextEdit' { cp.text_edit = json2.decode<TextEdit>(v.str()) or { TextEdit{} } }
+			'additionalTextEdits' { 
+				text_edit_array := json2.decode<TextEditArray>(v.str()) or { TextEditArray{} }
+				for item in text_edit_array.items {
+					cp.additional_text_edits << item
+				}
+			}
+			else {}
+		}
+	}	
+}
+
+pub struct WorkspaceFolder {
+pub mut:
+	uri string
+	name string
+}
+
+pub struct WorkspaceFolderArray {
+pub mut:
+	folders []WorkspaceFolder
+}
+
+fn (wfa WorkspaceFolderArray) make_lsp_message() string {
+	mut folders__ := []string{}
+	for folder in wfa.folders {
+		uri_path := make_uri(folder.uri)
+		folders__ << '{"uri":"$uri_path","name":"$folder.name"}'
+	}
+	return '[${folders__.join(",")}]'
+}
+
+pub struct FileEvent {
+pub mut:
+	uri string
+	type__ u32
+}
+
+pub struct FileEventArray {
+pub mut:
+	events []FileEvent
+}
+
+fn (fea FileEventArray) make_lsp_message() string {
+	mut changes := []string{}
+	for event in fea.events {
+		uri_path := make_uri(event.uri)
+		changes << '{"uri":"$uri_path","type":event.type__}'
+	}
+	return '[${changes.join(",")}]'
+}
+
+pub struct FileCreateArray {
+pub mut:
+	files []FileCreate
+}
+
+fn (fca FileCreateArray) make_lsp_message() string {
+	mut files__ := []string{}
+	for f in fca.files {
+		uri_path := make_uri(f.uri)
+		files__ << '{"uri":"$uri_path"}'
+	}
+	return '[${files__.join(",")}]'
+}
+
+pub struct FileDeleteArray {
+pub mut:
+	files []FileDelete
+}
+
+fn (fda FileDeleteArray) make_lsp_message() string {
+	mut files__ := []string{}
+	for f in fda.files {
+		uri_path := make_uri(f.uri)
+		files__ << '{"uri":"$uri_path"}'
+	}
+	return '[${files__.join(",")}]'
+}
+
+pub struct FileRenameArray {
+pub mut:
+	files []FileRename
+}
+
+fn (fra FileRenameArray) make_lsp_message() string {
+	mut files__ := []string{}
+	for f in fra.files {
+		old_uri_path := make_uri(f.old_uri)
+		new_uri_path := make_uri(f.new_uri)
+		files__ << '{"oldUri":"$old_uri_path","newUri":"$new_uri_path"}'
+	}
+	return '[${files__.join(",")}]'
 }
