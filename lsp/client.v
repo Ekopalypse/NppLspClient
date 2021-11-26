@@ -46,7 +46,7 @@ pub fn on_message_received(message string) {
 }
 
 pub fn on_initialize(npp_pid int, current_directory string) {
-	p.console_window.log('on_initialize: $npp_pid', p.info_style_id)
+	p.console_window.log('on_initialize: $npp_pid', 0)
 	lsp.write_to(
 		p.current_stdin, 
 		lsp.initialize(npp_pid, current_directory)
@@ -59,7 +59,7 @@ fn initialize_response(json_message string) {
 	if 'capabilities' in result_map {
 		capabilities := result_map['capabilities'] or { '' }
 		sc := json2.decode<ServerCapabilities>(capabilities.str()) or { ServerCapabilities{} }
-		p.console_window.log('    initialized response received', p.info_style_id)
+		p.console_window.log('    initialized response received', 0)
 
 		p.lsp_config.lspservers[p.current_language].features = sc
 		
@@ -69,8 +69,10 @@ fn initialize_response(json_message string) {
 		)
 
 		p.lsp_config.lspservers[p.current_language].initialized = true
-		current_file := npp.get_current_filename()
-		on_file_opened(current_file)
+		p.working_buffer_id = u64(npp.get_current_buffer_id())
+		p.current_file_version = 0
+		p.file_version_map[p.working_buffer_id] = p.current_file_version
+		on_file_opened(npp.get_current_filename())
 	} else {
 		p.console_window.log('  unexpected initialize response received', p.error_style_id)
 	}
@@ -79,26 +81,21 @@ fn initialize_response(json_message string) {
 pub fn on_file_opened(file_name string) {
 	if file_name.len == 0 { return }
 	lang_id := if p.current_language == 'vlang' { 'v' } else { p.current_language }
-	p.console_window.log('on_file_opened:: $p.current_language: $file_name', p.info_style_id)
-	p.console_window.log('on_file_opened: initialized=${p.lsp_config.lspservers[p.current_language].initialized}', p.info_style_id)
+	p.console_window.log('on_file_opened:: $p.current_language: $file_name', 0)
+	p.console_window.log('on_file_opened: initialized=${p.lsp_config.lspservers[p.current_language].initialized}', 0)
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.send_open_close_notif
    {
-		if file_name in p.lsp_config.lspservers[p.current_language].open_documents {
-			lsp.on_file_closed(file_name)
-		}
-		
 		content := editor.get_text()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.did_open(file_name, 0, lang_id, content)
 		)
-		p.lsp_config.lspservers[p.current_language].open_documents << file_name
 	}
 }
 
 pub fn on_file_before_saved(file_name string) {
-	p.console_window.log('on_file_before_saved: $file_name', p.info_style_id)
+	p.console_window.log('on_file_before_saved: $file_name', 0)
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.supports_will_save
    {
@@ -110,7 +107,7 @@ pub fn on_file_before_saved(file_name string) {
 }
 
 pub fn on_file_saved(file_name string) {
-	p.console_window.log('on_file_saved: $file_name', p.info_style_id)
+	p.console_window.log('on_file_saved: $file_name', 0)
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.send_save_notif
    {
@@ -127,7 +124,7 @@ pub fn on_file_saved(file_name string) {
 
 pub fn on_will_save_wait_until(file_name string) {
 	// TODO: make this an lspclient configuration parameter?
-	p.console_window.log('on_file_saved: $file_name', p.info_style_id)
+	p.console_window.log('on_file_saved: $file_name', 0)
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.supports_will_save_wait_until
    {
@@ -139,7 +136,7 @@ pub fn on_will_save_wait_until(file_name string) {
 }
 
 pub fn on_file_closed(file_name string) {
-	p.console_window.log('on_file_closed: $file_name', p.info_style_id)
+	p.console_window.log('on_file_closed: $file_name', 0)
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.send_open_close_notif
 	{
@@ -147,10 +144,10 @@ pub fn on_file_closed(file_name string) {
 			p.current_stdin,
 			lsp.did_close(file_name)
 		)
-		array_index := p.lsp_config.lspservers[p.current_language].open_documents.index(file_name)
-		if array_index > -1  {
-			p.lsp_config.lspservers[p.current_language].open_documents.delete(array_index)
-		}		
+		// array_index := p.lsp_config.lspservers[p.current_language].open_documents.index(file_name)
+		// if array_index > -1  {
+			// p.lsp_config.lspservers[p.current_language].open_documents.delete(array_index)
+		// }		
 	}
 }
 
@@ -182,50 +179,83 @@ pub fn on_buffer_modified(file_name string,
 											   start_line, 
 											   start_char_pos, 
 											   end_line, 
-											   end_char_pos)
+											   end_char_pos,
+											   range_length)
 				)
 			}
 			else{}
 		}
+		// on_completion(file_name, start_line, start_char_pos+1, text)
+		// on_signature_help(file_name, start_line, start_char_pos+1, text)
+	}
+}
 
-		// trigger_characters might be in both lists, hence two if's
-		// not sure if this is a good idea.
-		// if text in p.lsp_config.lspservers[p.current_language].features.compl_trigger_chars {
-		if text in p.lsp_config.lspservers[p.current_language].features.completion_provider.trigger_characters {
-			lsp.write_to(
-				p.current_stdin,
-				lsp.request_completion(file_name, start_line, start_char_pos+1, text)  // ?? why +1
-			)
+pub fn on_completion(file_name string, 
+					 start_line u32,
+					 start_char_pos u32, 
+					 text string) {
+	if p.lsp_config.lspservers[p.current_language].initialized {
+		text__ := if text in p.lsp_config.lspservers[p.current_language].features.completion_provider.trigger_characters {
+			text
+		} else {
+			''
 		}
-		// if text in p.lsp_config.lspservers[p.current_language].features.sig_help_trigger_chars {
-		if text in p.lsp_config.lspservers[p.current_language].features.signature_help_provider.trigger_characters {
-			lsp.write_to(
-				p.current_stdin,
-				lsp.request_signature_help(file_name, start_line, start_char_pos+1, text)
-			)
-		}
+	
+		lsp.write_to(
+			p.current_stdin,
+			lsp.request_completion(file_name, start_line, start_char_pos, text__)
+		)
 	}
 }
 
 fn completion_response(json_message string) {
-	cl := json2.decode<CompletionList>(json_message) or { CompletionList{} }
+	// p.console_window.log('json_message: $json_message', 0)
 	mut ci := []CompletionItem{}
-	if cl.items.len != 0 {
+	if json_message.contains('"items":') {
+		cl := json2.decode<CompletionList>(json_message) or { CompletionList{} }
 		ci = cl.items
 	} else {
 		cia := json2.decode<CompletionItemArray>(json_message) or { CompletionItemArray{} }
 		ci = cia.items
 	}
-	if ci.len > 0 { editor.display_completion_list(ci.map(it.label).join('\n')) }
+	if ci.len > 0 { 
+		// mut ci__ := ci.map(it.label)
+		mut ci__ := ci.map(fn (item CompletionItem) string {
+			label := if item.insert_text.len > 0 {
+				item.insert_text.trim_space()
+			} else {
+				item.label.trim_space()
+			}
+			return label
+		})
+		// mut ci__ := ci.map(it.insert_text)
+		ci__.sort()
+		
+		editor.display_completion_list(ci__.join('\n')) 
+	}
+}
+
+pub fn on_signature_help(file_name string, 
+						 start_line u32,
+						 start_char_pos u32, 
+						 text string) {
+	if p.lsp_config.lspservers[p.current_language].initialized &&
+		text in p.lsp_config.lspservers[p.current_language].features.signature_help_provider.trigger_characters 
+	{
+		lsp.write_to(
+			p.current_stdin,
+			lsp.request_signature_help(file_name, start_line, start_char_pos, text)
+		)
+	}
 }
 
 fn signature_help_response(json_message string) {
-	p.console_window.log('  signature help response received: $json_message', p.info_style_id)
+	p.console_window.log('  signature help response received: $json_message', 0)
 	sh := json2.decode<SignatureHelp>(json_message) or { SignatureHelp{} }
 	if sh.signatures.len > 0 {
 		editor.display_signature_hints(sh.signatures[0].label)
 	}
-	p.console_window.log('$sh', p.info_style_id)
+	p.console_window.log('$sh', 0)
 }
 
 pub fn on_format_document(file_name string) {
@@ -240,7 +270,7 @@ pub fn on_format_document(file_name string) {
 }
 
 fn format_document_response(json_message string) {
-	p.console_window.log('  format document response received: $json_message', p.info_style_id)
+	p.console_window.log('  format document response received: $json_message', 0)
 	tea := json2.decode<TextEditArray>(json_message) or { TextEditArray{} }
 	editor.begin_undo_action()
 	for item in tea.items {
@@ -276,7 +306,7 @@ pub fn on_goto_definition(file_name string) {
 }
 
 fn goto_definition_response(json_message string) {
-	p.console_window.log('goto definition response received: $json_message', p.info_style_id)
+	p.console_window.log('goto definition response received: $json_message', 0)
 	goto_location_helper(json_message)
 }
 
@@ -293,7 +323,7 @@ pub fn on_goto_implementation(file_name string) {
 }
 
 fn goto_implementation_response(json_message string) {
-	p.console_window.log('goto implementation response received: $json_message', p.info_style_id)
+	p.console_window.log('goto implementation response received: $json_message', 0)
 	goto_location_helper(json_message)
 }
 
@@ -338,7 +368,7 @@ pub fn on_peek_definition(file_name string) {
 }
 
 fn peek_definition_response(json_message string) {
-	p.console_window.log('peek definition response received: $json_message', p.info_style_id)
+	p.console_window.log('peek definition response received: $json_message', 0)
 	peek_helper(json_message)
 }
 
@@ -355,7 +385,7 @@ pub fn on_peek_implementation(file_name string) {
 }
 
 fn peek_implementation_response(json_message string) {
-	p.console_window.log('peek implementation response received: $json_message', p.info_style_id)
+	p.console_window.log('peek implementation response received: $json_message', 0)
 	peek_helper(json_message)
 }
 
@@ -413,7 +443,7 @@ pub fn on_goto_declaration(file_name string) {
 }
 
 fn goto_declaration_response(json_message string) {
-	p.console_window.log('declaration response received: $json_message', p.info_style_id)
+	p.console_window.log('declaration response received: $json_message', 0)
 	goto_location_helper(json_message)
 }
 
@@ -479,7 +509,7 @@ pub fn on_document_symbols(file_name string) {
 }
 
 fn document_symbols_response(json_message string) {
-	p.console_window.log('document symbols response received: $json_message', p.info_style_id)
+	p.console_window.log('document symbols response received: $json_message', 0)
 	if json_message.starts_with('[') {
 		if json_message.contains('selectionRange') {
 			dsa := json2.decode<DocumentSymbolArray>(json_message) or { DocumentSymbolArray{} }
@@ -509,7 +539,7 @@ pub fn on_hover(file_name string, position u32) {
 }
 
 fn hover_response(json_message string) {
-	p.console_window.log('hover response received: $json_message', p.info_style_id)
+	p.console_window.log('hover response received: $json_message', 0)
 	h := json2.decode<Hover>(json_message) or { Hover{} }
 	editor.display_hover_hints(p.current_hover_position, h.contents)
 }
@@ -733,14 +763,14 @@ fn document_link_resolve_response(json_message string) {
 	p.console_window.log('resolve_response: $json_message', p.info_style_id)
 }
 
-pub fn todo_on_code_action(file_name string) {
+pub fn on_code_action(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.code_action_provider
 	{
 		start_line, start_char, end_line, end_char := u32(0), u32(0), u32(0), u32(0)
 		lsp.write_to(
 			p.current_stdin,
-			lsp.todo_code_action(file_name, start_line, start_char, end_line, end_char)
+			lsp.code_action(file_name, start_line, start_char, end_line, end_char)
 		)
 	}
 }
@@ -1187,7 +1217,7 @@ fn publish_diagnostics(params string) {
 		start := editor.position_from_line(d.range.start.line) + d.range.start.character
 		end := editor.position_from_line(d.range.end.line) + d.range.end.character
 		editor.add_diag_indicator(start, end-start, d.severity)
-		p.console_window.log('${diag.uri}\n\tline:${d.range.start.line} - ${d.message}', byte(d.severity))
+		p.console_window.log('${diag.uri} [line:${d.range.start.line} col:${d.range.start.character}] - ${d.message}', byte(d.severity))
 	}
 }
 
@@ -1224,35 +1254,8 @@ fn decode_telemetry_event(json_message string) {
 	p.console_window.log('telemetry_event: $json_message', p.info_style_id)
 }
 
-// fn decode_workspace_did_create_files(json_message string) {
-	// // TODO: why and how to implement?
-	// cfp := json2.decode<CreateFilesParams>(json_message) or { CreateFilesParams{} }
-	// p.console_window.log('workspace_did_create_files:', p.info_style_id)
-	// for file__ in cfp.files {
-		// p.console_window.log('  ${file__.uri}', p.info_style_id)
-	// }	
-// }
-
-// fn decode_workspace_did_rename_files(json_message string) {
-	// // TODO: why and how to implement?
-	// rfp := json2.decode<RenameFilesParams>(json_message) or { RenameFilesParams{} }
-	// p.console_window.log('workspace_did_rename_files:', p.info_style_id)
-	// for file__ in rfp.files {
-		// p.console_window.log('  old: ${file__.old_uri}\n  new: ${file__.new_uri}\n', p.info_style_id)
-	// }
-// }
-
-// fn decode_workspace_did_delete_files(json_message string) {
-	// dfp := json2.decode<DeleteFilesParams>(json_message) or { DeleteFilesParams{} }
-	// p.console_window.log('workspace_did_delete_files:', p.info_style_id)
-	// for file__ in dfp.files {
-		// p.console_window.log('  ${file__.uri}', p.info_style_id)
-	// }
-// }
-
-
 fn response_handler(json_message JsonMessage) {
-	id := json_message.id.int()
+	id := json_message.id
 	if json_message.result != 'null' {
 		func_ptr := p.open_response_messages[id]
 		if func_ptr != voidptr(0) {
@@ -1266,7 +1269,7 @@ fn response_handler(json_message JsonMessage) {
 
 fn error_response_handler(json_message JsonMessage) {
 	p.console_window.log('  !! ERROR RESPONSE !! received', p.error_style_id)
-	p.open_response_messages.delete(json_message.id.int())
+	p.open_response_messages.delete(json_message.id)
 }
 
 fn request_handler(json_message JsonMessage) {
@@ -1274,7 +1277,7 @@ fn request_handler(json_message JsonMessage) {
 		'window/showMessageRequest' {
 			smrp := json2.decode<ShowMessageRequestParams>(json_message.params) or { ShowMessageRequestParams{} }
 			p.console_window.log('$smrp.message\n${smrp.actions.join("\n")}', byte(smrp.type_))
-			send_null_response(json_message.id.int())
+			send_null_response(json_message.id)
 		}
 		'window/showDocument' {
 			sdp := json2.decode<ShowDocumentParams>(json_message.params) or { ShowDocumentParams{} }
@@ -1282,32 +1285,53 @@ fn request_handler(json_message JsonMessage) {
 			p.console_window.log('window/showDocument\n $sdp', p.info_style_id)
 			m := Message {
 				msg_type: JsonRpcMessageType.response
-				id: json_message.id.int()
+				id: json_message.id
 				response: '"result":{"success": false}'  // TODO: 
 			}
 			lsp.write_to(p.current_stdin, m.encode())
 		}
 		'client/registerCapability' {
-			// TODO: need some examples how this should work and what it is for.
+			// TODO:
+			//	{
+			//		"id": "5fadd9c6-0c75-4499-9dac-19af07962e0f",
+			//		"jsonrpc": "2.0",
+			//		"method": "client/registerCapability",
+			//		"params": {
+			//			"registrations": [
+			//				{
+			//					"id": "profilegc.watchfiles",
+			//					"method": "workspace/didChangeWatchedFiles",
+			//					"registerOptions": {
+			//						"watchers": [
+			//							{
+			//								"globPattern": "**/profilegc.log",
+			//								"kind": null
+			// 							}
+			// 						]
+			// 					}
+			// 				}
+			// 			]
+			// 		}
+			//	}
+
 			rp := json2.decode<RegistrationParams>(json_message.params) or { RegistrationParams{} }
-			p.console_window.log('registerCapability: ${rp.str()}', p.info_style_id)
-			send_null_response(json_message.id.int())	
+			p.console_window.log('registerCapability: ${rp}', p.info_style_id)
+			send_null_response(json_message.id)	
 		}
 		'client/unregisterCapability' {
 			// TODO: need some examples how this should work and what it is for.
 			up := json2.decode<UnregistrationParams>(json_message.params) or { UnregistrationParams{} }
 			p.console_window.log('unregisterCapability: ${up.str()}', p.info_style_id)
-			send_null_response(json_message.id.int())	
+			send_null_response(json_message.id)	
 		}
 		'window/workDoneProgress/create' {
 			// TODO: is supposed to inform that the progress widget(?) can be closed.
 			wdpcp := json2.decode<WorkDoneProgressCreateParams>(json_message.params) or { WorkDoneProgressCreateParams{} }
 			p.console_window.log('window_work_done_progress_create: ${wdpcp.str()}', p.info_style_id)
-			send_null_response(json_message.id.int())
+			send_null_response(json_message.id)
 		}
 		'workspace/workspaceFolders' {
-			// TODO: once this is supported it needs to send
-			// an array of 
+			// TODO: once this is supported it needs to respond with WorkspaceFolder[] | null
 			/*
 				export interface WorkspaceFolder {
 					// The associated URI for this workspace folder.
@@ -1319,39 +1343,49 @@ fn request_handler(json_message JsonMessage) {
 				}			
 			*/
 			p.console_window.log('workspace/workspaceFolders', p.info_style_id)
-			send_null_response(json_message.id.int())
+			send_null_response(json_message.id)
 		}
 		'workspace/configuration' {
-			// TODO: once this is supported it needs to send
-			// an array of 
-			/*
-				export interface ConfigurationParams {
-					items: ConfigurationItem[];
-				}
-				export interface ConfigurationItem {
-					// The scope to get the configuration section for.
-					scopeUri?: DocumentUri;
-
-					// The configuration section asked for.
-					section?: string;
-				}
+			// TODO: once this is supported it needs to respond with LSPAny[]
+			/* example request
+				{
+					"id": "a7ea181c-28ef-4756-a771-3dcfc6c10cbc",
+					"jsonrpc": "2.0",
+					"method": "workspace/configuration",
+					"params": {
+						"items": [
+							{"section": "d"},
+							{"section": "dfmt"},
+							{"section": "dscanner"},
+							{"section": "editor"},
+							{"section": "git"}
+						]
+					}
+				}			
 			*/
 			p.console_window.log('workspace/configuration', p.info_style_id)
-			send_null_response(json_message.id.int())			
+			cp := json2.decode<ConfigurationParams>(json_message.params) or { ConfigurationParams{} }
+			responds := 'null,'.repeat(cp.items.len)  // TODO
+			m := Message {
+				msg_type: JsonRpcMessageType.response
+				id: json_message.id
+				response: '"result":[${responds[..responds.len-1]}]'  // TODO
+			}
+			lsp.write_to(p.current_stdin, m.encode())
 		}
 		'workspace/applyEdit' {
 			m := Message {
 				msg_type: JsonRpcMessageType.response
-				id: json_message.id.int()
+				id: json_message.id
 				response: '"result":{"applied": false}'  // TODO: 
 			}
 			lsp.write_to(p.current_stdin, m.encode())
 		}
 		'workspace/codeLens/refresh' {
-			send_null_response(json_message.id.int())
+			send_null_response(json_message.id)
 		}
 		'workspace/semanticTokens/refresh' {
-			send_null_response(json_message.id.int())
+			send_null_response(json_message.id)
 		}
 		
 		else {
@@ -1360,11 +1394,11 @@ fn request_handler(json_message JsonMessage) {
 	}
 }
 
-fn send_null_response(id int) {
+fn send_null_response(id string) {
 	m := Message {
 		msg_type: JsonRpcMessageType.response
 		id: id
 		response: '"result":null'
 	}
-	lsp.write_to(p.current_stdin, m.encode())	
+	lsp.write_to(p.current_stdin, m.encode())
 }

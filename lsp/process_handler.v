@@ -17,6 +17,7 @@ pub mut:
 	handle voidptr
 	stdin voidptr
 	stdout voidptr
+	stderr voidptr
 }
 
 pub struct ProcessManager {
@@ -26,7 +27,7 @@ pub mut:
 }
 
 pub fn (mut pm ProcessManager) start(language string, exe string, args string) ProcessStatus {
-	p.console_window.log('ProcessManager start $exe $args', p.info_style_id)
+	p.console_window.log('ProcessManager start $exe $args', 0)
 	pm.check_running_processes()
 	if language in pm.running_processes { return ProcessStatus.running }
 	if !os.exists(exe) { return ProcessStatus.error_no_executable }
@@ -34,7 +35,8 @@ pub fn (mut pm ProcessManager) start(language string, exe string, args string) P
 	mut process := pm.create_child_process(exe, args)
 	if process.pid != 0 {
 		pm.running_processes[language] = process
-		go read_from(process.stdout, p.message_queue)
+		go read_from_stdout(process.stdout, p.message_queue)
+		go read_from_stderr(process.stderr, p.message_queue)
 		return ProcessStatus.running
 	}
 	return ProcessStatus.failed_to_start
@@ -54,13 +56,14 @@ pub fn (mut pm ProcessManager) stop_all_running_processes() {
 }
 
 fn (pm ProcessManager) create_child_process(exe string, args string) Process {
-	p.console_window.log('create_child_process $exe $args', p.info_style_id)
+	p.console_window.log('create_child_process $exe $args', 0)
 	mut process := Process{
 		exe: exe
 		args: args
 	}
 	
 	mut g_hchild_std_out_wr := voidptr(0)
+	mut g_hchild_std_err_wr := voidptr(0)
 	mut g_hchild_std_in_rd := voidptr(0)
 	mut sa_attr := api.SECURITY_ATTRIBUTES{}
 
@@ -78,6 +81,17 @@ fn (pm ProcessManager) create_child_process(exe string, args string) Process {
 		// show_error_message('FAILED to SetHandleInformation Stdout')
 		return Process{}
 	}
+	// Create a pipe for the child process's STDERR.
+	if ! api.create_pipe(&process.stderr, &g_hchild_std_err_wr, &sa_attr, 0) { 
+		// show_error_message('FAILED to create Stdout pipe')
+		return Process{}
+	}
+	// Ensure the read handle to the pipe for STDERR is not inherited.
+	if ! api.set_handle_information(process.stderr, u32(C.HANDLE_FLAG_INHERIT), 0) {
+		// show_error_message('FAILED to SetHandleInformation Stdout')
+		return Process{}
+	}
+	
 	// Create a pipe for the child process's STDIN.
 	if ! api.create_pipe(&g_hchild_std_in_rd, &process.stdin, &sa_attr, 0) {
 		// show_error_message('FAILED to create Stdin pipe')
@@ -99,7 +113,7 @@ fn (pm ProcessManager) create_child_process(exe string, args string) Process {
 	mut success := false
 
 	start_info.cb = sizeof(api.STARTUPINFO)
-	start_info.h_std_error = g_hchild_std_out_wr
+	start_info.h_std_error = g_hchild_std_err_wr
 	start_info.h_std_output = g_hchild_std_out_wr
 	start_info.h_std_input = g_hchild_std_in_rd
 	start_info.dw_flags |= u32(C.STARTF_USESTDHANDLES | C.STARTF_USESHOWWINDOW)
@@ -121,6 +135,7 @@ fn (pm ProcessManager) create_child_process(exe string, args string) Process {
 		// Close handles to the stdin and stdout pipes no longer needed by the child process.
 		// If they are not explicitly closed, there is no way to recognize that the child process has ended.
 		api.close_handle(g_hchild_std_out_wr)
+		api.close_handle(g_hchild_std_err_wr)
 		api.close_handle(g_hchild_std_in_rd)
 		
 		process.handle = proc_info.h_process

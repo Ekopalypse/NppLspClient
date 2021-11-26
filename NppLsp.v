@@ -48,13 +48,17 @@ pub mut:
 	current_language string
 	current_stdin voidptr
 	current_file_path string
-	current_file_version u32
+	current_file_version int
 	working_buffer_id u64
-	file_version_map map[u64]u32
+	// previous_buffer_id u64
+	file_version_map map[u64]int
 	document_is_of_interest bool
 	new_file_opened u64
-	open_response_messages map[int]fn(json_message string)
+	open_response_messages map[string]fn(json_message string)
 	current_hover_position u32
+	view0_doc_pointer isize
+	view1_doc_pointer isize
+	ignore_first_on_cloned_views bool
 }
 
 pub struct NppData {
@@ -88,7 +92,7 @@ fn set_info(nppData NppData) {
 	npp_data = nppData
 	npp = notepadpp.Npp{npp_data.npp_handle}
 	editor = sci.create_editors(nppData.scintilla_main_handle, nppData.scintilla_second_handle)
-	// create as soon as possible because nppn_ready is NOT the first message received
+	// Create as early as possible, as nppn_ready is NOT the first message received.
 	p.console_window = console.DockableDialog{ name: 'LSP output console'.to_wide() }
 	p.console_window.create(npp_data.npp_handle, plugin_name)
 }
@@ -116,53 +120,78 @@ fn be_notified(notification &sci.SCNotification) {
 			if current_view == 0 {
 				editor.current_func = editor.main_func
 				editor.current_hwnd = editor.main_hwnd
+				p.view0_doc_pointer = editor.get_document_pointer()
 			}
 			else {
 				editor.current_func = editor.second_func
 				editor.current_hwnd = editor.second_hwnd
+				p.view1_doc_pointer = editor.get_document_pointer()
 			}
 
 			editor.initialize()
 			p.current_file_path = npp.get_filename_from_id(notification.nmhdr.id_from)
 			check_lexer(u64(notification.nmhdr.id_from))
 
+			// Return early if document is not of interest or language server is not running
 			if !(p.document_is_of_interest && p.cur_lang_srv_running) { 
 				editor.clear_diagnostics()
+				p.console_window.log('document_is_of_interest:${p.document_is_of_interest}\ncur_lang_srv_running:${p.cur_lang_srv_running}', 0)
 				return 
 			}
 
 			if p.lsp_config.lspservers[p.current_language].initialized {
+				// If we receive a buffer ID that is identical to the one currently in use, 
+				// it is a reload event or it has been moved from the other view.
+				// In case of a relaod event the buffer id is still in the map as there was no file close event sent,
+				// in case the buffer was moved from one view to the other the file close event has been sent. 
 				if p.working_buffer_id == u64(notification.nmhdr.id_from) {
+					p.console_window.log('buffer reloaded or moved between views', 0)
+					p.current_file_version = 0
+					if p.working_buffer_id in p.file_version_map {
+						lsp.on_file_closed(p.current_file_path)
+					}
+					lsp.on_file_opened(p.current_file_path)
 					return
 				}
-				// saving old buffer states
-				if p.lsp_config.lspservers[p.current_language].initialized {
+				// Saving the old buffer state if it has not been closed in the meantime.
+				if p.working_buffer_id in p.file_version_map {
+					p.console_window.log('Saving the state of the previous buffer (${p.working_buffer_id}) : ${p.current_file_version}', 0)
 					p.file_version_map[p.working_buffer_id] = p.current_file_version
 				}
-				// assign new buffer related settings
+				// Assign new buffer as working buffer
 				p.working_buffer_id = u64(notification.nmhdr.id_from)
-				p.current_file_version = p.file_version_map[p.working_buffer_id]
-
-				if p.new_file_opened == p.working_buffer_id {
-					p.new_file_opened = 0
+				p.console_window.log('Assigned new working buffer: ${p.working_buffer_id}', 0)
+				
+				p.current_file_version = p.file_version_map[p.working_buffer_id] or { -1 }
+				p.console_window.log('The last used file version for ${p.working_buffer_id} (${p.current_file_path}) is: ${p.current_file_version}', 0)
+				// V's map behaviour ensures that a newly added object receives an intial value of -1.
+				// If this is the case, it must be a new buffer.
+				if p.current_file_version == -1 {
+					p.current_file_version = 0
 					lsp.on_file_opened(p.current_file_path)
+					p.file_version_map[p.working_buffer_id] = p.current_file_version
 				}
 			} else {
+				// Sending the didOpen notification as well as setting the initial parameters
+				// is handled within the initialize_response function. 
+				// Since there is no way to be sure which open files are handled by this language server,
+				// this is only done for the current buffer.
 				current_directory := os.dir(p.current_file_path)
 				lsp.on_initialize(os.getpid(), current_directory)
 			}
 		}
 
-		notepadpp.nppn_fileopened {
-			p.new_file_opened = u64(notification.nmhdr.id_from)
-		}
+		// notepadpp.nppn_fileopened is handled in nppn_bufferactivated
 
 		// using nppn_filebeforeclose because it is to late to get the file_name with nppn_fileclosed
 		notepadpp.nppn_filebeforeclose {
 			if p.document_is_of_interest {
+				p.console_window.log('>>> Items in current map: ${p.file_version_map}', 0)
 				current_filename := npp.get_filename_from_id(notification.nmhdr.id_from)
 				lsp.on_file_closed(current_filename)
+				p.console_window.log('>>> Removing ${u64(notification.nmhdr.id_from)} from map', 0)
 				p.file_version_map.delete(u64(notification.nmhdr.id_from))
+				p.console_window.log('>>> ${p.file_version_map}', 0)
 			}
 		}
 		notepadpp.nppn_filebeforesave {
@@ -207,7 +236,8 @@ fn be_notified(notification &sci.SCNotification) {
 						mut range_length := u32(notification.length)
 						mut content := ''
 						
-						if mod_type & sci.sc_mod_inserttext == sci.sc_mod_inserttext {
+						is_insertion := mod_type & sci.sc_mod_inserttext == sci.sc_mod_inserttext
+						if is_insertion {
 							end_line = start_line
 							end_char = start_char
 							range_length = 0
@@ -221,6 +251,11 @@ fn be_notified(notification &sci.SCNotification) {
 											   end_char,
 											   range_length,
 											   content)
+
+						if notification.length == 1 && is_insertion {
+							lsp.on_completion(p.current_file_path, start_line, start_char+1, content)
+							lsp.on_signature_help(p.current_file_path, start_line, start_char+1, content)
+						}
 					}
 				}
 			}
@@ -251,6 +286,10 @@ fn message_proc(msg u32, wparam usize, lparam isize) isize {
 			lsp.new_message {
 				new_message := <- p.message_queue
 				lsp.on_message_received(new_message)
+			}
+			lsp.new_err_message {
+				err_message := <- p.message_queue
+				p.console_window.log('$err_message', 0)
 			}
 			lsp.pipe_closed {
 				p.proc_manager.check_running_processes()
@@ -305,10 +344,9 @@ fn get_funcs_array(mut nb_func &int) &FuncItem {
 }
 
 fn check_lexer(buffer_id u64) {
-	p.console_window.log('checking current lexer', p.info_style_id)
+	p.console_window.log('checking current lexer', 0)
 	p.current_language = npp.get_language_name_from_id(buffer_id)
 	p.document_is_of_interest = p.current_language in p.lsp_config.lspservers
-	p.console_window.log('', p.info_style_id)
 	check_ls_status(true)
 }
 
@@ -318,7 +356,7 @@ pub fn apply_config() {
 }
 
 fn read_main_config() {
-	p.console_window.log('rereading main config', p.info_style_id)
+	p.console_window.log('rereading main config', 0)
 	p.lsp_config = lsp.decode_config(p.main_config_file)
 	update_settings()
 }
@@ -333,7 +371,7 @@ pub fn open_config() {
 }
 
 fn update_settings() {
-	p.console_window.log('update settings', p.info_style_id)
+	p.console_window.log('update settings', 0)
 	fore_color := npp.get_editor_default_foreground_color()
 	back_color := npp.get_editor_default_background_color()
 	p.console_window.update_settings(fore_color, 
@@ -342,8 +380,8 @@ fn update_settings() {
 									 p.lsp_config.warning_color,
 									 p.lsp_config.incoming_msg_color,
 									 p.lsp_config.outgoing_msg_color,
-									 p.lsp_config.enable_logging,
-									 p.lsp_config.log_level)
+									 p.lsp_config.selected_text_color,
+									 p.lsp_config.enable_logging)
 
 	editor.error_msg_color = p.lsp_config.error_color
 	editor.warning_msg_color = p.lsp_config.warning_color
@@ -353,7 +391,7 @@ fn update_settings() {
 }
 
 pub fn start_lsp_server() {
-	p.console_window.log('starting language server: ${p.current_language}', p.info_style_id)
+	p.console_window.log('starting language server: ${p.current_language}', 0)
 	check_ls_status(false)
 	// create and send a fake nppn_bufferactivated event
 	mut sci_header := sci.SCNotification{text: &char(0)}
@@ -365,25 +403,26 @@ pub fn start_lsp_server() {
 }
 
 pub fn stop_lsp_server() {
-	p.console_window.log('stopping language server: ${p.current_language}', p.info_style_id)
+	p.console_window.log('stopping language server: ${p.current_language}', 0)
 	p.proc_manager.stop(p.current_language)
 	p.lsp_config.lspservers[p.current_language].initialized = false
-	p.console_window.log('initialized = ${p.lsp_config.lspservers[p.current_language].initialized}', p.info_style_id)
+	p.console_window.log('initialized = ${p.lsp_config.lspservers[p.current_language].initialized}', 0)
 	p.current_file_version = 0
+	editor.clear_diagnostics()
 }
 
 pub fn restart_lsp_server() {
-	p.console_window.log('restarting lsp server: ${p.current_language}', p.info_style_id)
+	p.console_window.log('restarting lsp server: ${p.current_language}', 0)
 	stop_lsp_server()
 	start_lsp_server()
 }
 
 pub fn stop_all_server() {
-	p.console_window.log('stop all running language server', p.info_style_id)
+	p.console_window.log('stop all running language server', 0)
 	p.proc_manager.stop_all_running_processes()
 	for language, _ in p.lsp_config.lspservers {
 		p.lsp_config.lspservers[language].initialized = false
-		p.console_window.log('$language initialized = ${p.lsp_config.lspservers[language].initialized}', p.info_style_id)
+		p.console_window.log('$language initialized = ${p.lsp_config.lspservers[language].initialized}', 0)
 	}
 }
 
@@ -401,38 +440,41 @@ pub fn about() {
 }
 
 fn check_ls_status(check_auto_start bool) {
-	p.console_window.log('checking language server status: ${p.current_language}', p.info_style_id)
+	p.console_window.log('checking language server status: ${p.current_language}', 0)
 	if p.current_language in p.proc_manager.running_processes {
-		p.console_window.log('  is already running', p.info_style_id)
+		p.console_window.log('  is already running', 0)
 		p.cur_lang_srv_running = true
 		return
 	}
 
 	if check_auto_start && !p.lsp_config.lspservers[p.current_language].auto_start_server {
-		p.console_window.log('  either unknown language or server should not be started automatically', p.info_style_id)
+		p.console_window.log('  either unknown language or server should not be started automatically', 0)
 		p.cur_lang_srv_running = false
+		editor.clear_diagnostics()
 		return
 	}
 	
-	p.console_window.log('  trying to start ${p.lsp_config.lspservers[p.current_language].executable}', p.info_style_id)
+	p.console_window.log('  trying to start ${p.lsp_config.lspservers[p.current_language].executable}', 0)
 	proc_status := p.proc_manager.start(p.current_language,
 										p.lsp_config.lspservers[p.current_language].executable,
 										p.lsp_config.lspservers[p.current_language].args)
 	
 	match proc_status {
 		.running {
-			p.console_window.log('  running', p.info_style_id)
-			p.console_window.log('${p.current_language} server is running', p.info_style_id)
+			p.console_window.log('  running', 0)
+			p.console_window.log('${p.current_language} server is running', 0)
 			p.cur_lang_srv_running = true
 			p.current_stdin = p.proc_manager.running_processes[p.current_language].stdin
 		}
 		.error_no_executable {
-			p.console_window.log('  cannot find executable', p.info_style_id)
+			p.console_window.log('  cannot find executable', p.warning_style_id)
 			p.cur_lang_srv_running = false
+			editor.clear_diagnostics()
 		}
 		.failed_to_start {
-			p.console_window.log('  failed to start', p.info_style_id)
+			p.console_window.log('  failed to start', p.error_style_id)
 			p.cur_lang_srv_running = false
+			editor.clear_diagnostics()
 		}
 	}
 }
@@ -488,7 +530,7 @@ fn main(hinst voidptr, fdw_reason int, lp_reserved voidptr) bool{
 			}
 			C._vinit(0, 0)
 			dll_instance = hinst
-			p.file_version_map = map[u64]u32{}
+			p.file_version_map = map[u64]int{}
 		}
 		C.DLL_THREAD_ATTACH {
 		}

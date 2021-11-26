@@ -11,19 +11,13 @@ indicator_id = 12  # indicator used to draw the squiggle lines
 # the following colors, hex notation of a rgb value, are used by the indicator, the annotation method and the console output window
 error_color = 0x756ce0
 warning_color = 0x64e0ff
-# these two colors are only used in the lsp console window
+# these three colors are only used in the lsp console window
 incoming_msg_color = 0x7bc399
 outgoing_msg_color = 0xffac59
+selected_text_color = 0x745227
 
 # enable or disable logging functionality
 enable_logging = false  # values must be either false or true
-
-# logging level: either error, warning, info and debug can be configured.
-# error = only error classified messages will be logged
-# warning = error and warning classified messages will be logged
-# info = warning and info classified messages will be logged
-# debug = all messages defined will be logged.
-log_level = info
 
 # each configured lanugage server needs to start with a section called
 # [lspservers.NAME_OF_THE_LANGUAGE_SERVER] eg. [lspservers.python]
@@ -64,13 +58,13 @@ pub mut:
 	auto_start_server bool
 	message_id_counter int = -1
 	initialized bool
-	open_documents []string  // used to prevent sending didOpen multiple times
+	// open_documents []string  // used to prevent sending didOpen multiple times
 	features ServerCapabilities
 }
 
-pub fn (mut sc ServerConfig) get_next_id() int {
+pub fn (mut sc ServerConfig) get_next_id() string {
 	sc.message_id_counter++
-	return sc.message_id_counter
+	return sc.message_id_counter.str()
 }
 
 pub struct Configs {
@@ -80,8 +74,8 @@ pub mut:
 	warning_color int = 0x64e0ff
 	incoming_msg_color int = 0x7bc399
 	outgoing_msg_color int = 0xffac59
+	selected_text_color int = 0x745227
 	enable_logging bool
-	log_level string = 'info'
 	lspservers map[string]ServerConfig
 }
 
@@ -133,12 +127,12 @@ pub fn decode_config(full_file_path string) Configs {
 		lsp_config.incoming_msg_color = doc.value('general.incoming_msg_color').int()
 	}
 	
-	if !is_null(doc.value('general.enable_logging')) {
-		lsp_config.enable_logging =	doc.value('general.enable_logging').bool()
+	if !is_null(doc.value('general.selected_text_color')) {
+		lsp_config.selected_text_color = doc.value('general.selected_text_color').int()
 	}
 	
-	if doc.value('general.log_level').string() in ['error', 'warning', 'info', 'debug'] {
-		lsp_config.log_level = doc.value('general.log_level').string()
+	if !is_null(doc.value('general.enable_logging')) {
+		lsp_config.enable_logging =	doc.value('general.enable_logging').bool()
 	}
 
 	// lspservers
@@ -178,7 +172,7 @@ pub fn decode_config(full_file_path string) Configs {
 	}
 	if lsp_config.lspservers.len == 0 {
 		p.console_window.log('cannot identify any configured language server', p.error_style_id)
-		p.console_window.log('$lsp_config', p.info_style_id)
+		p.console_window.log('$lsp_config', p.warning_style_id)
 	}
 	return lsp_config
 }
@@ -237,18 +231,18 @@ pub fn analyze_config(full_file_path string) {
 					p.console_window.log('outgoing_msg_color must be a field in general section', p.error_style_id)
 				}
 			}
+			line.starts_with('selected_text_color') {
+				if in_general_section {
+					check_if_integer_value(line)
+				} else {
+					p.console_window.log('selected_text_color must be a field in general section', p.error_style_id)
+				}
+			}
 			line.starts_with('enable_logging') {
 				if in_general_section {
 					check_if_boolean_value(line)
 				} else {
 					p.console_window.log('enable_logging must be a field in general section', p.error_style_id)
-				}
-			}
-			line.starts_with('log_level') {
-				if in_general_section {
-					check_if_string_value(line)
-				} else {
-					p.console_window.log('log_level must be a field in general section', p.error_style_id)
 				}
 			}
 			line.starts_with('mode') {

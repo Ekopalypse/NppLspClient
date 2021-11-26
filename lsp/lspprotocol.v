@@ -13,7 +13,7 @@ enum JsonRpcMessageType {
 struct Message {
 	msg_type JsonRpcMessageType
 	method string
-	id int
+	id string
 	params string
 	response string
 }
@@ -118,7 +118,7 @@ pub fn initialize(pid int, file_path string) string {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"initialize"'
-		params: '{"processId":$pid,$client_info,"rootUri":"file:///$uri_path",$initialization_options,$capabilities,$trace,$workspace_folders}'
+		params: '{"processId":$pid,$client_info,"rootUri":"$uri_path",$initialization_options,$capabilities,$trace,$workspace_folders}'
 	}
 	p.open_response_messages[m.id] = initialize_response
 	return m.encode()
@@ -151,40 +151,42 @@ pub fn shutdown_msg() string {
 	return m.encode()	
 }
 
-pub fn did_open(file_path DocumentUri, file_version u32, language_id string, content string) string {
+pub fn did_open(file_path DocumentUri, file_version int, language_id string, content string) string {
 	uri_path := make_uri(file_path)
 	m := Message {
 		msg_type: JsonRpcMessageType.notification
 		method: '"textDocument/didOpen"'
-		params: '{"textDocument":{"uri":"file:///$uri_path","languageId":"$language_id","version":$file_version,"text":"$content"}}'
+		params: '{"textDocument":{"uri":"$uri_path","languageId":"$language_id","version":$file_version,"text":"$content"}}'
 	}
 	return m.encode()
 }
 
 pub fn did_change_incremental(file_path DocumentUri, 
-							  file_version u32, 
+							  file_version int, 
 							  text_changes string, 
 							  start_line u32, 
 							  start_char u32, 
 							  end_line u32, 
-							  end_char u32) string {
+							  end_char u32,
+							  range_length u32) string {
 	uri_path := make_uri(file_path)
-	changes := '{"range":{"start":{"line":$start_line,"character":$start_char},"end":{"line":$end_line,"character":$end_char}},"rangeLength":0,"text":"$text_changes"}'
+	range := make_range(start_line, start_char, end_line, end_char)
+	changes := '{$range,"rangeLength":$range_length,"text":"$text_changes"}'
 
 	m := Message {
 		msg_type: JsonRpcMessageType.notification
 		method: '"textDocument/didChange"'
-		params: '{"textDocument":{"uri":"file:///$uri_path","version":$file_version},"contentChanges":[$changes]}'
+		params: '{"textDocument":{"uri":"$uri_path","version":$file_version},"contentChanges":[$changes]}'
 	}	
 	return m.encode()
 }
 
-pub fn did_change_full(file_path DocumentUri, file_version u32, changes string) string {
+pub fn did_change_full(file_path DocumentUri, file_version int, changes string) string {
 	uri_path := make_uri(file_path)
 	m := Message {
 		msg_type: JsonRpcMessageType.notification
 		method: '"textDocument/didChange"'
-		params: '{"textDocument":{"uri":"file:///$uri_path","version":$file_version},"contentChanges":[$changes]}'
+		params: '{"textDocument":{"uri":"$uri_path","version":$file_version},"contentChanges":[$changes]}'
 	}	
 	return m.encode()
 }
@@ -194,7 +196,7 @@ pub fn will_save(file_path DocumentUri) string {
 	m := Message {
 		msg_type: JsonRpcMessageType.notification
 		method: '"textDocument/willSave"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},"reason":1'
+		params: '{"textDocument":{"uri":"$uri_path"},"reason":1'
 	}	
 	return m.encode()
 }
@@ -204,7 +206,7 @@ pub fn will_save_wait_until(file_path DocumentUri, reason int) string {
 	m := Message {
 		msg_type: JsonRpcMessageType.notification
 		method: '"textDocument/willSaveWaitUntil"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},"reason":$reason'
+		params: '{"textDocument":{"uri":"$uri_path"},"reason":$reason'
 	}	
 	return m.encode()
 }
@@ -212,9 +214,9 @@ pub fn will_save_wait_until(file_path DocumentUri, reason int) string {
 pub fn did_save(file_path DocumentUri, content string) string {
 	uri_path := make_uri(file_path)
 	params__ := if content.len == 0 {
-		'{"textDocument":{"uri":"file:///$uri_path"}}'
+		'{"textDocument":{"uri":"$uri_path"}}'
 	} else {
-		'{"textDocument":{"uri":"file:///$uri_path","text":$content}}'
+		'{"textDocument":{"uri":"$uri_path","text":$content}}'
 	}
 	m := Message {
 		msg_type: JsonRpcMessageType.notification
@@ -229,18 +231,23 @@ pub fn did_close(file_path DocumentUri) string {
 	m := Message {
 		msg_type: JsonRpcMessageType.notification
 		method: '"textDocument/didClose"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"}}'
+		params: '{"textDocument":{"uri":"$uri_path"}}'
 	}
 	return m.encode()
 }
 
 pub fn request_completion(file_path DocumentUri, line u32, char_pos u32, trigger_character string) string {
 	uri_path := make_uri(file_path)
+	context := if trigger_character.len == 0 {
+		'"context":{"triggerKind":1}'
+	} else {
+		'"context":{"triggerKind":2,"triggerCharacter":"$trigger_character"}'
+	}
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/completion"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"line":$line,"character":$char_pos},"context":{"triggerKind":1,"triggerCharacter":"$trigger_character"}}'
+		params: '{"textDocument":{"uri":"$uri_path"},"position":{"line":$line,"character":$char_pos},$context}'
 	}
 	p.open_response_messages[m.id] = completion_response
 	return m.encode()
@@ -252,7 +259,7 @@ pub fn request_signature_help(file_path DocumentUri, line u32, char_pos u32, tri
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/signatureHelp"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"line":$line,"character":$char_pos},"context":{"isRetrigger":false,"triggerCharacter":"$trigger_character","triggerKind":2}}'
+		params: '{"textDocument":{"uri":"$uri_path"},"position":{"line":$line,"character":$char_pos},"context":{"isRetrigger":false,"triggerCharacter":"$trigger_character","triggerKind":2}}'
 	}
 	p.open_response_messages[m.id] = signature_help_response
 	return m.encode()
@@ -265,7 +272,7 @@ pub fn format_document(file_path DocumentUri,
 					   insert_final_new_line bool,
 					   trim_final_new_lines bool) string {
 
-	text_document := '"textDocument":{"uri":"file:///${make_uri(file_path)}"}'
+	text_document := '"textDocument":{"uri":"${make_uri(file_path)}"}'
 	options := '"options":{"insertSpaces":$insert_spaces,"tabSize":$tab_size,"trimTrailingWhitespace":$trim_trailing_whitespace,"insertFinalNewline":$insert_final_new_line,"trimFinalNewlines":$trim_final_new_lines}'
 	m := Message {
 		msg_type: JsonRpcMessageType.request
@@ -288,8 +295,8 @@ pub fn format_selected_range(file_path DocumentUri,
 							 insert_final_new_line bool,
 							 trim_final_new_lines bool) string {
 
-	text_document := '"textDocument":{"uri":"file:///${make_uri(file_path)}"}'
-	range := '"range":{"start":{"line":$start_line,"character":$start_char},"end":{"line":$end_line,"character":$end_char}'
+	text_document := '"textDocument":{"uri":"${make_uri(file_path)}"}'
+	range := make_range(start_line, start_char, end_line, end_char)
 	options := '"options":{"insertSpaces":$insert_spaces,"tabSize":$tab_size,"trimTrailingWhitespace":$trim_trailing_whitespace,"insertFinalNewline":$insert_final_new_line,"trimFinalNewlines":$trim_final_new_lines}'
 	m := Message {
 		msg_type: JsonRpcMessageType.request
@@ -307,7 +314,7 @@ pub fn goto_definition(file_path DocumentUri, line u32, char_position u32) strin
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/definition"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
+		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
 	p.open_response_messages[m.id] = goto_definition_response
 	return m.encode()
@@ -319,7 +326,7 @@ pub fn peek_definition(file_path DocumentUri, line u32, char_position u32) strin
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/definition"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
+		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
 	p.open_response_messages[m.id] = peek_definition_response
 	return m.encode()
@@ -331,7 +338,7 @@ pub fn goto_implementation(file_path DocumentUri, line u32, char_position u32) s
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/implementation"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
+		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
 	p.open_response_messages[m.id] = goto_implementation_response
 	return m.encode()
@@ -343,7 +350,7 @@ pub fn peek_implementation(file_path DocumentUri, line u32, char_position u32) s
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/implementation"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
+		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
 	p.open_response_messages[m.id] = peek_implementation_response
 	return m.encode()
@@ -355,7 +362,7 @@ pub fn goto_declaration(file_path DocumentUri, line u32, char_position u32) stri
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/declaration"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
+		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
 	p.open_response_messages[m.id] = goto_declaration_response
 	return m.encode()
@@ -367,7 +374,7 @@ pub fn find_references(file_path DocumentUri, line u32, char_position u32) strin
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/references"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
+		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
 	p.open_response_messages[m.id] = find_references_response
 	return m.encode()
@@ -379,7 +386,7 @@ pub fn document_highlight(file_path DocumentUri, line u32, char_position u32) st
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/documentHighlight"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
+		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
 	p.open_response_messages[m.id] = document_highlight_response
 	return m.encode()
@@ -391,7 +398,7 @@ pub fn document_symbols(file_path DocumentUri) string {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/documentSymbol"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"}}'
+		params: '{"textDocument":{"uri":"$uri_path"}}'
 	}
 	p.open_response_messages[m.id] = document_symbols_response
 	return m.encode()
@@ -403,7 +410,7 @@ pub fn hover(file_path DocumentUri, line u32, char_position u32) string {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/hover"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
+		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
 	p.open_response_messages[m.id] = hover_response
 	return m.encode()
@@ -417,7 +424,7 @@ pub fn rename(file_path DocumentUri, line u32, char_position u32, replacement st
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/rename"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},$position,$new_name}'
+		params: '{"textDocument":{"uri":"$uri_path"},$position,$new_name}'
 	}
 	p.open_response_messages[m.id] = rename_response
 	return m.encode()
@@ -430,7 +437,7 @@ pub fn prepare_rename(file_path DocumentUri, line u32, char_position u32) string
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/prepareRename"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},$position}'
+		params: '{"textDocument":{"uri":"$uri_path"},$position}'
 	}
 	p.open_response_messages[m.id] = prepare_rename_response
 	return m.encode()
@@ -442,7 +449,7 @@ pub fn folding_range(file_path DocumentUri) string {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/prepareRename"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"}}'
+		params: '{"textDocument":{"uri":"$uri_path"}}'
 	}
 	p.open_response_messages[m.id] = folding_range_response
 	return m.encode()
@@ -456,7 +463,7 @@ pub fn selection_range(file_path DocumentUri, line u32, char_position u32) strin
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/selectionRange"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},$position}'
+		params: '{"textDocument":{"uri":"$uri_path"},$position}'
 	}
 	p.open_response_messages[m.id] = selection_range_response
 	return m.encode()
@@ -535,7 +542,7 @@ pub fn code_lens_resolve(file_path DocumentUri) string {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"codeLens/resolve"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"}}'
+		params: '{"textDocument":{"uri":"$uri_path"}}'
 	}
 	p.open_response_messages[m.id] = code_lens_resolve_response
 	return m.encode()
@@ -556,7 +563,7 @@ pub fn document_link_resolve(start_line u32,
 							 start_char u32, 
 							 end_line u32, 
 							 end_char u32) string {
-	range := '"range":{"start":{"line":$start_line,"character":$start_char},"end":{"line":$end_line,"character":$end_char}'	
+	range := make_range(start_line, start_char, end_line, end_char)
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
@@ -567,15 +574,15 @@ pub fn document_link_resolve(start_line u32,
 	return m.encode()
 }
 
-pub fn todo_code_action(file_path DocumentUri,
-						start_line u32, 
-						start_char u32, 
-						end_line u32, 
-						end_char u32) string {
+pub fn code_action(file_path DocumentUri,
+				   start_line u32, 
+				   start_char u32, 
+				   end_line u32, 
+				   end_char u32) string {
 	//  TODO: WorkDoneProgressParams
 	uri_path := make_uri(file_path)
-	text_document := '"textDocument":{"uri":"file:///$uri_path"}'
-	range := '"range":{"start":{"line":$start_line,"character":$start_char},"end":{"line":$end_line,"character":$end_char}'	
+	text_document := '"textDocument":{"uri":"$uri_path"}'
+	range := make_range(start_line, start_char, end_line, end_char)
 	// export interface CodeActionContext {
 		// /**
 		 // * An array of diagnostics known on the client side overlapping the range
@@ -620,7 +627,7 @@ pub fn code_lens(file_path DocumentUri) string {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/codeLens"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"}}'
+		params: '{"textDocument":{"uri":"$uri_path"}}'
 	}
 	p.open_response_messages[m.id] = code_lens_response
 	return m.encode()
@@ -637,9 +644,9 @@ pub fn color_presentation(file_path DocumentUri,
 						  alpha f32) string {
 	// TODO: WorkDoneProgressParams
 	uri_path := make_uri(file_path)
-	text_document := '"textDocument":{"uri":"file:///$uri_path"}'
+	text_document := '"textDocument":{"uri":"$uri_path"}'
 	color := '"color":{"red":$red,"green":$green,"blue":$blue,"alpha":$alpha}'
-	range := '"range":{"start":{"line":$start_line,"character":$start_char},"end":{"line":$end_line,"character":$end_char}'
+	range := make_range(start_line, start_char, end_line, end_char)
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
@@ -657,7 +664,7 @@ pub fn document_color(file_path DocumentUri) string {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/documentColor"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"}}'
+		params: '{"textDocument":{"uri":"$uri_path"}}'
 	}
 	p.open_response_messages[m.id] = document_color_response
 	return m.encode()
@@ -669,7 +676,7 @@ pub fn document_link(file_path DocumentUri) string {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/documentLink"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"}}'
+		params: '{"textDocument":{"uri":"$uri_path"}}'
 	}
 	p.open_response_messages[m.id] = document_link_response
 	return m.encode()
@@ -682,7 +689,7 @@ pub fn linked_editing_range(file_path DocumentUri, line u32, char_position u32) 
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/linkedEditingRange"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
+		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
 	p.open_response_messages[m.id] = linked_editing_range_response
 	return m.encode()
@@ -695,7 +702,7 @@ pub fn moniker(file_path DocumentUri, line u32, char_position u32) string {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/moniker"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
+		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
 	p.open_response_messages[m.id] = moniker_response
 	return m.encode()
@@ -709,7 +716,7 @@ pub fn on_type_formatting(file_path DocumentUri,
 						  insert_spaces bool) string {
 	uri_path := make_uri(file_path)
 	
-	text_document := '"textDocument":{"uri":"file:///$uri_path"}'
+	text_document := '"textDocument":{"uri":"$uri_path"}'
 	position := '"position":{"character":$char_position,"line":$line}'
 	character := '"ch":"$ch"'
 	// FormattingOptions
@@ -748,7 +755,7 @@ pub fn prepare_call_hierarchy(file_path DocumentUri,
 								   char_position u32, ) string {
 	// TODO: WorkDoneProgressParams
 	uri_path := make_uri(file_path)
-	text_document := '"textDocument":{"uri":"file:///$uri_path"}'
+	text_document := '"textDocument":{"uri":"$uri_path"}'
 	position := '"position":{"character":$char_position,"line":$line}'
 	m := Message {
 		msg_type: JsonRpcMessageType.request
@@ -767,7 +774,7 @@ pub fn semantic_tokens_full(file_path DocumentUri) string {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/semanticTokens/full"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"}}'
+		params: '{"textDocument":{"uri":"$uri_path"}}'
 	}
 	p.open_response_messages[m.id] = semantic_tokens_full_response
 	return m.encode()
@@ -780,7 +787,7 @@ pub fn semantic_tokens_delta(file_path DocumentUri, previous_result_id string) s
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/semanticTokens/full/delta"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},"previousResultId":"previous_result_id"}'
+		params: '{"textDocument":{"uri":"$uri_path"},"previousResultId":"previous_result_id"}'
 	}
 	p.open_response_messages[m.id] = semantic_tokens_delta_response
 	return m.encode()
@@ -793,8 +800,8 @@ pub fn semantic_tokens_range(file_path DocumentUri,
 							 end_char u32) string {
 	// TODO: WorkDoneProgressParams
 	uri_path := make_uri(file_path)
-	text_document := '"textDocument":{"uri":"file:///$uri_path"}'
-	range := '"range":{"start":{"line":$start_line,"character":$start_char},"end":{"line":$end_line,"character":$end_char}'
+	text_document := '"textDocument":{"uri":"$uri_path"}'
+	range := make_range(start_line, start_char, end_line, end_char)
 	m := Message {
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
@@ -811,7 +818,7 @@ pub fn type_definition(file_path DocumentUri, line u32, char_position u32) strin
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/typeDefinition"'
-		params: '{"textDocument":{"uri":"file:///$uri_path"},"position":{"character":$char_position,"line":$line}}'
+		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
 	p.open_response_messages[m.id] = type_definition_response
 	return m.encode()
@@ -963,15 +970,6 @@ pub fn workspace_will_rename_files(files_renamed FileRenameArray) string {
 // JSON Structures
 //////***********************************************************************
 
-// pub fn (mut xx XXX) from_json(f json2.Any) {
-	// obj := f.as_map()
-	// for k, v in obj {
-		// match k {
-			// else {}
-		// }
-	// }
-// }
-
 
 // used for decoding
 struct JsonMessage {
@@ -990,7 +988,13 @@ pub fn (mut m JsonMessage) from_json(f json2.Any) {
 		match k {
 			'jsonrpc' { m.jsonrpc =	 v.str() }
 			'method' { m.method = v.str() }
-			'id' { m.id = v.str() }
+			'id' { 
+				m.id = if v.type_name() == 'string' {
+					'"${v.str()}"'
+				} else {
+					v.str()
+				}
+			}
 			'params' { m.params = v.str() }
 			'result' { m.result = v.str() }
 			'error' { m.error = v.str() }
@@ -1001,12 +1005,17 @@ pub fn (mut m JsonMessage) from_json(f json2.Any) {
 
 type DocumentUri = string
 
-pub fn make_path(uri string) string {
+fn make_path(uri string) string {
 	return uri.all_after('file:///').replace_each(['/', '\\', '%3A', ':'])
 }
 
-pub fn make_uri(path string) string {
-	return path.replace_each(['\\', '/', ':', '%3A'])
+fn make_uri(path string) string {
+	escaped := path.replace_each(['\\', '/', ':', '%3A'])
+	return 'file:///$escaped'
+}
+
+fn make_range(start_line u32, start_char u32, end_line u32, end_char u32) string {
+ return '"range":{"start":{"line":$start_line,"character":$start_char},"end":{"line":$end_line,"character":$end_char}}'
 }
 
 pub struct TextDocumentIdentifier {
@@ -1795,9 +1804,14 @@ pub mut:
 }
 
 pub fn (mut rp RegistrationParams) from_json(f json2.Any) {
-	items := f.arr()
-	for item in items {
-		rp.registrations << json2.decode<Registration>(item.str()) or { Registration{} }
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
+			'registrations' { 
+				rp.registrations = v.arr().map(json2.decode<Registration>(it.str()) or { Registration{} }) 
+			}
+			else {}
+		}
 	}
 }
 
@@ -1831,10 +1845,15 @@ pub mut:
 }
 
 pub fn (mut up UnregistrationParams) from_json(f json2.Any) {
-	items := f.arr()
-	for item in items {
-		up.unregistrations << json2.decode<Unregistration>(item.str()) or { Unregistration{} }
-	}
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
+			'unregistrations' { 
+				up.unregistrations = v.arr().map(json2.decode<Unregistration>(it.str()) or { Unregistration{} }) 
+			}
+			else {}
+		}
+	}	
 }
 
 pub struct Unregistration {
@@ -2040,4 +2059,40 @@ fn (fra FileRenameArray) make_lsp_message() string {
 		files__ << '{"oldUri":"$old_uri_path","newUri":"$new_uri_path"}'
 	}
 	return '[${files__.join(",")}]'
+}
+
+pub struct ConfigurationItem {
+pub mut:
+	// The scope to get the configuration section for.
+	scope_uri string //  scopeUri DocumentUri
+	// The configuration section asked for.
+	section string
+}
+
+pub fn (mut ci ConfigurationItem) from_json(f json2.Any) {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
+			'scopeUri' { ci.scope_uri = v.str() }
+			'section' { ci.section = v.str() }
+			else {}
+		}
+	}	
+}
+
+pub struct ConfigurationParams {
+pub mut:
+	items []ConfigurationItem
+}
+
+pub fn (mut cp ConfigurationParams) from_json(f json2.Any) {
+	obj := f.as_map()
+	for k, v in obj {
+		match k {
+			'items' { 
+				cp.items = v.arr().map(json2.decode<ConfigurationItem>(it.str()) or { ConfigurationItem{} })
+			}
+			else {}
+		}
+	}
 }
