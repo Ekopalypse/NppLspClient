@@ -69,10 +69,10 @@ fn initialize_response(json_message string) {
 		)
 
 		p.lsp_config.lspservers[p.current_language].initialized = true
-		p.working_buffer_id = u64(npp.get_current_buffer_id())
+		p.working_buffer_id = u64(p.npp.get_current_buffer_id())
 		p.current_file_version = 0
 		p.file_version_map[p.working_buffer_id] = p.current_file_version
-		on_file_opened(npp.get_current_filename())
+		on_file_opened(p.npp.get_current_filename())
 	} else {
 		p.console_window.log('  unexpected initialize response received', p.error_style_id)
 	}
@@ -86,7 +86,7 @@ pub fn on_file_opened(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.send_open_close_notif
    {
-		content := editor.get_text()
+		content := p.editor.get_text()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.did_open(file_name, 0, lang_id, content)
@@ -113,7 +113,7 @@ pub fn on_file_saved(file_name string) {
    {
 		mut content := ''
 		if p.lsp_config.lspservers[p.current_language].features.include_text_in_save_notif {
-			content = editor.get_text()
+			content = p.editor.get_text()
 		}
 		lsp.write_to(
 			p.current_stdin,
@@ -166,7 +166,7 @@ pub fn on_buffer_modified(file_name string,
 			1 {  // TextDocumentSyncKind.full
 				lsp.write_to(
 					p.current_stdin,
-					lsp.did_change_full(file_name, p.current_file_version, editor.get_text())
+					lsp.did_change_full(file_name, p.current_file_version, p.editor.get_text())
 				)
 			}
 			2 {  // TextDocumentSyncKind.incremental
@@ -231,7 +231,7 @@ fn completion_response(json_message string) {
 		// mut ci__ := ci.map(it.insert_text)
 		ci__.sort()
 		
-		editor.display_completion_list(ci__.join('\n')) 
+		p.editor.display_completion_list(ci__.join('\n')) 
 	}
 }
 
@@ -253,7 +253,7 @@ fn signature_help_response(json_message string) {
 	p.console_window.log('  signature help response received: $json_message', 0)
 	sh := json2.decode<SignatureHelp>(json_message) or { SignatureHelp{} }
 	if sh.signatures.len > 0 {
-		editor.display_signature_hints(sh.signatures[0].label)
+		p.editor.display_signature_hints(sh.signatures[0].label)
 	}
 	p.console_window.log('$sh', 0)
 }
@@ -264,7 +264,7 @@ pub fn on_format_document(file_name string) {
 	{
 		lsp.write_to(
 			p.current_stdin,
-			lsp.format_document(file_name, editor.get_tab_size(), editor.use_spaces(), true, true, true)
+			lsp.format_document(file_name, p.editor.get_tab_size(), p.editor.use_spaces(), true, true, true)
 		)	
 	}
 }
@@ -272,23 +272,23 @@ pub fn on_format_document(file_name string) {
 fn format_document_response(json_message string) {
 	p.console_window.log('  format document response received: $json_message', 0)
 	tea := json2.decode<TextEditArray>(json_message) or { TextEditArray{} }
-	editor.begin_undo_action()
+	p.editor.begin_undo_action()
 	for item in tea.items {
-		start_pos := u32(editor.position_from_line(item.range.start.line)) + item.range.start.character
-		end_pos := u32(editor.position_from_line(item.range.end.line)) + item.range.end.character
-		editor.replace_target(start_pos, end_pos, item.new_text)
+		start_pos := u32(p.editor.position_from_line(item.range.start.line)) + item.range.start.character
+		end_pos := u32(p.editor.position_from_line(item.range.end.line)) + item.range.end.character
+		p.editor.replace_target(start_pos, end_pos, item.new_text)
 	}
-	editor.end_undo_action()
+	p.editor.end_undo_action()
 }
 
 pub fn on_format_selected_range(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.document_range_formatting_provider
 	{
-		start_line, end_line, start_char, end_char := editor.get_range_from_selection()
+		start_line, end_line, start_char, end_char := p.editor.get_range_from_selection()
 		lsp.write_to(
 			p.current_stdin,
-			lsp.format_selected_range(file_name, start_line, end_line, start_char, end_char, editor.get_tab_size(), editor.use_spaces(), true, true, true)
+			lsp.format_selected_range(file_name, start_line, end_line, start_char, end_char, p.editor.get_tab_size(), p.editor.use_spaces(), true, true, true)
 		)	
 	}
 }
@@ -297,7 +297,7 @@ pub fn on_goto_definition(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.definition_provider
 	{
-		current_line, char_pos := editor.get_lsp_position_info()
+		current_line, char_pos := p.editor.get_lsp_position_info()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.goto_definition(file_name, current_line, char_pos)
@@ -314,7 +314,7 @@ pub fn on_goto_implementation(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.implementation_provider
 	{
-		current_line, char_pos := editor.get_lsp_position_info()
+		current_line, char_pos := p.editor.get_lsp_position_info()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.goto_implementation(file_name, current_line, char_pos)
@@ -333,33 +333,33 @@ fn goto_location_helper(json_message string) {
 		if json_message.contains('originSelectionRange') {
 			lla := json2.decode<LocationLinkArray>(json_message) or { LocationLinkArray{} }
 			if lla.items.len > 0 {
-				npp.open_document(lla.items[0].target_uri)
-				start_pos = u32(editor.position_from_line(lla.items[0].target_range.start.line))
+				p.npp.open_document(lla.items[0].target_uri)
+				start_pos = u32(p.editor.position_from_line(lla.items[0].target_range.start.line))
 				start_pos += lla.items[0].target_range.start.character
 			}
 		} else {
 			loca := json2.decode<LocationArray>(json_message) or { LocationArray{} }
 			if loca.items.len > 0 {
 
-				npp.open_document(loca.items[0].uri)
-				start_pos = u32(editor.position_from_line(loca.items[0].range.start.line))
+				p.npp.open_document(loca.items[0].uri)
+				start_pos = u32(p.editor.position_from_line(loca.items[0].range.start.line))
 				start_pos += loca.items[0].range.start.character
 			}
 		}
 	} else {
 		loc := json2.decode<Location>(json_message) or { Location{} }
-		npp.open_document(loc.uri)
-		start_pos = u32(editor.position_from_line(loc.range.start.line))
+		p.npp.open_document(loc.uri)
+		start_pos = u32(p.editor.position_from_line(loc.range.start.line))
 		start_pos += loc.range.start.character
 	}
-	editor.goto_pos(start_pos)	
+	p.editor.goto_pos(start_pos)	
 }
 
 pub fn on_peek_definition(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.definition_provider
 	{
-		current_line, char_pos := editor.get_lsp_position_info()
+		current_line, char_pos := p.editor.get_lsp_position_info()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.peek_definition(file_name, current_line, char_pos)
@@ -376,7 +376,7 @@ pub fn on_peek_implementation(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.implementation_provider
 	{
-		current_line, char_pos := editor.get_lsp_position_info()
+		current_line, char_pos := p.editor.get_lsp_position_info()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.peek_implementation(file_name, current_line, char_pos)
@@ -424,7 +424,7 @@ fn peek_helper(json_message string) {
 			if content.len >= last_line__ {
 				last_line := if content.len >= last_line__ + 4 { last_line__ + 4} else { content.len }
 				peeked_code := '\n${content[first_line..last_line].join("\n")}'
-				editor.show_peeked_info(peeked_code)
+				p.editor.show_peeked_info(peeked_code)
 			}
 		}
 	}	
@@ -434,7 +434,7 @@ pub fn on_goto_declaration(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.declaration_provider
 	{
-		current_line, char_pos := editor.get_lsp_position_info()
+		current_line, char_pos := p.editor.get_lsp_position_info()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.goto_declaration(file_name, current_line, char_pos)
@@ -451,7 +451,7 @@ pub fn on_find_references(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.references_provider
 	{
-		current_line, char_pos := editor.get_lsp_position_info()
+		current_line, char_pos := p.editor.get_lsp_position_info()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.find_references(file_name, current_line, char_pos)
@@ -476,7 +476,7 @@ pub fn on_document_highlight(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.document_highlight_provider
 	{
-		current_line, char_pos := editor.get_lsp_position_info()
+		current_line, char_pos := p.editor.get_lsp_position_info()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.document_highlight(file_name, current_line, char_pos)
@@ -529,8 +529,8 @@ pub fn on_hover(file_name string, position u32) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.hover_provider
 	{
-		current_line := editor.line_from_position(usize(position))
-		char_pos := position - editor.position_from_line(current_line)
+		current_line := p.editor.line_from_position(usize(position))
+		char_pos := position - p.editor.position_from_line(current_line)
 		lsp.write_to(
 			p.current_stdin,
 			lsp.hover(file_name, current_line, char_pos)
@@ -541,7 +541,7 @@ pub fn on_hover(file_name string, position u32) {
 fn hover_response(json_message string) {
 	p.console_window.log('hover response received: $json_message', 0)
 	h := json2.decode<Hover>(json_message) or { Hover{} }
-	editor.display_hover_hints(p.current_hover_position, h.contents)
+	p.editor.display_hover_hints(p.current_hover_position, h.contents)
 }
 
 pub fn on_rename(file_name string, new_name string) {
@@ -549,7 +549,7 @@ pub fn on_rename(file_name string, new_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.rename_provider
 	{
-		current_line, char_pos := editor.get_lsp_position_info()
+		current_line, char_pos := p.editor.get_lsp_position_info()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.rename(file_name, current_line, char_pos, new_name)
@@ -568,7 +568,7 @@ pub fn on_prepare_rename(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.rename_provider
 	{
-		current_line, char_pos := editor.get_lsp_position_info()
+		current_line, char_pos := p.editor.get_lsp_position_info()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.prepare_rename(file_name, current_line, char_pos)
@@ -605,7 +605,7 @@ pub fn on_selection_range(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.selection_range_provider
 	{
-		current_line, char_pos := editor.get_lsp_position_info()
+		current_line, char_pos := p.editor.get_lsp_position_info()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.selection_range(file_name, current_line, char_pos)
@@ -865,7 +865,7 @@ pub fn on_linked_editing_range(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.linked_editing_range_provider
 	{
-		current_line, char_pos := editor.get_lsp_position_info()
+		current_line, char_pos := p.editor.get_lsp_position_info()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.linked_editing_range(file_name, current_line, char_pos)
@@ -882,7 +882,7 @@ pub fn on_moniker(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.moniker_provider
 	{
-		current_line, char_pos := editor.get_lsp_position_info()
+		current_line, char_pos := p.editor.get_lsp_position_info()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.moniker(file_name, current_line, char_pos)
@@ -900,15 +900,15 @@ pub fn on_on_type_formatting(file_name string, ch string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.document_on_type_formatting_provider
 	{
-		current_line, char_pos := editor.get_lsp_position_info()
+		current_line, char_pos := p.editor.get_lsp_position_info()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.on_type_formatting(file_name, 
 								   current_line,
 								   char_pos,
 								   ch,
-								   editor.get_tab_size(),
-								   editor.use_spaces())
+								   p.editor.get_tab_size(),
+								   p.editor.use_spaces())
 		)
 	}
 }
@@ -922,7 +922,7 @@ pub fn on_prepare_call_hierarchy(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.call_hierarchy_provider
 	{
-		current_line, char_pos := editor.get_lsp_position_info()
+		current_line, char_pos := p.editor.get_lsp_position_info()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.prepare_call_hierarchy(file_name, current_line, char_pos)
@@ -994,7 +994,7 @@ pub fn on_type_definition(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized &&
 	   p.lsp_config.lspservers[p.current_language].features.type_definition_provider
 	{
-		current_line, char_pos := editor.get_lsp_position_info()
+		current_line, char_pos := p.editor.get_lsp_position_info()
 		lsp.write_to(
 			p.current_stdin,
 			lsp.type_definition(file_name, current_line, char_pos)
@@ -1211,13 +1211,14 @@ fn notification_handler(json_message JsonMessage) {
 
 fn publish_diagnostics(params string) {
 	diag := json2.decode<PublishDiagnosticsParams>(params) or { PublishDiagnosticsParams{} }
-	editor.clear_diagnostics()
+	p.editor.clear_diagnostics()
+	p.diag_window.clear()
 	for d in diag.diagnostics {
-		// editor.add_diagnostics_info(d.range.start.line, d.message, d.severity)
-		start := editor.position_from_line(d.range.start.line) + d.range.start.character
-		end := editor.position_from_line(d.range.end.line) + d.range.end.character
-		editor.add_diag_indicator(start, end-start, d.severity)
-		p.console_window.log('${diag.uri} [line:${d.range.start.line} col:${d.range.start.character}] - ${d.message}', byte(d.severity))
+		// p.editor.add_diagnostics_info(d.range.start.line, d.message, d.severity)
+		start := p.editor.position_from_line(d.range.start.line) + d.range.start.character
+		end := p.editor.position_from_line(d.range.end.line) + d.range.end.character
+		p.editor.add_diag_indicator(start, end-start, d.severity)
+		p.diag_window.log('${diag.uri} [line:${d.range.start.line} col:${d.range.start.character}] - ${d.message}', byte(d.severity))
 	}
 }
 

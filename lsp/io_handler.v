@@ -36,14 +36,14 @@ fn read_from_stdout(pipe voidptr, msg_queue chan string) {
 
 		_ := msg_queue.try_push(content)
 		send_message(
-			npp_data.npp_handle, 
+			p.npp_data.npp_handle, 
 			notepadpp.nppm_msgtoplugin, 
 			usize('${p.name}.dll'.to_wide()),
 			isize(&new_message_arrived)
 		)
 	}
 	send_message(
-		npp_data.npp_handle, 
+		p.npp_data.npp_handle, 
 		notepadpp.nppm_msgtoplugin, 
 		usize('${p.name}.dll'.to_wide()),
 		isize(&pipe_closed_event)
@@ -62,7 +62,7 @@ fn read_from_stderr(pipe voidptr, msg_queue chan string) {
 		if p.lsp_config.enable_logging {
 			_ := msg_queue.try_push(content)
 			send_message(
-				npp_data.npp_handle, 
+				p.npp_data.npp_handle, 
 				notepadpp.nppm_msgtoplugin, 
 				usize('${p.name}.dll'.to_wide()),
 				isize(&new_err_message_arrived)
@@ -70,7 +70,7 @@ fn read_from_stderr(pipe voidptr, msg_queue chan string) {
 		}
 	}
 	send_message(
-		npp_data.npp_handle, 
+		p.npp_data.npp_handle, 
 		notepadpp.nppm_msgtoplugin, 
 		usize('${p.name}.dll'.to_wide()),
 		isize(&pipe_closed_event)
@@ -98,4 +98,12 @@ pub fn write_to(pipe voidptr, message string) bool {
 		return false
 	}
 	return true
+}
+
+pub fn write_to_socket(socket voidptr, message string) bool {
+	return false
+}
+
+fn read_from_socket(socket voidptr, msg_queue chan string) {
+	
 }

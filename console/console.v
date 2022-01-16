@@ -85,9 +85,9 @@ pub fn (mut d DockableDialog) log(text string, style byte) {
 
 
 pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
-	d.output_hwnd = npp.create_scintilla(d.hwnd)
-	d.hwnd = voidptr(api.create_dialog_param(dll_instance, api.make_int_resource(C.IDD_CONSOLEDLG), npp_hwnd, api.WndProc(dialog_proc), 0))
-	icon := api.load_image(dll_instance, api.make_int_resource(200), u32(C.IMAGE_ICON), 16, 16, 0)
+	d.output_hwnd = p.npp.create_scintilla(d.hwnd)
+	d.hwnd = voidptr(api.create_dialog_param(p.dll_instance, api.make_int_resource(C.IDD_CONSOLEDLG), npp_hwnd, api.WndProc(dialog_proc), 0))
+	icon := api.load_image(p.dll_instance, api.make_int_resource(200), u32(C.IMAGE_ICON), 16, 16, 0)
 	d.tbdata = notepadpp.TbData {
 		client: d.hwnd
 		name: d.name
@@ -99,7 +99,7 @@ pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
 		prev_cont: -1
 		module_name: plugin_name.to_wide()
 	}
-	npp.register_dialog(d.tbdata)
+	p.npp.register_dialog(d.tbdata)
 	d.hide()
 	d.output_editor_func = sci.SCI_FN_DIRECT(api.send_message(d.output_hwnd, 2184, 0, 0))
 	d.output_editor_hwnd = voidptr(api.send_message(d.output_hwnd, 2185, 0, 0))
@@ -128,12 +128,12 @@ pub fn (mut d DockableDialog) init_scintilla(fore_color int,
 }
 
 pub fn (mut d DockableDialog) show() {
-	npp.show_dialog(d.hwnd)
+	p.npp.show_dialog(d.hwnd)
 	d.is_visible = true
 }
 
 pub fn (mut d DockableDialog) hide() {
-	npp.hide_dialog(d.hwnd)
+	p.npp.hide_dialog(d.hwnd)
 	d.is_visible = false
 }
 
@@ -169,9 +169,9 @@ pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
 			line__ := content.find_between(' [line:', ' col:').u32()
 			pos__ := content.find_between(' col:', '] -').u32()
 
-			npp.open_document(file_name)
-			line_pos := editor.position_from_line(line__) + pos__
-			editor.goto_pos(line_pos)
+			p.npp.open_document(file_name)
+			line_pos := p.editor.position_from_line(line__) + pos__
+			p.editor.goto_pos(line_pos)
 		}
 	}
 }

@@ -66,6 +66,8 @@ pub mut:
 	info_msg_color int = 0xbfb2ab
 	diagnostic_offset usize
 	diag_indicator usize = 12
+	calltip_foreground_color int = 0x0
+	calltip_background_color int = 0xffffff
 }
 
 [inline]
@@ -157,6 +159,7 @@ pub fn (e Editor) add_diag_indicator(position u32, length u32, severity int) {
 
 pub fn (e Editor) display_signature_hints(hints string) {
 	pos := e.call(sci_getcurrentpos, 0, 0)
+	e.call(sci_calltipsetposition, 1, 0)
 	e.call(sci_calltipshow, usize(pos), isize(hints.str))
 }
 
@@ -170,23 +173,23 @@ pub fn (e Editor) grab_focus() {
 	e.call(sci_grabfocus, 0, 0)
 }
 
-pub fn (mut e Editor) alloc_styles(indicator_id int,
-								   error_msg_color int,
-								   warning_msg_color int,
-								   info_msg_color int) {
-	e.diagnostic_offset = usize(e.call(sci_allocateextendedstyles, 3, 0))
-	e.error_msg_id_style = e.diagnostic_offset
-	e.warning_msg_id_style = e.diagnostic_offset + 1
-	e.info_msg_id_style = e.diagnostic_offset + 2
+// pub fn (mut e Editor) alloc_styles(indicator_id int,
+								   // error_msg_color int,
+								   // warning_msg_color int,
+								   // info_msg_color int) {
+	// e.diagnostic_offset = usize(e.call(sci_allocateextendedstyles, 3, 0))
+	// e.error_msg_id_style = e.diagnostic_offset
+	// e.warning_msg_id_style = e.diagnostic_offset + 1
+	// e.info_msg_id_style = e.diagnostic_offset + 2
 
-	e.diag_indicator = usize(indicator_id)
-	e.error_msg_color = error_msg_color
-	e.warning_msg_color = warning_msg_color
-	e.info_msg_color = info_msg_color
+	// e.diag_indicator = usize(indicator_id)
+	// e.error_msg_color = error_msg_color
+	// e.warning_msg_color = warning_msg_color
+	// e.info_msg_color = info_msg_color
 
-	// initialize the current view
-	e.initialize()
-}
+	// // initialize the current view
+	// e.initialize()
+// }
 
 pub fn (mut e Editor) initialize() {
 	e.call(sci_setmousedwelltime, 500, 0)
@@ -201,12 +204,16 @@ pub fn (mut e Editor) initialize() {
 	e.call(sci_indicsetstyle, e.diag_indicator, indic_squiggle)
 	e.call(sci_indicsetflags, e.diag_indicator, sc_indicflag_valuefore)
 	// e.call(sci_indicsetstrokewidth, e.diag_indicator, 200) - needs release 5.0.2
+	e.call(sci_calltipsetfore, usize(e.calltip_foreground_color), 0)
+	e.call(sci_calltipsetback, usize(e.calltip_background_color), 0)
 }
 
 pub fn (mut e Editor) update_styles() {
 	e.call(sci_stylesetfore, e.error_msg_id_style, e.error_msg_color)
 	e.call(sci_stylesetfore, e.warning_msg_id_style, e.warning_msg_color)
 	e.call(sci_stylesetfore, e.info_msg_id_style, e.info_msg_color)
+	e.call(sci_calltipsetfore, usize(e.calltip_foreground_color), 0)
+	e.call(sci_calltipsetback, usize(e.calltip_background_color), 0)	
 }
 
 pub fn (e Editor) get_tab_size() u32 {
@@ -285,6 +292,7 @@ pub fn (e Editor) cancel_calltip() {
 }
 
 pub fn (e Editor) display_hover_hints(position u32, hints string) {
+	e.call(sci_calltipsetposition, 1, 0)
 	e.call(sci_calltipshow, usize(position), isize(hints.str))
 }
 

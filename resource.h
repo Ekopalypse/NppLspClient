@@ -5,8 +5,9 @@
 #endif
 
 
-#define IDD_ABOUTDLG 	 101
-#define IDD_CONSOLEDLG 	 102
-#define IDC_VERSION		1001
+#define IDD_ABOUTDLG 	 	101
+#define IDD_CONSOLEDLG 	    102
+#define IDD_DIAGNOSTICSDLG	103
+#define IDC_VERSION			1001
 
-#define IDI_LSP			 200
+#define IDI_LSP			 	200

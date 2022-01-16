@@ -152,7 +152,7 @@ pub fn (mut pm ProcessManager) check_running_processes() {
 	exit_code := u32(0)
 	for k, v in pm.running_processes {
 		api.get_exit_code_process(v.handle, &exit_code)
-		if exit_code != 259 {   // 259 == still active
+		if exit_code != api.still_active {
 			pm.running_processes.delete(k) 
 		}
 	}

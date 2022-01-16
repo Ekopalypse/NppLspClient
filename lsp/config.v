@@ -9,12 +9,16 @@ const (
 [general]
 indicator_id = 12  # indicator used to draw the squiggle lines
 # the following colors, hex notation of a rgb value, are used by the indicator, the annotation method and the console output window
-error_color = 0x756ce0
-warning_color = 0x64e0ff
+error_color = 0x756ce0  # values must be in the range 0 - 0xffffff
+warning_color = 0x64e0ff  # values must be in the range 0 - 0xffffff
 # these three colors are only used in the lsp console window
-incoming_msg_color = 0x7bc399
-outgoing_msg_color = 0xffac59
-selected_text_color = 0x745227
+incoming_msg_color = 0x7bc399  # values must be in the range 0 - 0xffffff
+outgoing_msg_color = 0xffac59  # values must be in the range 0 - 0xffffff
+selected_text_color = 0x745227  # values must be in the range 0 - 0xffffff
+
+# define only if themes default fore- and background colors should be replaced
+# calltip_foreground_color = -1  # values must be in the range -1 - 0xffffff
+# calltip_background_color = -1  # values must be in the range -1 - 0xffffff
 
 # enable or disable logging functionality
 enable_logging = false  # values must be either false or true
@@ -77,6 +81,8 @@ pub mut:
 	selected_text_color int = 0x745227
 	enable_logging bool
 	lspservers map[string]ServerConfig
+	calltip_foreground_color int = -1
+	calltip_background_color int = -1
 }
 
 pub fn create_default() string {
@@ -103,7 +109,7 @@ pub fn decode_config(full_file_path string) Configs {
 	}
 	
 	if doc.value('general').string().len == 0 {
-		message_box(npp_data.npp_handle, 'Configuration file is missing the general section', 'ERROR', 3)
+		message_box(p.npp_data.npp_handle, 'Configuration file is missing the general section', 'ERROR', 3)
 		return lsp_config
 	}
 	
@@ -133,6 +139,14 @@ pub fn decode_config(full_file_path string) Configs {
 	
 	if !is_null(doc.value('general.enable_logging')) {
 		lsp_config.enable_logging =	doc.value('general.enable_logging').bool()
+	}
+
+	if !is_null(doc.value('general.calltip_foreground_color')) {
+		lsp_config.calltip_foreground_color = doc.value('general.calltip_foreground_color').int()
+	}
+	
+	if !is_null(doc.value('general.calltip_background_color')) {
+		lsp_config.calltip_background_color = doc.value('general.calltip_background_color').int()
 	}
 
 	// lspservers
@@ -178,6 +192,7 @@ pub fn decode_config(full_file_path string) Configs {
 }
 
 pub fn analyze_config(full_file_path string) {
+	p.console_window.log('Analyzing: $full_file_path', p.error_style_id)
 	content := os.read_file(full_file_path) or { '' }
 	if content.len == 0 {
 		p.console_window.log('Config file: $full_file_path seems to be empty', p.error_style_id)
@@ -186,6 +201,7 @@ pub fn analyze_config(full_file_path string) {
 	mut in_general_section := false
 	mut in_lspservers_section := false
 	for line in content.split_into_lines() {
+		p.console_window.log('line: $line', p.info_style_id)
 		if line.starts_with('#') || line.trim_space().len == 0 { continue }
 		match true {
 			line.starts_with('[general]') {
@@ -243,6 +259,20 @@ pub fn analyze_config(full_file_path string) {
 					check_if_boolean_value(line)
 				} else {
 					p.console_window.log('enable_logging must be a field in general section', p.error_style_id)
+				}
+			}
+			line.starts_with('calltip_foreground_color') {
+				if in_general_section {
+					check_if_integer_value(line)
+				} else {
+					p.console_window.log('calltip_foreground_color must be a field in general section', p.error_style_id)
+				}
+			}
+			line.starts_with('calltip_background_color') {
+				if in_general_section {
+					check_if_integer_value(line)
+				} else {
+					p.console_window.log('calltip_background_color must be a field in general section', p.error_style_id)
 				}
 			}
 			line.starts_with('mode') {

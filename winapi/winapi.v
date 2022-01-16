@@ -7,6 +7,10 @@ module winapi
 
 pub type WndProc = fn(hwnd voidptr, message u32, wparam usize, lparam isize) isize
 
+pub const (
+	still_active = u32(259)
+)
+
 pub struct RECT {
 pub mut:
 	left int

@@ -6,6 +6,7 @@ import scintilla as sci
 import lsp
 import about_dialog
 import console
+import diagnostics
 
 fn C._vinit(int, voidptr)
 fn C._vcleanup()
@@ -18,14 +19,7 @@ const (
 )
 
 __global (
-	npp_data NppData
-	func_items []FuncItem
-	editor sci.Editor
-	npp notepadpp.Npp
-	dll_instance voidptr
 	p Plugin
-	end_line u32
-	end_char u32
 )
 
 pub struct Plugin {
@@ -36,13 +30,23 @@ pub:
 	hint_style_id byte = 4
 	outgoing_msg_style_id byte = 5
 	incoming_msg_style_id byte = 6
+mut:
+	end_line u32
+	end_char u32
 pub mut:
+	npp_data NppData
+	func_items []FuncItem
+	editor sci.Editor
+	npp notepadpp.Npp
+	dll_instance voidptr
+
 	name string = plugin_name
 	main_config_file string
 	console_window console.DockableDialog
+	diag_window diagnostics.DockableDialog
 	lsp_config lsp.Configs
-	cur_lang_srv_running bool
 	proc_manager lsp.ProcessManager
+	cur_lang_srv_running bool
 	message_queue chan string = chan string{cap: 100}
 	incomplete_msg string
 	current_language string
@@ -53,12 +57,9 @@ pub mut:
 	// previous_buffer_id u64
 	file_version_map map[u64]int
 	document_is_of_interest bool
-	new_file_opened u64
+	// new_file_opened u64
 	open_response_messages map[string]fn(json_message string)
 	current_hover_position u32
-	view0_doc_pointer isize
-	view1_doc_pointer isize
-	ignore_first_on_cloned_views bool
 }
 
 pub struct NppData {
@@ -69,7 +70,9 @@ pub mut:
 }
 
 fn (nd NppData) is_valid(handle voidptr) bool {
-	return handle == nd.npp_handle || handle == nd.scintilla_main_handle || handle == nd.scintilla_second_handle
+	return handle == nd.npp_handle || 
+		   handle == nd.scintilla_main_handle || 
+		   handle == nd.scintilla_second_handle
 }
 
 struct FuncItem {
@@ -89,21 +92,23 @@ fn get_name() &u16 { return plugin_name.to_wide() }
 
 [export: setInfo]
 fn set_info(nppData NppData) {
-	npp_data = nppData
-	npp = notepadpp.Npp{npp_data.npp_handle}
-	editor = sci.create_editors(nppData.scintilla_main_handle, nppData.scintilla_second_handle)
+	p.npp_data = nppData
+	p.npp = notepadpp.Npp{p.npp_data.npp_handle}
+	p.editor = sci.create_editors(nppData.scintilla_main_handle, nppData.scintilla_second_handle)
 	// Create as early as possible, as nppn_ready is NOT the first message received.
 	p.console_window = console.DockableDialog{ name: 'LSP output console'.to_wide() }
-	p.console_window.create(npp_data.npp_handle, plugin_name)
+	p.console_window.create(p.npp_data.npp_handle, plugin_name)
+	p.diag_window = diagnostics.DockableDialog{ name: 'LSP diagnostics output'.to_wide() }
+	p.diag_window.create(p.npp_data.npp_handle, plugin_name)
 }
 
 [export: beNotified]
 fn be_notified(notification &sci.SCNotification) {
-	if !npp_data.is_valid(notification.nmhdr.hwnd_from) { return }
+	if !p.npp_data.is_valid(notification.nmhdr.hwnd_from) { return }
 	match notification.nmhdr.code {
 		notepadpp.nppn_ready {
 			update_settings()
-			plugin_config_dir := os.join_path(npp.get_plugin_config_dir(), plugin_name)
+			plugin_config_dir := os.join_path(p.npp.get_plugin_config_dir(), plugin_name)
 			p.main_config_file = os.join_path(plugin_config_dir, configuration_file)
 
 			if ! os.exists(plugin_config_dir) {
@@ -116,25 +121,25 @@ fn be_notified(notification &sci.SCNotification) {
 		}
 
 		notepadpp.nppn_bufferactivated {
-			current_view := npp.get_current_view()
+			current_view := p.npp.get_current_view()
 			if current_view == 0 {
-				editor.current_func = editor.main_func
-				editor.current_hwnd = editor.main_hwnd
-				p.view0_doc_pointer = editor.get_document_pointer()
+				p.editor.current_func = p.editor.main_func
+				p.editor.current_hwnd = p.editor.main_hwnd
+				// p.view0_doc_pointer = p.editor.get_document_pointer()
 			}
 			else {
-				editor.current_func = editor.second_func
-				editor.current_hwnd = editor.second_hwnd
-				p.view1_doc_pointer = editor.get_document_pointer()
+				p.editor.current_func = p.editor.second_func
+				p.editor.current_hwnd = p.editor.second_hwnd
+				// p.view1_doc_pointer = p.editor.get_document_pointer()
 			}
 
-			editor.initialize()
-			p.current_file_path = npp.get_filename_from_id(notification.nmhdr.id_from)
+			p.editor.initialize()
+			p.current_file_path = p.npp.get_filename_from_id(notification.nmhdr.id_from)
 			check_lexer(u64(notification.nmhdr.id_from))
 
 			// Return early if document is not of interest or language server is not running
 			if !(p.document_is_of_interest && p.cur_lang_srv_running) { 
-				editor.clear_diagnostics()
+				p.editor.clear_diagnostics()
 				p.console_window.log('document_is_of_interest:${p.document_is_of_interest}\ncur_lang_srv_running:${p.cur_lang_srv_running}', 0)
 				return 
 			}
@@ -187,7 +192,7 @@ fn be_notified(notification &sci.SCNotification) {
 		notepadpp.nppn_filebeforeclose {
 			if p.document_is_of_interest {
 				p.console_window.log('>>> Items in current map: ${p.file_version_map}', 0)
-				current_filename := npp.get_filename_from_id(notification.nmhdr.id_from)
+				current_filename := p.npp.get_filename_from_id(notification.nmhdr.id_from)
 				lsp.on_file_closed(current_filename)
 				p.console_window.log('>>> Removing ${u64(notification.nmhdr.id_from)} from map', 0)
 				p.file_version_map.delete(u64(notification.nmhdr.id_from))
@@ -196,13 +201,13 @@ fn be_notified(notification &sci.SCNotification) {
 		}
 		notepadpp.nppn_filebeforesave {
 			if p.document_is_of_interest {
-				p.current_language = npp.get_language_name_from_id(notification.nmhdr.id_from)
+				p.current_language = p.npp.get_language_name_from_id(notification.nmhdr.id_from)
 				lsp.on_file_before_saved(p.current_file_path)
 			}
 		}
 		notepadpp.nppn_filesaved {
 			if p.document_is_of_interest {
-				p.current_language = npp.get_language_name_from_id(notification.nmhdr.id_from)
+				p.current_language = p.npp.get_language_name_from_id(notification.nmhdr.id_from)
 				lsp.on_file_saved(p.current_file_path)
 			}
 			if p.current_file_path == p.main_config_file {
@@ -215,8 +220,8 @@ fn be_notified(notification &sci.SCNotification) {
 		}
 
 		notepadpp.nppn_langchanged {
-			p.current_language = npp.get_language_name_from_id(notification.nmhdr.id_from)
-			editor.clear_diagnostics()
+			p.current_language = p.npp.get_language_name_from_id(notification.nmhdr.id_from)
+			p.editor.clear_diagnostics()
 			check_lexer(u64(notification.nmhdr.id_from))
 		}
 
@@ -224,22 +229,22 @@ fn be_notified(notification &sci.SCNotification) {
 			if p.document_is_of_interest {
 				if notification.modification_type & sci.sc_mod_beforedelete == sci.sc_mod_beforedelete {
 					end_pos := u32(notification.position + notification.length)
-					end_line = editor.line_from_position(usize(end_pos))
-					end_line_start_pos := editor.position_from_line(end_line)
-					end_char = end_pos - end_line_start_pos
+					p.end_line = p.editor.line_from_position(usize(end_pos))
+					end_line_start_pos := p.editor.position_from_line(p.end_line)
+					p.end_char = end_pos - end_line_start_pos
 				} else {
 					mod_type := notification.modification_type & (sci.sc_mod_inserttext | sci.sc_mod_deletetext)
 					if mod_type > 0 {
-						start_line := editor.line_from_position(usize(notification.position))
-						line_start_pos := editor.position_from_line(start_line)
+						start_line := p.editor.line_from_position(usize(notification.position))
+						line_start_pos := p.editor.position_from_line(start_line)
 						start_char := u32(notification.position) - line_start_pos
 						mut range_length := u32(notification.length)
 						mut content := ''
 						
 						is_insertion := mod_type & sci.sc_mod_inserttext == sci.sc_mod_inserttext
 						if is_insertion {
-							end_line = start_line
-							end_char = start_char
+							p.end_line = start_line
+							p.end_char = start_char
 							range_length = 0
 							content = unsafe { cstring_to_vstring(notification.text)[..int(notification.length)] }
 						}
@@ -247,8 +252,8 @@ fn be_notified(notification &sci.SCNotification) {
 						lsp.on_buffer_modified(p.current_file_path, 
 											   start_line,
 											   start_char,
-											   end_line, 
-											   end_char,
+											   p.end_line, 
+											   p.end_char,
 											   range_length,
 											   content)
 
@@ -262,7 +267,7 @@ fn be_notified(notification &sci.SCNotification) {
 		}
 		
 		sci.scn_dwellend {
-			editor.cancel_calltip()
+			p.editor.cancel_calltip()
 			p.current_hover_position = 0
 		}
 		
@@ -309,10 +314,11 @@ fn get_funcs_array(mut nb_func &int) &FuncItem {
 		'Restart server for current language': restart_lsp_server
 		'Stop all configured lsp server': stop_all_server
 		'-': voidptr(0)
-		'toggle_console': toggle_console
+		'Toggle console': toggle_console
+		'Toggle diagnostics window': toggle_diag_window
 		'Open configuration file': open_config
 		'Apply current configuration': apply_config
-		'---': voidptr(0)
+		'--': voidptr(0)
 		'Format document': format_document
 		'Format selected text': format_selected_range
 		'Goto definition': goto_definition
@@ -323,7 +329,7 @@ fn get_funcs_array(mut nb_func &int) &FuncItem {
 		'Find references': find_references
 		'Highlight in document': document_highlight
 		'List all symbols from document': document_symbols
-		'--': voidptr(0)
+		'---': voidptr(0)
 		'About': about
 	}
 
@@ -331,7 +337,7 @@ fn get_funcs_array(mut nb_func &int) &FuncItem {
 		mut func_name := [64]u16 {init: 0}
 		func_name_length := k.len*2
 		unsafe { C.memcpy(&func_name[0], k.to_wide(), if func_name_length < 128 { func_name_length } else { 127 }) }
-		func_items << FuncItem {
+		p.func_items << FuncItem {
 			item_name: func_name
 			p_func: v
 			cmd_id: 0
@@ -339,13 +345,13 @@ fn get_funcs_array(mut nb_func &int) &FuncItem {
 			p_sh_key: voidptr(0)
 		}
 	}
-	unsafe { *nb_func = func_items.len }
-	return func_items.data
+	unsafe { *nb_func = p.func_items.len }
+	return p.func_items.data
 }
 
 fn check_lexer(buffer_id u64) {
 	p.console_window.log('checking current lexer', 0)
-	p.current_language = npp.get_language_name_from_id(buffer_id)
+	p.current_language = p.npp.get_language_name_from_id(buffer_id)
 	p.document_is_of_interest = p.current_language in p.lsp_config.lspservers
 	check_ls_status(true)
 }
@@ -367,13 +373,21 @@ pub fn open_config() {
 		f.write_string(lsp.create_default()) or { return }
 		f.close()
 	}
-	if os.exists(p.main_config_file) { npp.open_document(p.main_config_file) }
+	if os.exists(p.main_config_file) { p.npp.open_document(p.main_config_file) }
 }
 
 fn update_settings() {
 	p.console_window.log('update settings', 0)
-	fore_color := npp.get_editor_default_foreground_color()
-	back_color := npp.get_editor_default_background_color()
+	fore_color := p.npp.get_editor_default_foreground_color()
+	back_color := p.npp.get_editor_default_background_color()
+	p.diag_window.update_settings(fore_color, 
+								  back_color,
+								  p.lsp_config.error_color,
+								  p.lsp_config.warning_color,
+								  p.lsp_config.incoming_msg_color,
+								  p.lsp_config.outgoing_msg_color,
+								  p.lsp_config.selected_text_color,
+								  p.lsp_config.enable_logging)
 	p.console_window.update_settings(fore_color, 
 									 back_color,
 									 p.lsp_config.error_color,
@@ -382,12 +396,15 @@ fn update_settings() {
 									 p.lsp_config.outgoing_msg_color,
 									 p.lsp_config.selected_text_color,
 									 p.lsp_config.enable_logging)
-
-	editor.error_msg_color = p.lsp_config.error_color
-	editor.warning_msg_color = p.lsp_config.warning_color
-	editor.info_msg_color = fore_color
-	editor.diag_indicator = usize(p.lsp_config.indicator_id)
-	editor.update_styles()
+	p.editor.error_msg_color = p.lsp_config.error_color
+	p.editor.warning_msg_color = p.lsp_config.warning_color
+	p.editor.info_msg_color = fore_color
+	p.editor.diag_indicator = usize(p.lsp_config.indicator_id)
+	p.editor.calltip_foreground_color = fore_color
+	if p.lsp_config.calltip_foreground_color != -1 { p.editor.calltip_foreground_color = p.lsp_config.calltip_foreground_color}
+	p.editor.calltip_background_color = back_color
+	if p.lsp_config.calltip_background_color != -1 { p.editor.calltip_background_color = p.lsp_config.calltip_background_color}
+	p.editor.update_styles()
 }
 
 pub fn start_lsp_server() {
@@ -395,11 +412,11 @@ pub fn start_lsp_server() {
 	check_ls_status(false)
 	// create and send a fake nppn_bufferactivated event
 	mut sci_header := sci.SCNotification{text: &char(0)}
-	sci_header.nmhdr.hwnd_from = npp_data.npp_handle
-	sci_header.nmhdr.id_from = usize(npp.get_current_buffer_id())
+	sci_header.nmhdr.hwnd_from = p.npp_data.npp_handle
+	sci_header.nmhdr.id_from = usize(p.npp.get_current_buffer_id())
 	sci_header.nmhdr.code = notepadpp.nppn_bufferactivated
 	be_notified(sci_header)
-	editor.grab_focus()
+	p.editor.grab_focus()
 }
 
 pub fn stop_lsp_server() {
@@ -408,7 +425,7 @@ pub fn stop_lsp_server() {
 	p.lsp_config.lspservers[p.current_language].initialized = false
 	p.console_window.log('initialized = ${p.lsp_config.lspservers[p.current_language].initialized}', 0)
 	p.current_file_version = 0
-	editor.clear_diagnostics()
+	p.editor.clear_diagnostics()
 }
 
 pub fn restart_lsp_server() {
@@ -428,15 +445,24 @@ pub fn stop_all_server() {
 
 pub fn toggle_console() {
 	if p.console_window.is_visible {
-		npp.hide_dialog(p.console_window.hwnd)
+		p.npp.hide_dialog(p.console_window.hwnd)
 	} else {
-		npp.show_dialog(p.console_window.hwnd)
+		p.npp.show_dialog(p.console_window.hwnd)
 	}
 	p.console_window.is_visible = ! p.console_window.is_visible
 }
 
+pub fn toggle_diag_window() {
+	if p.diag_window.is_visible {
+		p.npp.hide_dialog(p.diag_window.hwnd)
+	} else {
+		p.npp.show_dialog(p.diag_window.hwnd)
+	}
+	p.diag_window.is_visible = ! p.diag_window.is_visible
+}
+
 pub fn about() {
-	about_dialog.show(npp_data.npp_handle)
+	about_dialog.show(p.npp_data.npp_handle)
 }
 
 fn check_ls_status(check_auto_start bool) {
@@ -450,7 +476,7 @@ fn check_ls_status(check_auto_start bool) {
 	if check_auto_start && !p.lsp_config.lspservers[p.current_language].auto_start_server {
 		p.console_window.log('  either unknown language or server should not be started automatically', 0)
 		p.cur_lang_srv_running = false
-		editor.clear_diagnostics()
+		p.editor.clear_diagnostics()
 		return
 	}
 	
@@ -469,12 +495,12 @@ fn check_ls_status(check_auto_start bool) {
 		.error_no_executable {
 			p.console_window.log('  cannot find executable', p.warning_style_id)
 			p.cur_lang_srv_running = false
-			editor.clear_diagnostics()
+			p.editor.clear_diagnostics()
 		}
 		.failed_to_start {
 			p.console_window.log('  failed to start', p.error_style_id)
 			p.cur_lang_srv_running = false
-			editor.clear_diagnostics()
+			p.editor.clear_diagnostics()
 		}
 	}
 }
@@ -529,7 +555,7 @@ fn main(hinst voidptr, fdw_reason int, lp_reserved voidptr) bool{
 				C.GC_INIT()
 			}
 			C._vinit(0, 0)
-			dll_instance = hinst
+			p.dll_instance = hinst
 			p.file_version_map = map[u64]int{}
 		}
 		C.DLL_THREAD_ATTACH {
