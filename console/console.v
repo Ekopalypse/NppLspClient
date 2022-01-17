@@ -22,18 +22,18 @@ fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 			api.destroy_window(hwnd)
 			return 1
 		}
-		C.WM_NOTIFY {
-			nmhdr := &sci.SciNotifyHeader(lparam)
-			if nmhdr.hwnd_from == p.console_window.output_hwnd {
-				match int(nmhdr.code) {
-					sci.scn_hotspotclick {
-						scnotification := &sci.SCNotification(lparam)
-						p.console_window.on_hotspot_click(scnotification.position)
-					}
-					else {}
-				}
-			}
-		}
+		// C.WM_NOTIFY {
+			// nmhdr := &sci.SciNotifyHeader(lparam)
+			// if nmhdr.hwnd_from == p.console_window.output_hwnd {
+				// match int(nmhdr.code) {
+					// sci.scn_hotspotclick {
+						// scnotification := &sci.SCNotification(lparam)
+						// p.console_window.on_hotspot_click(scnotification.position)
+					// }
+					// else {}
+				// }
+			// }
+		// }
 		else {}
 	}
 	return 0
@@ -122,7 +122,7 @@ pub fn (mut d DockableDialog) log_styled(text string, style byte) {
 }
 
 pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
-	d.output_hwnd = p.npp.create_scintilla(d.hwnd)
+	d.output_hwnd = p.npp.create_scintilla(voidptr(0))
 	d.hwnd = voidptr(api.create_dialog_param(p.dll_instance, api.make_int_resource(C.IDD_CONSOLEDLG), npp_hwnd, api.WndProc(dialog_proc), 0))
 	icon := api.load_image(p.dll_instance, api.make_int_resource(200), u32(C.IMAGE_ICON), 16, 16, 0)
 	d.tbdata = notepadpp.TbData {
@@ -186,22 +186,22 @@ pub fn (mut d DockableDialog) update_settings(fore_color int,
 	d.init_scintilla()
 }
 
-pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
-    line := d.call(sci.sci_linefromposition, usize(position), 0)
-	buffer_length := int(d.call(sci.sci_linelength, usize(line), 0))
+// pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
+    // line := d.call(sci.sci_linefromposition, usize(position), 0)
+	// buffer_length := int(d.call(sci.sci_linelength, usize(line), 0))
 	
-	if buffer_length > 0 {
-		mut buffer := vcalloc(buffer_length)
-		result := int(d.call(sci.sci_getline, usize(line), isize(buffer)))
-		if result > 0 {
-			content := unsafe { buffer.vstring_with_len(result) }
-			file_name := content.all_before(' [line:')
-			line__ := content.find_between(' [line:', ' col:').u32()
-			pos__ := content.find_between(' col:', '] -').u32()
+	// if buffer_length > 0 {
+		// mut buffer := vcalloc(buffer_length)
+		// result := int(d.call(sci.sci_getline, usize(line), isize(buffer)))
+		// if result > 0 {
+			// content := unsafe { buffer.vstring_with_len(result) }
+			// file_name := content.all_before(' [line:')
+			// line__ := content.find_between(' [line:', ' col:').u32()
+			// pos__ := content.find_between(' col:', '] -').u32()
 
-			p.npp.open_document(file_name)
-			line_pos := p.editor.position_from_line(line__) + pos__
-			p.editor.goto_pos(line_pos)
-		}
-	}
-}
+			// p.npp.open_document(file_name)
+			// line_pos := p.editor.position_from_line(line__) + pos__
+			// p.editor.goto_pos(line_pos)
+		// }
+	// }
+// }
