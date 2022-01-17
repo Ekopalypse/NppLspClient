@@ -80,21 +80,21 @@ fn read_from_stderr(pipe voidptr, msg_queue chan string) {
 // write_to stdin - main thread
 pub fn write_to(pipe voidptr, message string) bool {
 	if pipe == voidptr(0) {
-		p.console_window.log('ERROR: attempt to write to non-existent pipe\n: $message', p.error_style_id)
+		p.console_window.log_error('ERROR: attempt to write to non-existent pipe\n: $message')
 		return false
 	}
-	p.console_window.log('$message', p.outgoing_msg_style_id)
+	p.console_window.log_outgoing('$message')
 	mut dw_written := u32(0)
 	mut success := false
 	success = write_file(pipe, message.str, u32(message.len), &dw_written, voidptr(0))
 
 	if !success {
-		p.console_window.log('writing to pipe failed\n $message', p.error_style_id)
+		p.console_window.log_error('writing to pipe failed\n $message')
 		return false
 	} else
 
 	if dw_written != message.len {
-		p.console_window.log('writing to pipe incomplete!!: written=$dw_written expected=${message.len}\n $message', p.error_style_id)
+		p.console_window.log_error('writing to pipe incomplete!!: written=$dw_written expected=${message.len}\n $message')
 		return false
 	}
 	return true

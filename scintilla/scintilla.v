@@ -58,13 +58,9 @@ pub mut:
 	second_hwnd voidptr
 	current_func SCI_FN_DIRECT
 	current_hwnd voidptr
-	error_msg_id_style usize
-	warning_msg_id_style usize
-	info_msg_id_style usize
 	error_msg_color int = 0x756ce0
 	warning_msg_color int = 0x64e0ff
 	info_msg_color int = 0xbfb2ab
-	diagnostic_offset usize
 	diag_indicator usize = 12
 	calltip_foreground_color int = 0x0
 	calltip_background_color int = 0xffffff
@@ -103,115 +99,22 @@ pub fn (e Editor) position_from_line(line u32) u32 {
 	return u32(e.call(sci_positionfromline, usize(line), 0))
 }
 
-pub fn (e Editor) clear_diagnostics() {
-	e.call(sci_annotationclearall, 0, 0)
-	e.call(sci_setindicatorcurrent, e.diag_indicator, 0)
-	e.call(sci_indicatorclearrange, 0, e.call(sci_getlength, 0, 0))
-}
-
-// pub fn (e Editor) add_diagnostics_info(line u32, message string, severity int) {
-	// p.console_window.log('add_diagnostics_info', 0)
-
-	// mut style := match severity {
-		// 1 { 0 }
-		// 2 { 1 }
-		// else { 2 }
-	// }
-
-	// mut previous_diag := ''
-	// buffer_size := e.call(sci_annotationgettext, usize(line), 0)
-	// if buffer_size > 0 {
-		// buffer := vcalloc(int(buffer_size))
-		// e.call(sci_annotationgettext, usize(line), isize(buffer))
-		// previous_diag = unsafe { cstring_to_vstring(buffer) }
-		// previous_style := int(e.call(sci_annotationgetstyle, usize(line), 0))
-		// if previous_style < style {
-			// style = if previous_style >= 0 { previous_style } else { style }
-		// }
-	// }
-
-	// merged_messages := if previous_diag.len > 0 { '$previous_diag\n$message' } else { message }
-	// e.call(sci_annotationsettext, usize(line), isize(merged_messages.str))
-	// e.call(sci_annotationsetstyle, usize(line), style)
-	// p.console_window.log('  line:$line - $message', 0)
-// }
-
-pub fn (e Editor) add_diag_indicator(position u32, length u32, severity int) {
-	mut color := match severity {
-		1 { e.error_msg_color }
-		2 { e.warning_msg_color }
-		else { e.info_msg_color }
-	}
-	e.call(sci_setindicatorcurrent, e.diag_indicator, 0)
-	e.call(sci_setindicatorvalue, usize(color | sc_indicvaluebit), 0)
-	if length == 0 {
-		word_length := e.get_current_word_length()
-		if word_length == 0 {
-			start, end := e.get_current_line_positions(position)
-			e.call(sci_indicatorfillrange, usize(start), isize(end-start))
-		} else {
-			e.call(sci_indicatorfillrange, usize(position), isize(word_length))
-		}
-	} else {
-		e.call(sci_indicatorfillrange, usize(position), isize(length))
-	}
-}
-
-pub fn (e Editor) display_signature_hints(hints string) {
-	pos := e.call(sci_getcurrentpos, 0, 0)
-	e.call(sci_calltipsetposition, 1, 0)
-	e.call(sci_calltipshow, usize(pos), isize(hints.str))
-}
-
-pub fn (e Editor) display_completion_list(completions string) {
-	e.call(sci_autocsetseparator, 10, 0)
-    word_length := e.get_current_word_length()
-	e.call(sci_autocshow, usize(word_length), isize(completions.str))
-}
-
 pub fn (e Editor) grab_focus() {
 	e.call(sci_grabfocus, 0, 0)
 }
 
-// pub fn (mut e Editor) alloc_styles(indicator_id int,
-								   // error_msg_color int,
-								   // warning_msg_color int,
-								   // info_msg_color int) {
-	// e.diagnostic_offset = usize(e.call(sci_allocateextendedstyles, 3, 0))
-	// e.error_msg_id_style = e.diagnostic_offset
-	// e.warning_msg_id_style = e.diagnostic_offset + 1
-	// e.info_msg_id_style = e.diagnostic_offset + 2
-
-	// e.diag_indicator = usize(indicator_id)
-	// e.error_msg_color = error_msg_color
-	// e.warning_msg_color = warning_msg_color
-	// e.info_msg_color = info_msg_color
-
-	// // initialize the current view
-	// e.initialize()
-// }
-
 pub fn (mut e Editor) initialize() {
 	e.call(sci_setmousedwelltime, 500, 0)
 
-	e.call(sci_annotationsetstyleoffset, e.diagnostic_offset, 0)
 	e.call(sci_annotationsetvisible, usize(annotation_boxed), 0)
-
-	e.call(sci_stylesetfore, e.error_msg_id_style, e.error_msg_color)
-	e.call(sci_stylesetfore, e.warning_msg_id_style, e.warning_msg_color)
-	e.call(sci_stylesetfore, e.info_msg_id_style, e.info_msg_color)
 
 	e.call(sci_indicsetstyle, e.diag_indicator, indic_squiggle)
 	e.call(sci_indicsetflags, e.diag_indicator, sc_indicflag_valuefore)
-	// e.call(sci_indicsetstrokewidth, e.diag_indicator, 200) - needs release 5.0.2
 	e.call(sci_calltipsetfore, usize(e.calltip_foreground_color), 0)
 	e.call(sci_calltipsetback, usize(e.calltip_background_color), 0)
 }
 
 pub fn (mut e Editor) update_styles() {
-	e.call(sci_stylesetfore, e.error_msg_id_style, e.error_msg_color)
-	e.call(sci_stylesetfore, e.warning_msg_id_style, e.warning_msg_color)
-	e.call(sci_stylesetfore, e.info_msg_id_style, e.info_msg_color)
 	e.call(sci_calltipsetfore, usize(e.calltip_foreground_color), 0)
 	e.call(sci_calltipsetback, usize(e.calltip_background_color), 0)	
 }
@@ -224,76 +127,8 @@ pub fn (e Editor) use_spaces() bool {
 	return e.call(sci_getusetabs, 0, 0) == 0
 }
 
-
-pub fn (e Editor) begin_undo_action() {
-	e.call(sci_beginundoaction, 0, 0)
-}
-
-pub fn (e Editor) end_undo_action() {
-	e.call(sci_endundoaction, 0, 0)
-}
-
-pub fn (e Editor) replace_target(start_pos u32, end_pos u32, new_text string) {
-	e.call(sci_settargetstart, usize(start_pos), 0)
-	e.call(sci_settargetend, usize(end_pos), 0)
-	e.call(sci_replacetarget, -1, isize(new_text.str))
-}
-
-pub fn (e Editor) get_current_position() u32 {
-	return u32(e.call(sci_getcurrentpos, 0, 0))
-}
-
 pub fn (e Editor) goto_pos(position u32) {
 	e.call(sci_gotopos, usize(position), 0)
-}
-
-pub fn (e Editor) get_current_word_length() u32 {
-	pos := e.get_current_position()
-	start := e.call(sci_wordstartposition, usize(pos), 1)
-	end := e.call(sci_wordendposition, usize(pos), 1)
-	return u32(end-start)
-}
-
-pub fn (e Editor) get_current_line_positions(position u32) (u32, u32) {
-	line := e.line_from_position(position)
-	start := e.position_from_line(line)
-	end := u32(e.call(sci_getlineendposition, usize(line), 0))
-	return start, end
-}
-
-pub fn (e Editor) get_range_from_selection() (u32, u32, u32, u32) {
-	selection_start := e.call(sci_getselectionstart, 0, 0)
-	selection_end := e.call(sci_getselectionend, 0, 0)
-
-	start_line := e.line_from_position(usize(selection_start))
-	end_line := e.line_from_position(usize(selection_end))
-
-	start_char := u32(selection_start) - e.position_from_line(start_line)
-	end_char := u32(selection_end) - e.position_from_line(end_line)
-	return start_line, end_line, start_char, end_char
-}
-
-pub fn (e Editor) show_peeked_info(message string) {
-	pos := e.get_current_position()
-	line := e.line_from_position(usize(pos))
-	e.call(sci_annotationsettext, usize(line), isize(message.str))
-	e.call(sci_annotationsetstyle, usize(line), 2)
-}
-
-pub fn (e Editor) get_lsp_position_info() (u32, u32) {
-	pos := e.get_current_position()
-	line := e.line_from_position(pos)
-	start := e.position_from_line(line)
-	return line, pos-start
-}
-
-pub fn (e Editor) cancel_calltip() {
-	e.call(sci_calltipcancel, 0, 0)
-}
-
-pub fn (e Editor) display_hover_hints(position u32, hints string) {
-	e.call(sci_calltipsetposition, 1, 0)
-	e.call(sci_calltipshow, usize(position), isize(hints.str))
 }
 
 pub fn (e Editor) get_document_pointer() isize {

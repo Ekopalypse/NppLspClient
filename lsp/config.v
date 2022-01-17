@@ -103,7 +103,7 @@ pub fn decode_config(full_file_path string) Configs {
 	
 	mut lsp_config := Configs{}
 	if failed { 
-		p.console_window.log('error decoding the configuration file', p.error_style_id)
+		p.console_window.log_error('error decoding the configuration file')
 		analyze_config(full_file_path)
 		return lsp_config
 	}
@@ -154,13 +154,13 @@ pub fn decode_config(full_file_path string) Configs {
 		if k != '0' {
 			mut sc := ServerConfig{}
 			if is_null(doc.value('lspservers.${k}.mode')) {
-				p.console_window.log('$k - mandatory field missing: mode', p.error_style_id)
+				p.console_window.log_error('$k - mandatory field missing: mode')
 				continue
 			}
 			sc.mode = doc.value('lspservers.${k}.mode').string()
 			
 			if is_null(doc.value('lspservers.${k}.executable')) {
-				p.console_window.log('$k - mandatory field missing: executable', p.error_style_id)
+				p.console_window.log_error('$k - mandatory field missing: executable')
 				continue
 			}
 			sc.executable = doc.value('lspservers.${k}.executable').string()
@@ -185,23 +185,23 @@ pub fn decode_config(full_file_path string) Configs {
 		}
 	}
 	if lsp_config.lspservers.len == 0 {
-		p.console_window.log('cannot identify any configured language server', p.error_style_id)
-		p.console_window.log('$lsp_config', p.warning_style_id)
+		p.console_window.log_error('cannot identify any configured language server')
+		p.console_window.log_warning('$lsp_config')
 	}
 	return lsp_config
 }
 
 pub fn analyze_config(full_file_path string) {
-	p.console_window.log('Analyzing: $full_file_path', p.error_style_id)
+	p.console_window.log_error('Analyzing: $full_file_path')
 	content := os.read_file(full_file_path) or { '' }
 	if content.len == 0 {
-		p.console_window.log('Config file: $full_file_path seems to be empty', p.error_style_id)
+		p.console_window.log_error('Config file: $full_file_path seems to be empty')
 	}
 	
 	mut in_general_section := false
 	mut in_lspservers_section := false
 	for line in content.split_into_lines() {
-		p.console_window.log('line: $line', p.info_style_id)
+		p.console_window.log_info('line: $line')
 		if line.starts_with('#') || line.trim_space().len == 0 { continue }
 		match true {
 			line.starts_with('[general]') {
@@ -216,95 +216,95 @@ pub fn analyze_config(full_file_path string) {
 				if in_general_section {
 					check_if_integer_value(line)
 				} else {
-					p.console_window.log('indicator_id must be a field in general section', p.error_style_id)
+					p.console_window.log_error('indicator_id must be a field in general section')
 				}
 			}
 			line.starts_with('error_color') {
 				if in_general_section {
 					check_if_integer_value(line)
 				} else {
-					p.console_window.log('error_color must be a field in general section', p.error_style_id)
+					p.console_window.log_error('error_color must be a field in general section')
 				}
 			}
 			line.starts_with('warning_color') {
 				if in_general_section {
 					check_if_integer_value(line)
 				} else {
-					p.console_window.log('warning_color must be a field in general section', p.error_style_id)
+					p.console_window.log_error('warning_color must be a field in general section')
 				}
 			}
 			line.starts_with('incoming_msg_color') {
 				if in_general_section {
 					check_if_integer_value(line)
 				} else {
-					p.console_window.log('incoming_msg_color must be a field in general section', p.error_style_id)
+					p.console_window.log_error('incoming_msg_color must be a field in general section')
 				}
 			}
 			line.starts_with('outgoing_msg_color') {
 				if in_general_section {
 					check_if_integer_value(line)
 				} else {
-					p.console_window.log('outgoing_msg_color must be a field in general section', p.error_style_id)
+					p.console_window.log_error('outgoing_msg_color must be a field in general section')
 				}
 			}
 			line.starts_with('selected_text_color') {
 				if in_general_section {
 					check_if_integer_value(line)
 				} else {
-					p.console_window.log('selected_text_color must be a field in general section', p.error_style_id)
+					p.console_window.log_error('selected_text_color must be a field in general section')
 				}
 			}
 			line.starts_with('enable_logging') {
 				if in_general_section {
 					check_if_boolean_value(line)
 				} else {
-					p.console_window.log('enable_logging must be a field in general section', p.error_style_id)
+					p.console_window.log_error('enable_logging must be a field in general section')
 				}
 			}
 			line.starts_with('calltip_foreground_color') {
 				if in_general_section {
 					check_if_integer_value(line)
 				} else {
-					p.console_window.log('calltip_foreground_color must be a field in general section', p.error_style_id)
+					p.console_window.log_error('calltip_foreground_color must be a field in general section')
 				}
 			}
 			line.starts_with('calltip_background_color') {
 				if in_general_section {
 					check_if_integer_value(line)
 				} else {
-					p.console_window.log('calltip_background_color must be a field in general section', p.error_style_id)
+					p.console_window.log_error('calltip_background_color must be a field in general section')
 				}
 			}
 			line.starts_with('mode') {
 				if in_lspservers_section {
 					check_if_string_value(line)
 				} else {
-					p.console_window.log('mode must be in lspservers section', p.error_style_id)
+					p.console_window.log_error('mode must be in lspservers section')
 				}
 			}
 			line.starts_with('executable') {
 				if in_lspservers_section {
 					check_if_string_value(line)
 				} else {
-					p.console_window.log('executable must be in lspservers section', p.error_style_id)
+					p.console_window.log_error('executable must be in lspservers section')
 				}
 			}
 			line.starts_with('args') {
 				if in_lspservers_section {
 					check_if_string_value(line)
 				} else {
-					p.console_window.log('args must be in lspservers section', p.error_style_id)
+					p.console_window.log_error('args must be in lspservers section')
 				}
 			}
 			line.starts_with('auto_start_server') {
 				if in_lspservers_section {
 					check_if_boolean_value(line)
 				} else {
-					p.console_window.log('auto_start_server must be in lspservers section', p.error_style_id)
+					p.console_window.log_error('auto_start_server must be in lspservers section')
 				}
 			}
 			else {
-				p.console_window.log('unexpected line read: $line', p.error_style_id)
+				p.console_window.log_error('unexpected line read: $line')
 			}
 		}
 	}
@@ -317,23 +317,23 @@ fn strip_added_comment(line string) string {
 fn check_if_boolean_value(line string) {
 	parts := strip_added_comment(line).split('=')
 	if parts.len != 2 {
-		p.console_window.log('$line\nexpected key=value scheme but received: ${parts.join("=")}', p.error_style_id)
+		p.console_window.log_error('$line\nexpected key=value scheme but received: ${parts.join("=")}')
 	}
 	trimmed_string := parts[1].trim_space()
 	if trimmed_string != 'false' && trimmed_string != 'true' {
-		p.console_window.log('$line\nvalue must be either false or true but received: ${parts[1]}', p.error_style_id)
+		p.console_window.log_error('$line\nvalue must be either false or true but received: ${parts[1]}')
 	}
 }
 
 fn check_if_integer_value(line string) {
 	parts := strip_added_comment(line).split('=')
 	if parts.len != 2 {
-		p.console_window.log('$line\nexpected key=value scheme but received: ${parts.join("=")}', p.error_style_id)
+		p.console_window.log_error('$line\nexpected key=value scheme but received: ${parts.join("=")}')
 	}
 	trimmed_string := parts[1].trim_space()
 	if trimmed_string.u64() == 0 {
 		if trimmed_string != '0' && trimmed_string.to_lower() != '0x0' {
-			p.console_window.log('$line\nvalue must be an integer but received: ${trimmed_string}', p.error_style_id)
+			p.console_window.log_error('$line\nvalue must be an integer but received: ${trimmed_string}')
 		}
 	}
 }
@@ -348,9 +348,9 @@ fn check_if_string_value(line string) {
 
 	if start_quote in ["'", '"'] && end_quote in ["'", '"'] {
 		if start_quote != end_quote {
-			p.console_window.log('$line\nvalue must be using the same start and end quotes but received: $line', p.error_style_id)
+			p.console_window.log_error('$line\nvalue must be using the same start and end quotes but received: $line')
 		}
 	} else {
-		p.console_window.log('$line\nvalue must be a quotted string but received: $line', p.error_style_id)
+		p.console_window.log_error('$line\nvalue must be a quotted string but received: $line')
 	}
 }

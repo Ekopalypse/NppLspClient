@@ -39,17 +39,33 @@ fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 	return 0
 }
 
+const (
+	error_style = byte(1)
+	warning_style = byte(2)
+	info_style = byte(3)
+	hint_style = byte(4)
+	outgoing_msg_style = byte(5)
+	incoming_msg_style = byte(6)
+)
+
 pub struct DockableDialog {
 pub mut:
-	name &u16
 	hwnd voidptr
 	is_visible bool
+mut:
+	name &u16
 	tbdata notepadpp.TbData
 	output_hwnd voidptr
 	output_editor_func sci.SCI_FN_DIRECT
 	output_editor_hwnd voidptr
-	old_edit_proc api.WndProc
 	logging_enabled bool
+	fore_color int
+	back_color int
+	error_color int
+	warning_color int
+	incoming_msg_color int
+	outgoing_msg_color int
+	selected_text_color int
 }
 
 [inline]
@@ -61,28 +77,49 @@ pub fn (mut d DockableDialog) clear() {
 	d.call(sci.sci_clearall, 0, 0)
 }
 
-pub fn (mut d DockableDialog) log(text string, style byte) {
+fn (mut d DockableDialog) log(text string, style byte) {
 	mut text__ := if text.ends_with('\n') { text } else { text + '\n'}
-	if style > 0 {
-		if (style < 5) || d.logging_enabled {
-			mut buffer := vcalloc(text__.len * 2)
-			unsafe {
-				for i:=0; i<text__.len; i++ {
-					buffer[i*2] = text__.str[i]
-					buffer[i*2+1] = style
-				}
-			}
-			d.call(sci.sci_addstyledtext, usize(text__.len * 2), isize(buffer))
-		}
+	if style == 3 {
+		d.call(sci.sci_appendtext, usize(text__.len), isize(text__.str))
 	} else {
-		if d.logging_enabled {
-			d.call(sci.sci_appendtext, usize(text__.len), isize(text__.str))
+		mut buffer := []byte{len: text__.len * 2}
+		for i:=0; i<text__.len; i++ {
+			buffer[i*2] = text__[i]
+			buffer[i*2+1] = style
 		}
+		d.call(sci.sci_addstyledtext, usize(buffer.len), isize(buffer.data))
 	}
 	line_count := d.call(sci.sci_getlinecount, 0, 0)
 	d.call(sci.sci_gotoline, usize(line_count-1), 0)
 }
 
+pub fn (mut d DockableDialog) log_error(text string) {
+	if d.logging_enabled { d.log(text, error_style) }
+}
+
+pub fn (mut d DockableDialog) log_warning(text string) {
+	if d.logging_enabled { d.log(text, warning_style) }
+}
+
+pub fn (mut d DockableDialog) log_info(text string) {
+	if d.logging_enabled { d.log(text, info_style) }
+}
+
+pub fn (mut d DockableDialog) log_hint(text string) {
+	if d.logging_enabled { d.log(text, hint_style) }
+}
+
+pub fn (mut d DockableDialog) log_outgoing(text string) {
+	if d.logging_enabled { d.log(text, outgoing_msg_style) }
+}
+
+pub fn (mut d DockableDialog) log_incoming(text string) {
+	if d.logging_enabled { d.log(text, incoming_msg_style) }
+}
+
+pub fn (mut d DockableDialog) log_styled(text string, style byte) {
+	if d.logging_enabled { d.log(text, style) }
+}
 
 pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
 	d.output_hwnd = p.npp.create_scintilla(d.hwnd)
@@ -105,25 +142,18 @@ pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
 	d.output_editor_hwnd = voidptr(api.send_message(d.output_hwnd, 2185, 0, 0))
 }
 
-pub fn (mut d DockableDialog) init_scintilla(fore_color int, 
-											 back_color int,
-											 error_color int,
-											 warning_color int,
-											 incoming_msg_color int,
-											 outgoing_msg_color int,
-											 selected_text_color int) {
-	d.call(sci.sci_stylesetfore, 32, fore_color)
-	d.call(sci.sci_stylesetback, 32, back_color)
+pub fn (mut d DockableDialog) init_scintilla() {
+	d.call(sci.sci_stylesetfore, 32, d.fore_color)
+	d.call(sci.sci_stylesetback, 32, d.back_color)
 	d.call(sci.sci_styleclearall, 0, 0)
-	d.call(sci.sci_stylesetfore, p.error_style_id, error_color)
-	// d.call(sci.sci_stylesetunderline, p.error_style_id, 1)
-	d.call(sci.sci_stylesethotspot, p.error_style_id, 1)
-	d.call(sci.sci_stylesetfore, p.warning_style_id, warning_color)
-	d.call(sci.sci_stylesetfore, p.info_style_id, fore_color)			// normal log messages
-	d.call(sci.sci_stylesetfore, p.hint_style_id, fore_color)			// normal log messages
-	d.call(sci.sci_stylesetfore, p.outgoing_msg_style_id, outgoing_msg_color)
-	d.call(sci.sci_stylesetfore, p.incoming_msg_style_id, incoming_msg_color)
-	d.call(sci.sci_setselback, 1, selected_text_color)
+	d.call(sci.sci_stylesetfore, error_style, d.error_color)
+	d.call(sci.sci_stylesethotspot, error_style, 1)
+	d.call(sci.sci_stylesetfore, warning_style, d.warning_color)
+	d.call(sci.sci_stylesetfore, info_style, d.fore_color)	// normal log messages
+	d.call(sci.sci_stylesetfore, hint_style, d.fore_color)	// normal log messages
+	d.call(sci.sci_stylesetfore, outgoing_msg_style, d.outgoing_msg_color)
+	d.call(sci.sci_stylesetfore, incoming_msg_style, d.incoming_msg_color)
+	d.call(sci.sci_setselback, 1, d.selected_text_color)
 	d.call(sci.sci_setmargins, 0, 0)
 }
 
@@ -146,14 +176,14 @@ pub fn (mut d DockableDialog) update_settings(fore_color int,
 											  selected_text_color int,
 											  enable_logging bool) {
 	d.logging_enabled = enable_logging
-	d.init_scintilla(fore_color,
-					 back_color,
-					 error_color,
-					 warning_color,
-					 incoming_msg_color,
-					 outgoing_msg_color,
-					 selected_text_color)
-	
+	d.fore_color = fore_color
+	d.back_color = back_color
+	d.error_color = error_color
+	d.warning_color = warning_color
+	d.incoming_msg_color = incoming_msg_color
+	d.outgoing_msg_color = outgoing_msg_color
+	d.selected_text_color = selected_text_color
+	d.init_scintilla()
 }
 
 pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
