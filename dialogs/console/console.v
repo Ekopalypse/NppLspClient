@@ -1,5 +1,15 @@
 module console
+/*
+	Mainly a view of the language server log communication,
+	but also some other information, like the messages reported by the language server to be logged or displayed
+	and some information about the plugin itself.
+	
+	Here's how it should work:
+		Any message sent to or received from a language server is added.
+		The decoded result of showMessage and logMessage is added additionally.
+		Basic plugin functionality is added.
 
+*/
 import winapi as api
 import notepadpp
 import scintilla as sci
@@ -49,11 +59,11 @@ const (
 )
 
 pub struct DockableDialog {
+	name &u16 = 'LSP output console'.to_wide()
 pub mut:
 	hwnd voidptr
 	is_visible bool
 mut:
-	name &u16
 	tbdata notepadpp.TbData
 	output_hwnd voidptr
 	output_editor_func sci.SCI_FN_DIRECT
@@ -128,7 +138,7 @@ pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
 	d.tbdata = notepadpp.TbData {
 		client: d.hwnd
 		name: d.name
-		dlg_id: -1
+		dlg_id: 6
 		mask: notepadpp.dws_df_cont_bottom | notepadpp.dws_icontab
 		icon_tab: icon
 		add_info: voidptr(0)

@@ -45,7 +45,7 @@ fn make_uri(path string) string {
 }
 
 fn make_range(start_line u32, start_char u32, end_line u32, end_char u32) string {
- return '"range":{"start":{"line":$start_line,"character":$start_char},"end":{"line":$end_line,"character":$end_char}}'
+	return '"range":{"start":{"line":$start_line,"character":$start_char},"end":{"line":$end_line,"character":$end_char}}'
 }
 
 pub struct TextDocumentIdentifier {

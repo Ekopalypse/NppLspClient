@@ -1,4 +1,4 @@
-module lsp
+module io_handler
 import notepadpp
 import winapi { read_file, write_file, send_message }
 
@@ -25,7 +25,7 @@ pub const (
 )
 
 // read_from stdout runs on a different thread, using p.console_window.log is not safe !!
-fn read_from_stdout(pipe voidptr, msg_queue chan string) {
+pub fn read_from_stdout(pipe voidptr, msg_queue chan string) {
 	mut dw_read := u32(0)
 	mut buffer := [bufsize]i8{}
 	mut success := false
@@ -50,7 +50,7 @@ fn read_from_stdout(pipe voidptr, msg_queue chan string) {
 	)	
 }
 
-fn read_from_stderr(pipe voidptr, msg_queue chan string) {
+pub fn read_from_stderr(pipe voidptr, msg_queue chan string) {
 	mut dw_read := u32(0)
 	mut buffer := [bufsize]i8{}
 	mut success := false
@@ -78,15 +78,19 @@ fn read_from_stderr(pipe voidptr, msg_queue chan string) {
 }
 
 // write_to stdin - main thread
-pub fn write_to(pipe voidptr, message string) bool {
-	if pipe == voidptr(0) {
+pub fn write_to(message string) bool {
+	if p.proc_manager.running_processes[p.current_language].stdin == voidptr(0) {
 		p.console_window.log_error('ERROR: attempt to write to non-existent pipe\n: $message')
 		return false
 	}
 	p.console_window.log_outgoing('$message')
 	mut dw_written := u32(0)
 	mut success := false
-	success = write_file(pipe, message.str, u32(message.len), &dw_written, voidptr(0))
+	success = write_file(p.proc_manager.running_processes[p.current_language].stdin, 
+						 message.str, 
+						 u32(message.len), 
+						 &dw_written, 
+						 voidptr(0))
 
 	if !success {
 		p.console_window.log_error('writing to pipe failed\n $message')

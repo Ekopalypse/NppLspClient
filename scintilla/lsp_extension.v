@@ -1,6 +1,6 @@
 module scintilla
 
-import lsp { TextEditArray }
+import lsp { TextEditArray, DocumentHighlightArray }
 
 pub fn (e Editor) add_diag_indicator(position u32, length u32, severity int) {
 	mut color := match severity {
@@ -85,6 +85,10 @@ pub fn (e Editor) show_peeked_info(message string) {
 	e.call(sci_annotationsetstyle, usize(line), 2)
 }
 
+pub fn (e Editor) clear_peeked_info() {
+	e.call(sci_annotationclearall, 0, 0)
+}
+
 pub fn (e Editor) display_hover_hints(position u32, hints string) {
 	e.call(sci_calltipsetposition, 1, 0)
 	e.call(sci_calltipshow, usize(position), isize(hints.str))
@@ -106,4 +110,24 @@ pub fn (e Editor) get_current_line_positions(position u32) (u32, u32) {
 
 pub fn (e Editor) cancel_calltip() {
 	e.call(sci_calltipcancel, 0, 0)
+}
+
+pub fn (e Editor) highlight_occurances(dha DocumentHighlightArray) {
+	e.call(sci_setindicatorcurrent, e.highlight_indicator, 0)
+	for item in dha.items {
+		start_pos := u32(e.position_from_line(item.range.start.line)) + item.range.start.character
+		end_pos := u32(e.position_from_line(item.range.end.line)) + item.range.end.character
+		e.call(sci_setindicatorvalue, usize(e.highlight_indicator_color | sc_indicvaluebit), 0)
+		e.call(sci_indicatorfillrange, usize(start_pos), isize(end_pos-start_pos))
+	}
+}
+
+pub fn (e Editor) clear_highlighted_occurances() {
+	e.call(sci_setindicatorcurrent, e.highlight_indicator, 0)
+	e.call(sci_indicatorclearrange, 0, e.call(sci_getlength, 0, 0))	
+}
+
+pub fn(e Editor) clear_indicators() {
+	e.clear_diagnostics()
+	e.clear_highlighted_occurances()
 }

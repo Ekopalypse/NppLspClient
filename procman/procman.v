@@ -1,4 +1,4 @@
-module lsp
+module procman
 import os
 
 import winapi as api
@@ -118,15 +118,13 @@ fn (proc Process) still_running() bool {
 	return exit_code == 259
 }
 
-fn (mut proc Process) kill() bool {
+fn (mut proc Process) kill() ? bool {
 	if ! api.terminate_process(proc.handle, 0) {
-		proc.error_message = 'FAILED to kill ${proc.pid}. Error returned: ${winapi_lasterr_str()}'
 		mut exit_code := u32(0)
 		api.get_exit_code_process(proc.handle, &exit_code)
 		if exit_code in [u32(0), 259] { 
-			return false 
+			return error('FAILED to kill ${proc.pid}. Error returned: ${winapi_lasterr_str()}')
 		}
-		proc.error_message = ''
 	}
 	return true
 }
@@ -145,19 +143,6 @@ pub fn (mut pm ProcessManager) start(language string, exe string, args string) ?
 	if !process.start() { return error('${process.error_message}') }
 
 	pm.running_processes[language] = process
-}
-
-pub fn (mut pm ProcessManager) stop(language string) {
-	if language !in pm.running_processes { return }
-	write_to(pm.running_processes[language].stdin, lsp.shutdown_msg())
-	write_to(pm.running_processes[language].stdin, lsp.exit_msg())
-	pm.running_processes.delete(language)
-}
-
-pub fn (mut pm ProcessManager) stop_all_running_processes() {
-	for k, _ in pm.running_processes {
-		pm.stop(k)
-	}
 }
 
 pub fn (mut pm ProcessManager) check_running_processes() {

@@ -62,6 +62,8 @@ pub mut:
 	warning_msg_color int = 0x64e0ff
 	info_msg_color int = 0xbfb2ab
 	diag_indicator usize = 12
+	highlight_indicator usize = 13
+	highlight_indicator_color int = 0x64e0ff
 	calltip_foreground_color int = 0x0
 	calltip_background_color int = 0xffffff
 }
@@ -110,6 +112,11 @@ pub fn (mut e Editor) initialize() {
 
 	e.call(sci_indicsetstyle, e.diag_indicator, indic_squiggle)
 	e.call(sci_indicsetflags, e.diag_indicator, sc_indicflag_valuefore)
+	e.call(sci_indicsetstyle, e.highlight_indicator, indic_roundbox)
+	e.call(sci_indicsetflags, e.highlight_indicator, sc_indicflag_valuefore)
+	e.call(sci_indicsetalpha, e.highlight_indicator, 40)
+	e.call(sci_indicsetoutlinealpha, e.highlight_indicator, 100)
+	
 	e.call(sci_calltipsetfore, usize(e.calltip_foreground_color), 0)
 	e.call(sci_calltipsetback, usize(e.calltip_background_color), 0)
 }

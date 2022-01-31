@@ -120,7 +120,7 @@ pub fn initialize(pid int, file_path string) string {
 		method: '"initialize"'
 		params: '{"processId":$pid,$client_info,"rootUri":"$uri_path",$initialization_options,$capabilities,$trace,$workspace_folders}'
 	}
-	p.open_response_messages[m.id] = initialize_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = initialize_response
 	return m.encode()
 }
 
@@ -147,7 +147,8 @@ pub fn shutdown_msg() string {
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"shutdown"'
 	}
-	p.lsp_config.lspservers[p.current_language].message_id_counter++
+	// p.lsp_config.lspservers[p.current_language].message_id_counter++
+	_ := p.lsp_config.lspservers[p.current_language].get_next_id()
 	return m.encode()	
 }
 
@@ -249,7 +250,7 @@ pub fn request_completion(file_path DocumentUri, line u32, char_pos u32, trigger
 		method: '"textDocument/completion"'
 		params: '{"textDocument":{"uri":"$uri_path"},"position":{"line":$line,"character":$char_pos},$context}'
 	}
-	p.open_response_messages[m.id] = completion_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = completion_response
 	return m.encode()
 }
 
@@ -261,7 +262,7 @@ pub fn request_signature_help(file_path DocumentUri, line u32, char_pos u32, tri
 		method: '"textDocument/signatureHelp"'
 		params: '{"textDocument":{"uri":"$uri_path"},"position":{"line":$line,"character":$char_pos},"context":{"isRetrigger":false,"triggerCharacter":"$trigger_character","triggerKind":2}}'
 	}
-	p.open_response_messages[m.id] = signature_help_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = signature_help_response
 	return m.encode()
 }
 
@@ -280,7 +281,7 @@ pub fn format_document(file_path DocumentUri,
 		method: '"textDocument/formatting"'
 		params: '{$text_document,$options}'
 	}
-	p.open_response_messages[m.id] = format_document_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = format_document_response
 	return m.encode()
 }
 
@@ -304,7 +305,7 @@ pub fn format_selected_range(file_path DocumentUri,
 		method: '"textDocument/formatting"'
 		params: '{$text_document,$range,$options}'
 	}
-	p.open_response_messages[m.id] = format_document_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = format_document_response
 	return m.encode()
 }
 
@@ -316,7 +317,7 @@ pub fn goto_definition(file_path DocumentUri, line u32, char_position u32) strin
 		method: '"textDocument/definition"'
 		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
-	p.open_response_messages[m.id] = goto_definition_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = goto_definition_response
 	return m.encode()
 }
 
@@ -328,7 +329,7 @@ pub fn peek_definition(file_path DocumentUri, line u32, char_position u32) strin
 		method: '"textDocument/definition"'
 		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
-	p.open_response_messages[m.id] = peek_definition_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = peek_definition_response
 	return m.encode()
 }
 
@@ -340,7 +341,7 @@ pub fn goto_implementation(file_path DocumentUri, line u32, char_position u32) s
 		method: '"textDocument/implementation"'
 		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
-	p.open_response_messages[m.id] = goto_implementation_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = goto_implementation_response
 	return m.encode()
 }
 
@@ -352,7 +353,7 @@ pub fn peek_implementation(file_path DocumentUri, line u32, char_position u32) s
 		method: '"textDocument/implementation"'
 		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
-	p.open_response_messages[m.id] = peek_implementation_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = peek_implementation_response
 	return m.encode()
 }
 
@@ -364,7 +365,7 @@ pub fn goto_declaration(file_path DocumentUri, line u32, char_position u32) stri
 		method: '"textDocument/declaration"'
 		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
-	p.open_response_messages[m.id] = goto_declaration_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = goto_declaration_response
 	return m.encode()
 }
 
@@ -376,7 +377,7 @@ pub fn find_references(file_path DocumentUri, line u32, char_position u32) strin
 		method: '"textDocument/references"'
 		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
-	p.open_response_messages[m.id] = find_references_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = find_references_response
 	return m.encode()
 }
 
@@ -388,7 +389,7 @@ pub fn document_highlight(file_path DocumentUri, line u32, char_position u32) st
 		method: '"textDocument/documentHighlight"'
 		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
-	p.open_response_messages[m.id] = document_highlight_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = document_highlight_response
 	return m.encode()
 }
 
@@ -400,7 +401,7 @@ pub fn document_symbols(file_path DocumentUri) string {
 		method: '"textDocument/documentSymbol"'
 		params: '{"textDocument":{"uri":"$uri_path"}}'
 	}
-	p.open_response_messages[m.id] = document_symbols_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = document_symbols_response
 	return m.encode()
 }
 
@@ -412,7 +413,7 @@ pub fn hover(file_path DocumentUri, line u32, char_position u32) string {
 		method: '"textDocument/hover"'
 		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
-	p.open_response_messages[m.id] = hover_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = hover_response
 	return m.encode()
 }
 
@@ -426,7 +427,7 @@ pub fn rename(file_path DocumentUri, line u32, char_position u32, replacement st
 		method: '"textDocument/rename"'
 		params: '{"textDocument":{"uri":"$uri_path"},$position,$new_name}'
 	}
-	p.open_response_messages[m.id] = rename_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = rename_response
 	return m.encode()
 }
 
@@ -439,7 +440,7 @@ pub fn prepare_rename(file_path DocumentUri, line u32, char_position u32) string
 		method: '"textDocument/prepareRename"'
 		params: '{"textDocument":{"uri":"$uri_path"},$position}'
 	}
-	p.open_response_messages[m.id] = prepare_rename_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = prepare_rename_response
 	return m.encode()
 }
 
@@ -451,7 +452,7 @@ pub fn folding_range(file_path DocumentUri) string {
 		method: '"textDocument/prepareRename"'
 		params: '{"textDocument":{"uri":"$uri_path"}}'
 	}
-	p.open_response_messages[m.id] = folding_range_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = folding_range_response
 	return m.encode()
 }
 
@@ -465,7 +466,7 @@ pub fn selection_range(file_path DocumentUri, line u32, char_position u32) strin
 		method: '"textDocument/selectionRange"'
 		params: '{"textDocument":{"uri":"$uri_path"},$position}'
 	}
-	p.open_response_messages[m.id] = selection_range_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = selection_range_response
 	return m.encode()
 }
 
@@ -507,7 +508,7 @@ pub fn incoming_calls(token int, value string) string {
 		// params: '{"workDoneToken":{"token":"","value":null}}'
 		params: '{}'
 	}
-	p.open_response_messages[m.id] = incoming_calls_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = incoming_calls_response
 	return m.encode()
 }
 
@@ -520,7 +521,7 @@ pub fn outgoing_calls(token int, value string) string {
 		// params: '{"workDoneToken":{"token":"","value":null}}'
 		params: '{}'
 	}
-	p.open_response_messages[m.id] = outgoing_calls_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = outgoing_calls_response
 	return m.encode()
 }
 
@@ -531,7 +532,7 @@ pub fn code_action_resolve(title string) string {
 		method: '"codeAction/resolve"'
 		params: '{"title":"$title"}'
 	}
-	p.open_response_messages[m.id] = code_action_resolve_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = code_action_resolve_response
 	return m.encode()
 }
 
@@ -544,7 +545,7 @@ pub fn code_lens_resolve(file_path DocumentUri) string {
 		method: '"codeLens/resolve"'
 		params: '{"textDocument":{"uri":"$uri_path"}}'
 	}
-	p.open_response_messages[m.id] = code_lens_resolve_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = code_lens_resolve_response
 	return m.encode()
 }
 
@@ -555,7 +556,7 @@ pub fn completion_item_resolve(label string) string {
 		method: '"completionItem/resolve"'
 		params: '{"label":"$label"}'
 	}
-	p.open_response_messages[m.id] = completion_item_resolve_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = completion_item_resolve_response
 	return m.encode()
 }
 
@@ -570,7 +571,7 @@ pub fn document_link_resolve(start_line u32,
 		method: '"documentLink/resolve"'
 		params: '{$range}'
 	}
-	p.open_response_messages[m.id] = document_link_resolve_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = document_link_resolve_response
 	return m.encode()
 }
 
@@ -616,7 +617,7 @@ pub fn code_action(file_path DocumentUri,
 		method: '"textDocument/codeAction"'
 		params: '{$text_document,$range,$context}'
 	}
-	p.open_response_messages[m.id] = code_action_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = code_action_response
 	return m.encode()
 }
 
@@ -629,7 +630,7 @@ pub fn code_lens(file_path DocumentUri) string {
 		method: '"textDocument/codeLens"'
 		params: '{"textDocument":{"uri":"$uri_path"}}'
 	}
-	p.open_response_messages[m.id] = code_lens_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = code_lens_response
 	return m.encode()
 }
 
@@ -653,7 +654,7 @@ pub fn color_presentation(file_path DocumentUri,
 		method: '"textDocument/colorPresentation"'
 		params: '{$text_document,$color,$range}'
 	}
-	p.open_response_messages[m.id] = color_presentation_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = color_presentation_response
 	return m.encode()
 }
 
@@ -666,7 +667,7 @@ pub fn document_color(file_path DocumentUri) string {
 		method: '"textDocument/documentColor"'
 		params: '{"textDocument":{"uri":"$uri_path"}}'
 	}
-	p.open_response_messages[m.id] = document_color_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = document_color_response
 	return m.encode()
 }
 
@@ -678,7 +679,7 @@ pub fn document_link(file_path DocumentUri) string {
 		method: '"textDocument/documentLink"'
 		params: '{"textDocument":{"uri":"$uri_path"}}'
 	}
-	p.open_response_messages[m.id] = document_link_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = document_link_response
 	return m.encode()
 }
 
@@ -691,7 +692,7 @@ pub fn linked_editing_range(file_path DocumentUri, line u32, char_position u32) 
 		method: '"textDocument/linkedEditingRange"'
 		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
-	p.open_response_messages[m.id] = linked_editing_range_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = linked_editing_range_response
 	return m.encode()
 }
 
@@ -704,7 +705,7 @@ pub fn moniker(file_path DocumentUri, line u32, char_position u32) string {
 		method: '"textDocument/moniker"'
 		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
-	p.open_response_messages[m.id] = moniker_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = moniker_response
 	return m.encode()
 }
 
@@ -746,7 +747,7 @@ pub fn on_type_formatting(file_path DocumentUri,
 		method: '"textDocument/onTypeFormatting"'
 		params: '{$text_document,$position,$character,$options}'
 	}
-	p.open_response_messages[m.id] = on_type_formatting_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = on_type_formatting_response
 	return m.encode()
 }
 
@@ -763,7 +764,7 @@ pub fn prepare_call_hierarchy(file_path DocumentUri,
 		method: '"textDocument/prepareCallHierarchy"'
 		params: '{$text_document,$position}'
 	}
-	p.open_response_messages[m.id] = prepare_call_hierarchy_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = prepare_call_hierarchy_response
 	return m.encode()
 }
 
@@ -776,7 +777,7 @@ pub fn semantic_tokens_full(file_path DocumentUri) string {
 		method: '"textDocument/semanticTokens/full"'
 		params: '{"textDocument":{"uri":"$uri_path"}}'
 	}
-	p.open_response_messages[m.id] = semantic_tokens_full_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = semantic_tokens_full_response
 	return m.encode()
 }
 
@@ -789,7 +790,7 @@ pub fn semantic_tokens_delta(file_path DocumentUri, previous_result_id string) s
 		method: '"textDocument/semanticTokens/full/delta"'
 		params: '{"textDocument":{"uri":"$uri_path"},"previousResultId":"previous_result_id"}'
 	}
-	p.open_response_messages[m.id] = semantic_tokens_delta_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = semantic_tokens_delta_response
 	return m.encode()
 }
 
@@ -808,7 +809,7 @@ pub fn semantic_tokens_range(file_path DocumentUri,
 		method: '"textDocument/semanticTokens/range"'
 		params: '{$text_document,$range}'
 	}
-	p.open_response_messages[m.id] = semantic_tokens_range_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = semantic_tokens_range_response
 	return m.encode()
 }
 
@@ -820,7 +821,7 @@ pub fn type_definition(file_path DocumentUri, line u32, char_position u32) strin
 		method: '"textDocument/typeDefinition"'
 		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
 	}
-	p.open_response_messages[m.id] = type_definition_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = type_definition_response
 	return m.encode()
 }
 
@@ -890,6 +891,7 @@ pub fn workspace_did_create_files(files_created FileCreateArray) string {
 	}
 	return m.encode()
 }		
+
 pub fn workspace_did_delete_files(files_deleted FileDeleteArray) string {
 	deleted_files := files_deleted.make_lsp_message()
 	m := Message {
@@ -900,6 +902,7 @@ pub fn workspace_did_delete_files(files_deleted FileDeleteArray) string {
 	}
 	return m.encode()
 }
+
 pub fn workspace_execute_command(command string, args []string) string {
 	params__ := if args.len == 0 {
 		'"command":"$command"'
@@ -913,7 +916,7 @@ pub fn workspace_execute_command(command string, args []string) string {
 		method: '"workspace/executeCommand"'
 		params: '{$params__}'
 	}
-	p.open_response_messages[m.id] = workspace_execute_command_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = workspace_execute_command_response
 	return m.encode()
 }
 
@@ -925,7 +928,7 @@ pub fn workspace_symbol(query string) string {
 		method: '"workspace/symbol"'
 		params: '{"query":"$query"}'
 	}
-	p.open_response_messages[m.id] = workspace_symbol_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = workspace_symbol_response
 	return m.encode()
 }
 
@@ -937,7 +940,7 @@ pub fn workspace_will_create_files(files_created FileCreateArray) string {
 		method: '"workspace/willCreateFiles"'
 		params: '{"files":$created_files}'
 	}
-	p.open_response_messages[m.id] = workspace_will_create_files_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = workspace_will_create_files_response
 	return m.encode()
 }
 
@@ -949,7 +952,7 @@ pub fn workspace_will_delete_files(files_deleted FileDeleteArray) string {
 		method: '"workspace/willDeleteFiles"'
 		params: '{"files":$deleted_files}'
 	}
-	p.open_response_messages[m.id] = workspace_will_delete_files_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = workspace_will_delete_files_response
 	return m.encode()
 }
 
@@ -961,6 +964,6 @@ pub fn workspace_will_rename_files(files_renamed FileRenameArray) string {
 		method: '"workspace/willRenameFiles"'
 		params: '{"files":$renamed_files}'
 	}
-	p.open_response_messages[m.id] = workspace_will_rename_files_response
+	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = workspace_will_rename_files_response
 	return m.encode()
 }

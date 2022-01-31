@@ -7,14 +7,17 @@ import winapi { message_box }
 const (
 	example_config_content = '
 [general]
-indicator_id = 12  # indicator used to draw the squiggle lines
-# the following colors, hex notation of a rgb value, are used by the indicator, the annotation method and the console output window
+diag_indicator_id = 12  # indicator used to draw the squiggle lines
+# the following colors, hex notation of a rgb value, are used by the diagnostics indicator, the annotation method and the console output window
 error_color = 0x756ce0  # values must be in the range 0 - 0xffffff
 warning_color = 0x64e0ff  # values must be in the range 0 - 0xffffff
 # these three colors are only used in the lsp console window
 incoming_msg_color = 0x7bc399  # values must be in the range 0 - 0xffffff
 outgoing_msg_color = 0xffac59  # values must be in the range 0 - 0xffffff
 selected_text_color = 0x745227  # values must be in the range 0 - 0xffffff
+
+highlight_indicator_id = 13  # indicator used to highlights all references to the symbol scoped to this file
+highlight_indicator_color = 0x64e0ff  # values must be in the range 0 - 0xffffff
 
 # define only if themes default fore- and background colors should be replaced
 # calltip_foreground_color = -1  # values must be in the range -1 - 0xffffff
@@ -53,6 +56,8 @@ enable_logging = false  # values must be either false or true
 )
 
 pub struct ServerConfig {
+mut:
+	message_id_counter int = -1
 pub mut:
 	mode string
 	executable string
@@ -60,10 +65,11 @@ pub mut:
 	port int
 	tcpretries int
 	auto_start_server bool
-	message_id_counter int = -1
 	initialized bool
 	// open_documents []string  // used to prevent sending didOpen multiple times
 	features ServerCapabilities
+	open_response_messages map[string]fn(json_message string)
+	diag_messages map[string][]Diagnostic
 }
 
 pub fn (mut sc ServerConfig) get_next_id() string {
@@ -73,7 +79,7 @@ pub fn (mut sc ServerConfig) get_next_id() string {
 
 pub struct Configs {
 pub mut:
-	indicator_id int = 12
+	diag_indicator_id int = 12
 	error_color int = 0x756ce0
 	warning_color int = 0x64e0ff
 	incoming_msg_color int = 0x7bc399
@@ -83,8 +89,10 @@ pub mut:
 	lspservers map[string]ServerConfig
 	calltip_foreground_color int = -1
 	calltip_background_color int = -1
+	highlight_indicator_id int = 13
+	highlight_indicator_color int = 0x64e0ff
 }
-
+	
 pub fn create_default() string {
 	return example_config_content
 }
@@ -113,8 +121,8 @@ pub fn decode_config(full_file_path string) Configs {
 		return lsp_config
 	}
 	
-	if !is_null(doc.value('general.indicator_id')) {
-		lsp_config.indicator_id = doc.value('general.indicator_id').int()
+	if !is_null(doc.value('general.diag_indicator_id')) {
+		lsp_config.diag_indicator_id = doc.value('general.diag_indicator_id').int()
 	}
 
 	if !is_null(doc.value('general.error_color')) {
@@ -147,6 +155,14 @@ pub fn decode_config(full_file_path string) Configs {
 	
 	if !is_null(doc.value('general.calltip_background_color')) {
 		lsp_config.calltip_background_color = doc.value('general.calltip_background_color').int()
+	}
+
+	if !is_null(doc.value('general.highlight_indicator_id')) {
+		lsp_config.highlight_indicator_id = doc.value('general.highlight_indicator_id').int()
+	}
+
+	if !is_null(doc.value('general.highlight_indicator_color')) {
+		lsp_config.highlight_indicator_color = doc.value('general.highlight_indicator_color').int()
 	}
 
 	// lspservers
@@ -212,11 +228,11 @@ pub fn analyze_config(full_file_path string) {
 				in_general_section = false
 				in_lspservers_section = true
 			}
-			line.starts_with('indicator_id') {
+			line.starts_with('diag_indicator_id') {
 				if in_general_section {
 					check_if_integer_value(line)
 				} else {
-					p.console_window.log_error('indicator_id must be a field in general section')
+					p.console_window.log_error('diag_indicator_id must be a field in general section')
 				}
 			}
 			line.starts_with('error_color') {
@@ -301,6 +317,20 @@ pub fn analyze_config(full_file_path string) {
 					check_if_boolean_value(line)
 				} else {
 					p.console_window.log_error('auto_start_server must be in lspservers section')
+				}
+			}
+			line.starts_with('highlight_indicator_id') {
+				if in_general_section {
+					check_if_integer_value(line)
+				} else {
+					p.console_window.log_error('highlight_indicator_id must be a field in general section')
+				}
+			}
+			line.starts_with('highlight_indicator_color') {
+				if in_general_section {
+					check_if_integer_value(line)
+				} else {
+					p.console_window.log_error('highlight_indicator_color must be a field in general section')
 				}
 			}
 			else {

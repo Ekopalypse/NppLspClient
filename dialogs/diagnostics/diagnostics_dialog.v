@@ -1,5 +1,12 @@
 module diagnostics
-
+/*
+	A view of the found issues reported by the language server.
+	
+	Here's how it should work:
+		the view is updated each time the server reports diagnostic messages, 
+		which may include diagnostics for files other than the one currently in use.
+		Sorted by level: first Error, then Warning and finally Info and Hints.
+*/
 import winapi as api
 import notepadpp
 import scintilla as sci
@@ -47,11 +54,11 @@ const (
 )
 
 pub struct DockableDialog {
+	name &u16 = 'LSP diagnostics output'.to_wide()
 pub mut:
 	hwnd voidptr
 	is_visible bool
 mut:
-	name &u16
 	tbdata notepadpp.TbData
 	output_hwnd voidptr
 	output_editor_func sci.SCI_FN_DIRECT
@@ -103,7 +110,7 @@ pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
 	d.tbdata = notepadpp.TbData {
 		client: d.hwnd
 		name: d.name
-		dlg_id: -1
+		dlg_id: 7
 		mask: notepadpp.dws_df_cont_bottom | notepadpp.dws_icontab
 		icon_tab: icon
 		add_info: voidptr(0)
