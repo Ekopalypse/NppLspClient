@@ -2,7 +2,8 @@ module lsp
 
 import x.json2
 import os
-import io_handler as io
+import util.io_handler as io
+import common { Symbol, Reference, DiagMessage }
 
 const (
 	content_length = 'Content-Length: '
@@ -112,6 +113,7 @@ pub fn on_file_opened(file_name string) {
 		content := p.editor.get_text()
 		io.write_to(did_open(file_name, 0, lang_id, content))
 	}
+	on_document_symbols(file_name)
 }
 
 pub fn on_file_before_saved(file_name string) {
@@ -132,6 +134,7 @@ pub fn on_file_saved(file_name string) {
 		}
 		io.write_to(did_save(file_name, content))
 	}
+	on_document_symbols(file_name)
 }
 
 pub fn on_will_save_wait_until(file_name string) {
@@ -149,11 +152,6 @@ pub fn on_file_closed(file_name string) {
 	if p.lsp_config.lspservers[p.current_language].initialized
 		&& p.lsp_config.lspservers[p.current_language].features.send_open_close_notif {
 		io.write_to(did_close(file_name))
-
-		// array_index := p.lsp_config.lspservers[p.current_language].open_documents.index(file_name)
-		// if array_index > -1  {
-		// p.lsp_config.lspservers[p.current_language].open_documents.delete(array_index)
-		// }		
 	}
 }
 
@@ -186,7 +184,6 @@ pub fn on_completion(file_name string, start_line u32, start_char_pos u32, text 
 		} else {
 			''
 		}
-
 		io.write_to(request_completion(file_name, start_line, start_char_pos, text__))
 	}
 }
@@ -244,7 +241,6 @@ pub fn on_format_document(file_name string) {
 }
 
 fn format_document_response(json_message string) {
-	p.console_window.log_info('  format document response received: $json_message')
 	tea := json2.decode<TextEditArray>(json_message) or { TextEditArray{} }
 	p.editor.format_document(tea)
 }
@@ -267,7 +263,6 @@ pub fn on_goto_definition(file_name string) {
 }
 
 fn goto_definition_response(json_message string) {
-	p.console_window.log_info('goto definition response received: $json_message')
 	goto_location_helper(json_message)
 }
 
@@ -280,7 +275,6 @@ pub fn on_goto_implementation(file_name string) {
 }
 
 fn goto_implementation_response(json_message string) {
-	p.console_window.log_info('goto implementation response received: $json_message')
 	goto_location_helper(json_message)
 }
 
@@ -315,7 +309,6 @@ pub fn on_peek_definition(file_name string) {
 }
 
 fn peek_definition_response(json_message string) {
-	p.console_window.log_info('peek definition response received: $json_message')
 	peek_helper(json_message)
 }
 
@@ -328,7 +321,6 @@ pub fn on_peek_implementation(file_name string) {
 }
 
 fn peek_implementation_response(json_message string) {
-	p.console_window.log_info('peek implementation response received: $json_message')
 	peek_helper(json_message)
 }
 
@@ -386,7 +378,6 @@ pub fn on_goto_declaration(file_name string) {
 }
 
 fn goto_declaration_response(json_message string) {
-	p.console_window.log_info('declaration response received: $json_message')
 	goto_location_helper(json_message)
 }
 
@@ -399,14 +390,18 @@ pub fn on_find_references(file_name string) {
 }
 
 fn find_references_response(json_message string) {
-	p.console_window.log_info('find references response received: $json_message')
 	p.references_window.clear()
+	mut references := []Reference{}
 	if json_message.starts_with('[') {
 		loca := json2.decode<LocationArray>(json_message) or { LocationArray{} }
 		if loca.items.len > 0 {
 			for item in loca.items {
-				p.references_window.log('$item.uri [line:${item.range.start.line}]')
+				references << Reference{
+					item.uri 
+					item.range.start.line
+				}
 			}
+			p.references_window.update(references)
 		}
 	}
 }
@@ -420,9 +415,6 @@ pub fn on_document_highlight(file_name string) {
 }
 
 fn document_highlight_response(json_message string) {
-	// document highlight response received: [{"range":{"start":{"line":25,"character":17},"end":{"line":25,"character":20}},"kind":1},{"range":{"start":{"line":26,"character":13},"end":{"line":26,"character":16}},"kind":1},{"range":{"start":{"line":24,"character":6},"end":{"line":24,"character":9}},"kind":1},{"range":{"start":{"line":24,"character":21},"end":{"line":24,"character":24}},"kind":1},{"range":{"start":{"line":24,"character":40},"end":{"line":24,"character":43}},"kind":1}]
-
-	p.console_window.log_info('document highlight response received: $json_message')
 	if json_message.starts_with('[') {
 		dha := json2.decode<DocumentHighlightArray>(json_message) or { DocumentHighlightArray{} }
 		p.editor.highlight_occurances(dha)
@@ -437,23 +429,36 @@ pub fn on_document_symbols(file_name string) {
 }
 
 fn document_symbols_response(json_message string) {
-	p.console_window.log_info('document symbols response received: $json_message')
 	p.symbols_window.clear()
+	mut symbols := []Symbol{}
 	if json_message.starts_with('[') {
 		if json_message.contains('selectionRange') {
 			dsa := json2.decode<DocumentSymbolArray>(json_message) or { DocumentSymbolArray{} }
 			for item in dsa.items {
-				p.symbols_window.log('$item.name [line:${item.range.start.line}]')
+				symbols << Symbol {
+					''
+					item.name
+					item.kind
+					item.range.start.line
+				}
 			}
 		} else {
 			sia := json2.decode<SymbolInformationArray>(json_message) or {
 				SymbolInformationArray{}
 			}
 			for item in sia.items {
-				p.symbols_window.log('$item.name [file:${item.location.uri}] [line:${item.location.range.start.line}]')
+				symbols << Symbol {
+					item.location.uri
+					item.name
+					item.kind
+					item.location.range.start.line
+				}
+
 			}
 		}
 	}
+	p.symbols_window.update(mut symbols)
+
 }
 
 pub fn on_hover(file_name string) {
@@ -466,7 +471,6 @@ pub fn on_hover(file_name string) {
 }
 
 fn hover_response(json_message string) {
-	p.console_window.log_info('hover response received: $json_message')
 	h := json2.decode<Hover>(json_message) or { Hover{} }
 	p.editor.display_hover_hints(p.lsp_client.current_hover_position, h.contents)
 }
@@ -924,7 +928,7 @@ fn workspace_symbol_response(json_message string) {
 	if json_message.starts_with('[') {
 		sia := json2.decode<SymbolInformationArray>(json_message) or { SymbolInformationArray{} }
 		for item in sia.items {
-			p.console_window.log_info('  $item.name $item.kind ')
+			p.console_window.log_info('  $item.name')
 		}
 	}
 }
@@ -1007,37 +1011,23 @@ fn notification_handler(json_message JsonMessage) {
 fn publish_diagnostics(params string) {
 	diag := json2.decode<PublishDiagnosticsParams>(params) or { PublishDiagnosticsParams{} }
 	p.editor.clear_diagnostics()
-	p.lsp_config.lspservers[p.current_language].diag_messages.delete(diag.uri)
-	p.diag_window.clear()
+	p.diag_window.clear(p.current_language)
+	mut messages := []DiagMessage{}
 	for d in diag.diagnostics {
-		// p.editor.add_diagnostics_info(d.range.start.line, d.message, d.severity)
 		start := p.editor.position_from_line(d.range.start.line) + d.range.start.character
 		end := p.editor.position_from_line(d.range.end.line) + d.range.end.character
 		if p.current_file_path == diag.uri {
 			p.editor.add_diag_indicator(start, end - start, d.severity)
 		}
-		p.lsp_config.lspservers[p.current_language].diag_messages[diag.uri] << d
-		p.diag_window.log('$diag.uri [line:$d.range.start.line col:$d.range.start.character] - $d.message',
-			byte(d.severity))
-	}
-}
-
-pub fn republish_diagnostics(uri string, diag_messages []Diagnostic) {
-	p.console_window.log_info('republish_diagnostics: $uri $diag_messages')
-	p.editor.clear_diagnostics()
-	p.diag_window.clear()
-	for d in diag_messages {
-		p.console_window.log_info('$d')
-
-		// p.editor.add_diagnostics_info(d.range.start.line, d.message, d.severity)
-		start := p.editor.position_from_line(d.range.start.line) + d.range.start.character
-		end := p.editor.position_from_line(d.range.end.line) + d.range.end.character
-		if p.current_file_path == uri {
-			p.editor.add_diag_indicator(start, end - start, d.severity)
+		messages << DiagMessage {
+			file_name: diag.uri
+			line: d.range.start.line
+			column: d.range.start.character
+			message: d.message
+			severity: byte(d.severity)
 		}
-		p.diag_window.log('$uri [line:$d.range.start.line col:$d.range.start.character] - $d.message',
-			byte(d.severity))
 	}
+	p.diag_window.update(p.current_language, messages)
 }
 
 fn log_message(json_message string) {

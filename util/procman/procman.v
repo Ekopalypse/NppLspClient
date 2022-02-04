@@ -1,7 +1,7 @@
 module procman
 import os
 
-import winapi as api
+import util.winapi as api
 
 pub struct Process {
 pub mut:
@@ -152,3 +152,10 @@ pub fn (mut pm ProcessManager) check_running_processes() {
 		}
 	}
 }
+
+pub fn (mut pm ProcessManager) remove(language_server string) {
+	if language_server in pm.running_processes {
+		pm.running_processes.delete(language_server)
+	}
+}
+

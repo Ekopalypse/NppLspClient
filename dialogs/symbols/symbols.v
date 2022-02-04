@@ -7,12 +7,19 @@ module symbols
 	such as the members of the structure/class, or the parameters of a function etc....
 	
 	Here's how it should work:
-		update the view when opening a file
-		and every time the current file is saved.
+		Sort and update the view when 
+			- opening a file
+			- current file is saved
+			- previous buffer is different from the current one
+		Clear the view when
+			- no symbols in current file
+			- language server shuts down
+			- document is not of interest
 */
-import winapi as api
+import util.winapi as api
 import notepadpp
 import scintilla as sci
+import common { Symbol }
 
 #include "resource.h"
 
@@ -62,6 +69,7 @@ mut:
 	fore_color int
 	back_color int
 	selected_text_color int
+	symbols_location map[int]Symbol
 }
 
 [inline]
@@ -70,14 +78,21 @@ fn (mut d DockableDialog) call(msg int, wparam usize, lparam isize) isize {
 }
 
 pub fn (mut d DockableDialog) clear() {
+	d.call(sci.sci_setreadonly, 0, 0)
 	d.call(sci.sci_clearall, 0, 0)
+	d.call(sci.sci_setreadonly, 1, 0)
 }
 
-pub fn (mut d DockableDialog) log(text string) {
-	mut text__ := if text.ends_with('\n') { text } else { text + '\n'}
-	d.call(sci.sci_appendtext, usize(text__.len), isize(text__.str))
-	line_count := d.call(sci.sci_getlinecount, 0, 0)
-	d.call(sci.sci_gotoline, usize(line_count-1), 0)
+pub fn (mut d DockableDialog) update(mut symbols []Symbol) {
+	d.call(sci.sci_setreadonly, 0, 0)
+	d.call(sci.sci_clearall, 0, 0)
+	symbols.sort(a.name < b.name)
+	for i, symbol in symbols {
+		d.symbols_location[i] = symbol
+		d.call(sci.sci_appendtext, usize(symbol.name.len), isize(symbol.name.str))
+		d.call(sci.sci_appendtext, usize(1), isize('\n'.str))
+	}
+	d.call(sci.sci_setreadonly, 1, 0)
 }
 
 pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
@@ -108,6 +123,7 @@ pub fn (mut d DockableDialog) init_scintilla() {
 	d.call(sci.sci_stylesethotspot, 32, 1)
 	d.call(sci.sci_setselback, 1, d.selected_text_color)
 	d.call(sci.sci_setmargins, 0, 0)
+	d.call(sci.sci_setcaretfore, usize(d.back_color), 0)
 }
 
 pub fn (mut d DockableDialog) show() {
@@ -128,20 +144,12 @@ pub fn (mut d DockableDialog) update_settings(fore_color int, back_color int, se
 }
 
 pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
-	// SYMBOLNAME [line:LINENUMBER]
-    line := d.call(sci.sci_linefromposition, usize(position), 0)
-	buffer_length := int(d.call(sci.sci_linelength, usize(line), 0))
-	
-	if buffer_length > 0 {
-		mut buffer := vcalloc(buffer_length)
-		result := int(d.call(sci.sci_getline, usize(line), isize(buffer)))
-		if result > 0 {
-			content := unsafe { buffer.vstring_with_len(result) }
-			line__ := content.find_between(' [line:', ']').u32()
-			line_pos := p.editor.position_from_line(line__)
-			p.editor.goto_pos(line_pos)
-		}
+    line := int(d.call(sci.sci_linefromposition, usize(position), 0))
+	symbol := d.symbols_location[line]
+	if (symbol.file_name.len > 0) && (p.current_file_path != symbol.file_name) {
+		p.npp.open_document(symbol.file_name)
 	}
+	p.editor.goto_line(symbol.line)
 }
 
 /* EXAMPLE
@@ -163,58 +171,34 @@ pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
                 "uri": "file:///D%3A/Repositories/eko/npplspclient/tests/go/example.go"
             },
             "name": "person"
-        },
+        }, ...
+    ]
+}
+*/
+
+/*
+{
+    "id": 1,
+    "jsonrpc": "2.0",
+    "result": [
         {
-            "kind": 12,
+            "containerName": null,
+            "kind": 2,
             "location": {
                 "range": {
                     "end": {
-                        "character": 1,
-                        "line": 16
+                        "character": 9,
+                        "line": 0
                     },
                     "start": {
                         "character": 0,
-                        "line": 12
+                        "line": 0
                     }
                 },
-                "uri": "file:///D%3A/Repositories/eko/npplspclient/tests/go/example.go"
+                "uri": "file:///D%3A/Repositories/eko/npplspclient/tests/python/example.py"
             },
-            "name": "newPerson"
-        },
-        {
-            "kind": 12,
-            "location": {
-                "range": {
-                    "end": {
-                        "character": 1,
-                        "line": 21
-                    },
-                    "start": {
-                        "character": 0,
-                        "line": 18
-                    }
-                },
-                "uri": "file:///D%3A/Repositories/eko/npplspclient/tests/go/example.go"
-            },
-            "name": "test"
-        },
-        {
-            "kind": 12,
-            "location": {
-                "range": {
-                    "end": {
-                        "character": 1,
-                        "line": 35
-                    },
-                    "start": {
-                        "character": 0,
-                        "line": 23
-                    }
-                },
-                "uri": "file:///D%3A/Repositories/eko/npplspclient/tests/go/example.go"
-            },
-            "name": "main"
-        }
+            "name": "os"
+        }, ...
     ]
 }
 */

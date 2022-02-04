@@ -1,15 +1,16 @@
 module diagnostics
 /*
-	A view of the found issues reported by the language server.
+	A view of the found problems reported by the currently used language server.
 	
 	Here's how it should work:
-		the view is updated each time the server reports diagnostic messages, 
-		which may include diagnostics for files other than the one currently in use.
+		The view is refreshed each time the server reports diagnostic messages or 
+		when switching from ls to another and stored diagnostics are available.
 		Sorted by level: first Error, then Warning and finally Info and Hints.
 */
-import winapi as api
+import util.winapi as api
 import notepadpp
 import scintilla as sci
+import common { DiagMessage }
 
 #include "resource.h"
 
@@ -63,12 +64,13 @@ mut:
 	output_hwnd voidptr
 	output_editor_func sci.SCI_FN_DIRECT
 	output_editor_hwnd voidptr
-	logging_enabled bool
 	fore_color int
 	back_color int
 	error_color int
 	warning_color int
 	selected_text_color int
+	diag_messages map[string][]DiagMessage
+	current_messages []DiagMessage
 }
 
 [inline]
@@ -76,32 +78,51 @@ fn (mut d DockableDialog) call(msg int, wparam usize, lparam isize) isize {
 	return d.output_editor_func(d.output_editor_hwnd, u32(msg), wparam, lparam)
 }
 
-pub fn (mut d DockableDialog) clear() {
+pub fn (mut d DockableDialog) clear(language_server string) {
 	d.call(sci.sci_clearall, 0, 0)
+	d.diag_messages[language_server].clear()
 }
 
-pub fn (mut d DockableDialog) log(text string, style byte) {
-	mut text__ := if text.ends_with('\n') { text } else { text + '\n'}
-	if d.logging_enabled {
-		match style {
-			1...4 {
-				mut buffer := vcalloc(text__.len * 2)
-				unsafe {
-					for i:=0; i<text__.len; i++ {
-						buffer[i*2] = text__.str[i]
-						buffer[i*2+1] = style
-					}
+pub fn (mut d DockableDialog) display(msg DiagMessage) {
+	text := '${msg.file_name} [line:${msg.line} col:${msg.column}] - ${msg.message}\n'
+	line_count := d.call(sci.sci_getlinecount, 0, 0)
+	d.call(sci.sci_gotoline, usize(line_count-1), 0)
+	match msg.severity {
+		1...4 {
+			mut buffer := vcalloc(text.len * 2)
+			unsafe {
+				for i:=0; i<text.len; i++ {
+					buffer[i*2] = text.str[i]
+					buffer[i*2+1] = msg.severity
 				}
-				d.call(sci.sci_addstyledtext, usize(text__.len * 2), isize(buffer))
 			}
-			else {
-				d.call(sci.sci_appendtext, usize(text__.len), isize(text__.str))
-			}
+			d.call(sci.sci_addstyledtext, usize(text.len * 2), isize(buffer))
 		}
-		line_count := d.call(sci.sci_getlinecount, 0, 0)
-		d.call(sci.sci_gotoline, usize(line_count-1), 0)
+		else {
+			d.call(sci.sci_appendtext, usize(text.len), isize(text.str))
+		}
+	}
+
+}
+
+pub fn (mut d DockableDialog) republish(language_server string) {
+	d.call(sci.sci_clearall, 0, 0)
+	d.current_messages.clear()
+	for _, msg in d.diag_messages[language_server] { 
+		d.current_messages << msg
+		d.display(msg) 
 	}
 }
+
+pub fn (mut d DockableDialog) update(language_server string, messages []DiagMessage) {
+	d.diag_messages[language_server] = messages
+	d.current_messages.clear()
+	for msg in messages { 
+		d.current_messages << msg
+		d.display(msg) 
+	}
+}
+
 
 pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
 	d.output_hwnd = p.npp.create_scintilla(voidptr(0))
@@ -154,9 +175,7 @@ pub fn (mut d DockableDialog) update_settings(fore_color int,
 											  back_color int,
 											  error_color int,
 											  warning_color int,
-											  selected_text_color int,
-											  enable_logging bool) {
-	d.logging_enabled = enable_logging
+											  selected_text_color int) {
 	d.fore_color = fore_color
 	d.back_color = back_color
 	d.error_color = error_color
@@ -168,20 +187,9 @@ pub fn (mut d DockableDialog) update_settings(fore_color int,
 
 pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
     line := d.call(sci.sci_linefromposition, usize(position), 0)
-	buffer_length := int(d.call(sci.sci_linelength, usize(line), 0))
-	
-	if buffer_length > 0 {
-		mut buffer := vcalloc(buffer_length)
-		result := int(d.call(sci.sci_getline, usize(line), isize(buffer)))
-		if result > 0 {
-			content := unsafe { buffer.vstring_with_len(result) }
-			file_name := content.all_before(' [line:')
-			line__ := content.find_between(' [line:', ' col:').u32()
-			pos__ := content.find_between(' col:', '] -').u32()
-
-			p.npp.open_document(file_name)
-			line_pos := p.editor.position_from_line(line__) + pos__
-			p.editor.goto_pos(line_pos)
-		}
+	diag_message := d.current_messages[line]
+	if (diag_message.file_name.len > 0) && (p.current_file_path != diag_message.file_name) {
+		p.npp.open_document(diag_message.file_name)
 	}
+	p.editor.goto_line(diag_message.line)	
 }

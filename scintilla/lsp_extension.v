@@ -51,7 +51,8 @@ pub fn (e Editor) get_lsp_position_info() (u32, u32) {
 
 pub fn (e Editor) format_document(tea TextEditArray) {
 	e.call(sci_beginundoaction, 0, 0)
-	for item in tea.items {
+	reversed_tea := tea.items.reverse()
+	for item in reversed_tea {
 		start_pos := u32(e.position_from_line(item.range.start.line)) + item.range.start.character
 		end_pos := u32(e.position_from_line(item.range.end.line)) + item.range.end.character
 		e.call(sci_settargetstart, usize(start_pos), 0)

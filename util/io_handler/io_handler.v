@@ -1,6 +1,6 @@
 module io_handler
 import notepadpp
-import winapi { read_file, write_file, send_message }
+import util.winapi { read_file, write_file, send_message }
 
 pub const (
 	bufsize = 4096 

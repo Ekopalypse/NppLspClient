@@ -114,9 +114,10 @@ pub fn initialize(pid int, file_path string) string {
 	}'.replace_each(['\t','','\n','','\r',''])
 	trace := '"trace":"off"'
 	workspace_folders := '"workspaceFolders":null'
+
 	m := Message {
 		msg_type: JsonRpcMessageType.request
-		id: p.lsp_config.lspservers[p.current_language].get_next_id()
+		id: p.lsp_config.lspservers[p.current_language].init_id()
 		method: '"initialize"'
 		params: '{"processId":$pid,$client_info,"rootUri":"$uri_path",$initialization_options,$capabilities,$trace,$workspace_folders}'
 	}

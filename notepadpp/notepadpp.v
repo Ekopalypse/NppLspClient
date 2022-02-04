@@ -1,6 +1,6 @@
 module notepadpp
 
-import winapi { send_message, RECT }
+import util.winapi { send_message, RECT }
 
 pub struct TbData {
 	client voidptr		// client Window Handle

@@ -1,6 +1,6 @@
 module about_dialog
 
-import winapi as api
+import util.winapi as api
 
 #include "resource.h"
 

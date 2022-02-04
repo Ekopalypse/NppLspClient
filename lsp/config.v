@@ -2,7 +2,7 @@ module lsp
 
 import toml
 import os
-import winapi { message_box }
+import util.winapi { message_box }
 
 const (
 	example_config_content = '
@@ -69,13 +69,19 @@ pub mut:
 	// open_documents []string  // used to prevent sending didOpen multiple times
 	features ServerCapabilities
 	open_response_messages map[string]fn(json_message string)
-	diag_messages map[string][]Diagnostic
+	// diag_messages map[string][]Diagnostic
 }
 
 pub fn (mut sc ServerConfig) get_next_id() string {
 	sc.message_id_counter++
 	return sc.message_id_counter.str()
 }
+
+pub fn (mut sc ServerConfig) init_id() string {
+	sc.message_id_counter = 0
+	return sc.message_id_counter.str()
+}
+
 
 pub struct Configs {
 pub mut:

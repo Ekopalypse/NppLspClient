@@ -1,6 +1,6 @@
 module scintilla
 
-import winapi { send_message }
+import util.winapi { send_message }
 
 pub type SCI_FN_DIRECT = fn(hwnd isize, msg u32, param usize, lparam isize) isize
 
@@ -71,6 +71,7 @@ pub mut:
 [inline]
 fn (e Editor) call(msg int, wparam usize, lparam isize) isize {
 	return e.current_func(e.current_hwnd, u32(msg), wparam, lparam)
+	// return send_message(e.current_hwnd, u32(msg), wparam, lparam)
 }
 
 pub fn create_editors(main_handle voidptr, second_handle voidptr) Editor {
@@ -136,6 +137,9 @@ pub fn (e Editor) use_spaces() bool {
 
 pub fn (e Editor) goto_pos(position u32) {
 	e.call(sci_gotopos, usize(position), 0)
+}
+pub fn (e Editor) goto_line(line u32) {
+	e.call(sci_gotoline, usize(line), 0)
 }
 
 pub fn (e Editor) get_document_pointer() isize {

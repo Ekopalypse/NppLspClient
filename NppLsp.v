@@ -9,8 +9,8 @@ import dialogs.console
 import dialogs.diagnostics
 import dialogs.references
 import dialogs.symbols
-import io_handler as io
-import procman as pm
+import util.io_handler as io
+import util.procman as pm
 
 fn C._vinit(int, voidptr)
 fn C._vcleanup()
@@ -93,7 +93,6 @@ fn set_info(nppData NppData) {
 	p.npp = notepadpp.Npp{p.npp_data.npp_handle}
 	p.editor = sci.create_editors(nppData.scintilla_main_handle, nppData.scintilla_second_handle)
 	// Create as early as possible, as nppn_ready is NOT the first message received.
-	// p.console_window = console.DockableDialog{ name: 'LSP output console'.to_wide() }
 	p.console_window = console.DockableDialog{}
 	p.console_window.create(p.npp_data.npp_handle, plugin_name)
 	p.diag_window = diagnostics.DockableDialog{}
@@ -131,15 +130,16 @@ fn be_notified(notification &sci.SCNotification) {
 				p.editor.current_func = p.editor.second_func
 				p.editor.current_hwnd = p.editor.second_hwnd
 			}
-
 			check_lexer(u64(notification.nmhdr.id_from))
 			p.current_file_path = p.npp.get_filename_from_id(notification.nmhdr.id_from)
 
 			// Return early if document is not of interest or language server is not running
 			if !(p.document_is_of_interest && p.lsp_client.cur_lang_srv_running) { 
 				p.editor.clear_diagnostics()
-				p.lsp_config.lspservers[p.current_language].diag_messages.delete(p.current_file_path)
+				p.symbols_window.clear()
+				p.diag_window.clear(p.current_language)
 				p.console_window.log_info('document_is_of_interest:${p.document_is_of_interest}\ncur_lang_srv_running:${p.lsp_client.cur_lang_srv_running}')
+				p.working_buffer_id = u64(notification.nmhdr.id_from)
 				return 
 			}
 
@@ -147,16 +147,16 @@ fn be_notified(notification &sci.SCNotification) {
 
 			if p.lsp_config.lspservers[p.current_language].initialized {
 				// If we receive a buffer ID that is identical to the one currently in use, 
-				// it is a reload event or it has been moved from the other view.
+				// it is a reload event or it has been moved from the other view or something like nppm_switchtofile ...
 				// In case of a relaod event the buffer id is still in the map as there was no file close event sent,
 				// in case the buffer was moved from one view to the other the file close event has been sent. 
 				if p.working_buffer_id == u64(notification.nmhdr.id_from) {
-					p.console_window.log_info('buffer reloaded or moved between views')
-					p.current_file_version = 0
-					if p.working_buffer_id in p.file_version_map {
-						lsp.on_file_closed(p.current_file_path)
-					}
-					lsp.on_file_opened(p.current_file_path)
+					p.console_window.log_info('buffer reloaded, activated or moved between views')
+					// p.current_file_version = 0
+					// if p.working_buffer_id in p.file_version_map {
+						// lsp.on_file_closed(p.current_file_path)
+					// }
+					// lsp.on_file_opened(p.current_file_path)
 					return
 				}
 				// Saving the old buffer state if it has not been closed in the meantime.
@@ -178,9 +178,11 @@ fn be_notified(notification &sci.SCNotification) {
 					p.file_version_map[p.working_buffer_id] = p.current_file_version
 				}
 				// reapply diagnostics
-				for k, v in p.lsp_config.lspservers[p.current_language].diag_messages {
-					lsp.republish_diagnostics(k, v)
-				}
+				p.diag_window.republish(p.current_language)
+
+				// rerequest symbols
+				lsp.on_document_symbols(p.current_file_path)
+				
 			} else {
 				// Sending the didOpen notification as well as setting the initial parameters
 				// is handled within the initialize_response function. 
@@ -204,12 +206,14 @@ fn be_notified(notification &sci.SCNotification) {
 				p.console_window.log_info('>>> ${p.file_version_map}')
 			}
 		}
+		
 		notepadpp.nppn_filebeforesave {
 			if p.document_is_of_interest {
 				// p.current_language = p.npp.get_language_name_from_id(notification.nmhdr.id_from)
 				lsp.on_file_before_saved(p.current_file_path)
 			}
 		}
+		
 		notepadpp.nppn_filesaved {
 			if p.document_is_of_interest {
 				// p.current_language = p.npp.get_language_name_from_id(notification.nmhdr.id_from)
@@ -397,8 +401,7 @@ fn update_settings() {
 								  back_color,
 								  p.lsp_config.error_color,
 								  p.lsp_config.warning_color,
-								  p.lsp_config.selected_text_color,
-								  p.lsp_config.enable_logging)
+								  p.lsp_config.selected_text_color)
 	p.console_window.update_settings(fore_color, 
 									 back_color,
 									 p.lsp_config.error_color,
@@ -412,7 +415,9 @@ fn update_settings() {
 									 p.lsp_config.selected_text_color)
 	p.references_window.update_settings(fore_color, 
 										back_color,
-										p.lsp_config.selected_text_color)
+										p.lsp_config.selected_text_color,
+										p.lsp_config.outgoing_msg_color,
+										p.lsp_config.error_color)
 
 	p.editor.error_msg_color = p.lsp_config.error_color
 	p.editor.warning_msg_color = p.lsp_config.warning_color
@@ -443,8 +448,7 @@ pub fn start_lsp_server() {
 pub fn stop_lsp_server() {
 	p.console_window.log_info('stopping language server: ${p.current_language}')
 	lsp.stop_ls()
-	p.proc_manager.running_processes.delete(p.current_language)
-	// p.proc_manager.stop(p.current_language)
+	p.proc_manager.remove(p.current_language)
 	p.lsp_config.lspservers[p.current_language].initialized = false
 	p.console_window.log_info('initialized = ${p.lsp_config.lspservers[p.current_language].initialized}')
 	p.current_file_version = 0
@@ -531,7 +535,6 @@ fn check_ls_status(check_auto_start bool) {
 
 	p.console_window.log_info('  running')
 	p.lsp_client.cur_lang_srv_running = true
-	// p.current_stdin = p.proc_manager.running_processes[p.current_language].stdin
 }
 
 fn start_ls(language string) ? {

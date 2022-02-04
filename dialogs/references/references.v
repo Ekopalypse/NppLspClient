@@ -3,15 +3,24 @@ module references
 	A "poor man's search window result"-like view of the found references.
 	
 	Here's how it should work:
-		each result of a new search is inserted at the beginning of the view 
+		each result of a new search is appended at the end of the view 
 		and thus previous results are still available 
 		but it cannot be guaranteed that they are still valid.
 */
-import winapi as api
+import util.winapi as api
 import notepadpp
 import scintilla as sci
+import common { Reference }
+import os
+import arrays
 
 #include "resource.h"
+
+const (
+	line_style = byte(0)
+	header_style = byte(1)
+	error_style = byte(2)
+)
 
 [windows_stdcall]
 fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
@@ -59,6 +68,10 @@ mut:
 	fore_color int
 	back_color int
 	selected_text_color int
+	header_style_color int
+	error_style_color int
+	reference_cursor u32
+	references_map map[u32]Reference
 }
 
 [inline]
@@ -68,13 +81,59 @@ fn (mut d DockableDialog) call(msg int, wparam usize, lparam isize) isize {
 
 pub fn (mut d DockableDialog) clear() {
 	d.call(sci.sci_clearall, 0, 0)
+	d.reference_cursor = 0
 }
 
-pub fn (mut d DockableDialog) log(text string) {
-	mut text__ := if text.ends_with('\n') { text } else { text + '\n'}
-	d.call(sci.sci_appendtext, usize(text__.len), isize(text__.str))
-	line_count := d.call(sci.sci_getlinecount, 0, 0)
-	d.call(sci.sci_gotoline, usize(line_count-1), 0)
+pub fn (mut d DockableDialog) update(references []Reference) {
+	mut file_map := map[string][]u32{}
+	for reference in references {
+		d.reference_cursor++
+		d.references_map[d.reference_cursor] = reference
+		file_map[reference.file_name] << reference.line 
+	}
+	d.reference_cursor++
+
+	d.call(sci.sci_setreadonly, 0, 0)
+	for file_name, line_positions in file_map {
+	
+		mut ref := ''
+		lines := os.read_lines(file_name) or { []string{} }
+		max_line_pos := arrays.max(file_map[file_name]) or { -1 }
+		if lines.len >= max_line_pos {
+			for position in line_positions {
+				ref += '  [line:${position+1}] ${lines[position].trim_space()}\n'
+			}
+		} else {
+			ref = '  ERROR: expected maximum lines to be $lines.len but got ${max_line_pos} instead'
+			mut buffer := vcalloc(ref.len * 2)
+			unsafe {
+				for i:=0; i<ref.len; i++ {
+					buffer[i*2] = ref.str[i]
+					buffer[i*2+1] = error_style
+				}
+			}
+			d.call(sci.sci_addstyledtext, usize(ref.len * 2), isize(buffer))
+		}
+		
+		// goto end of buffer
+		line_count := d.call(sci.sci_getlinecount, 0, 0)
+		d.call(sci.sci_gotoline, usize(line_count-1), 0)
+		
+		// add styled header line
+		file_name__ := file_name + '\n'
+		mut buffer2 := vcalloc(file_name__.len * 2)
+		unsafe {
+			for i:=0; i<file_name__.len; i++ {
+				buffer2[i*2] = file_name__.str[i]
+				buffer2[i*2+1] = header_style
+			}
+		}
+		d.call(sci.sci_addstyledtext, usize(file_name__.len * 2), isize(buffer2))
+		
+		// add found lines
+		d.call(sci.sci_appendtext, usize(ref.len), isize(ref.str))
+	}
+	d.call(sci.sci_setreadonly, 1, 0)
 }
 
 pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
@@ -102,9 +161,13 @@ pub fn (mut d DockableDialog) init_scintilla() {
 	d.call(sci.sci_stylesetfore, 32, d.fore_color)
 	d.call(sci.sci_stylesetback, 32, d.back_color)
 	d.call(sci.sci_styleclearall, 0, 0)
-	d.call(sci.sci_stylesethotspot, 32, 1)
+	d.call(sci.sci_stylesetfore, header_style, d.header_style_color)
+	d.call(sci.sci_stylesetfore, line_style, d.fore_color)
+	d.call(sci.sci_stylesethotspot, line_style, 1)
+	d.call(sci.sci_stylesetfore, error_style, d.error_style_color)
 	d.call(sci.sci_setselback, 1, d.selected_text_color)
 	d.call(sci.sci_setmargins, 0, 0)
+	d.call(sci.sci_setcaretfore, usize(d.back_color), 0)
 }
 
 pub fn (mut d DockableDialog) show() {
@@ -117,114 +180,24 @@ pub fn (mut d DockableDialog) hide() {
 	d.is_visible = false
 }
 
-pub fn (mut d DockableDialog) update_settings(fore_color int, back_color int, selected_text_color int) {
+pub fn (mut d DockableDialog) update_settings(fore_color int, 
+											  back_color int,
+											  selected_text_color int,
+											  header_style_color int,
+											  error_style_color int) {
 	d.fore_color = fore_color
 	d.back_color = back_color
 	d.selected_text_color = selected_text_color
+	d.header_style_color = header_style_color
+	d.error_style_color = error_style_color
 	d.init_scintilla()
 }
 
 pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
-	// FILEPATH [line:LINENUMBER]
-
-    line := d.call(sci.sci_linefromposition, usize(position), 0)
-	buffer_length := int(d.call(sci.sci_linelength, usize(line), 0))
-	
-	if buffer_length > 0 {
-		mut buffer := vcalloc(buffer_length)
-		result := int(d.call(sci.sci_getline, usize(line), isize(buffer)))
-		if result > 0 {
-			content := unsafe { buffer.vstring_with_len(result) }
-			file_name := content.all_before(' [line:')
-			line__ := content.find_between('[line:', ']').u32()
-			p.npp.open_document(file_name)
-			line_pos := p.editor.position_from_line(line__)
-			p.editor.goto_pos(line_pos)
-		}
+    line := u32(d.call(sci.sci_linefromposition, usize(position), 0))
+	reference := d.references_map[line]
+	if (reference.file_name.len > 0) && (p.current_file_path != reference.file_name) {
+		p.npp.open_document(reference.file_name)
 	}
+	p.editor.goto_line(reference.line)
 }
-
-/* EXAMPLE
-{
-    "result": [
-        {
-            "range": {
-                "end": {
-                    "character": 7,
-                    "line": 15
-                },
-                "start": {
-                    "character": 4,
-                    "line": 15
-                }
-            },
-            "uri": "file:///D:/Repositories/eko/npplspclient/tests/go/example.go"
-        },
-        {
-            "range": {
-                "end": {
-                    "character": 7,
-                    "line": 18
-                },
-                "start": {
-                    "character": 4,
-                    "line": 18
-                }
-            },
-            "uri": "file:///D:/Repositories/eko/npplspclient/tests/go/example.go"
-        },
-        {
-            "range": {
-                "end": {
-                    "character": 7,
-                    "line": 21
-                },
-                "start": {
-                    "character": 4,
-                    "line": 21
-                }
-            },
-            "uri": "file:///D:/Repositories/eko/npplspclient/tests/go/example.go"
-        },
-        {
-            "range": {
-                "end": {
-                    "character": 7,
-                    "line": 23
-                },
-                "start": {
-                    "character": 4,
-                    "line": 23
-                }
-            },
-            "uri": "file:///D:/Repositories/eko/npplspclient/tests/go/example.go"
-        },
-        {
-            "range": {
-                "end": {
-                    "character": 7,
-                    "line": 24
-                },
-                "start": {
-                    "character": 4,
-                    "line": 24
-                }
-            },
-            "uri": "file:///D:/Repositories/eko/npplspclient/tests/go/example.go"
-        },
-        {
-            "range": {
-                "end": {
-                    "character": 24,
-                    "line": 24
-                },
-                "start": {
-                    "character": 21,
-                    "line": 24
-                }
-            },
-            "uri": "file:///D:/Repositories/eko/npplspclient/tests/go/example.go"
-        }
-    ]
-}
-*/
