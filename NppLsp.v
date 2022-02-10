@@ -45,9 +45,9 @@ pub mut:
 	references_window references.DockableDialog
 	symbols_window symbols.DockableDialog
 	message_queue chan string = chan string{cap: 100}
-	document_is_of_interest bool
 
 	// lsp client related
+	document_is_of_interest bool
 	lsp_config lsp.Configs
 	proc_manager pm.ProcessManager
 	lsp_client lsp.Client
@@ -121,6 +121,24 @@ fn be_notified(notification &sci.SCNotification) {
 		}
 
 		notepadpp.nppn_bufferactivated {
+			/*
+				What needs to be done is
+					- check if the current document is of interest -> check_lexer
+					- if it is not 
+						- make sure it is not in the file version map
+						return
+					- it is
+						- check if current language server is running -> p.cur_lang_srv_running
+							this is set automatically when check_lexer found out that document is of interest or not
+						- if it is not running, check if it should be started automatically
+							- if it should not -> return
+							- it should
+								- start language server
+									did it start?
+										- if not, show error in console and return
+								
+							
+			*/
 			current_view := p.npp.get_current_view()
 			if current_view == 0 {
 				p.editor.current_func = p.editor.main_func
@@ -134,12 +152,14 @@ fn be_notified(notification &sci.SCNotification) {
 			p.current_file_path = p.npp.get_filename_from_id(notification.nmhdr.id_from)
 
 			// Return early if document is not of interest or language server is not running
+			// if !(p.document_is_of_interest && p.lsp_client.cur_lang_srv_running && os.exists(p.current_file_path)) { 
 			if !(p.document_is_of_interest && p.lsp_client.cur_lang_srv_running) { 
 				p.editor.clear_diagnostics()
 				p.symbols_window.clear()
 				p.diag_window.clear(p.current_language)
-				p.console_window.log_info('document_is_of_interest:${p.document_is_of_interest}\ncur_lang_srv_running:${p.lsp_client.cur_lang_srv_running}')
+				p.console_window.log_info('Document: either not of interest, LS not running or File does not exist')
 				p.working_buffer_id = u64(notification.nmhdr.id_from)
+				p.current_file_version = -1
 				return 
 			}
 
@@ -217,6 +237,11 @@ fn be_notified(notification &sci.SCNotification) {
 		notepadpp.nppn_filesaved {
 			if p.document_is_of_interest {
 				// p.current_language = p.npp.get_language_name_from_id(notification.nmhdr.id_from)
+				p.current_file_path = p.npp.get_filename_from_id(notification.nmhdr.id_from)
+				if p.current_file_version == -1 {
+					lsp.on_file_opened(p.current_file_path)
+					return
+				}
 				lsp.on_file_saved(p.current_file_path)
 			}
 			if p.current_file_path == p.main_config_file {
@@ -229,12 +254,27 @@ fn be_notified(notification &sci.SCNotification) {
 		}
 
 		notepadpp.nppn_langchanged {
+			/*
+				What needs to be handled is
+				- file is not of interest and then it gets changed to a lexer of interest
+					- we have to assume that it is safe to send didOpen notification
+				- file is of interest and then it gets a lexer assigned which is not of interest
+					- we have to assume that it is safe to send a didClose notification
+					- in addition we have to
+						- delete from file version map
+						- reset current_file_version
+			*/
 			p.current_language = p.npp.get_language_name_from_id(notification.nmhdr.id_from)
 			p.editor.clear_diagnostics()
 			check_lexer(u64(notification.nmhdr.id_from))
+			if p.document_is_of_interest && p.current_file_version == -1 {
+				lsp.on_file_opened(p.current_file_path)
+				return
+			}
 		}
 
 		sci.scn_modified {
+			// if p.document_is_of_interest && os.exists(p.current_file_path) {
 			if p.document_is_of_interest {
 				if notification.modification_type & sci.sc_mod_beforedelete == sci.sc_mod_beforedelete {
 					end_pos := u32(notification.position + notification.length)
@@ -369,7 +409,11 @@ fn check_lexer(buffer_id u64) {
 	p.console_window.log_info('checking current lexer')
 	p.current_language = p.npp.get_language_name_from_id(buffer_id)
 	p.document_is_of_interest = p.current_language in p.lsp_config.lspservers
-	check_ls_status(true)
+	if p.document_is_of_interest {
+		check_ls_status(true)
+	} else {
+		p.lsp_client.cur_lang_srv_running = false
+	}
 }
 
 pub fn apply_config() {

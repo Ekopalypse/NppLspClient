@@ -47,6 +47,14 @@ fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 						scnotification := &sci.SCNotification(lparam)
 						p.symbols_window.on_hotspot_click(scnotification.position)
 					}
+					// sci.scn_styleneeded {
+						// scnotification := &sci.SCNotification(lparam)
+						// p.symbols_window.on_styleneeded(scnotification.position)
+					// }
+					sci.scn_marginclick {
+						scnotification := &sci.SCNotification(lparam)
+						p.symbols_window.on_marginclick(scnotification.position)
+					}
 					else {}
 				}
 			}
@@ -70,6 +78,7 @@ mut:
 	back_color int
 	selected_text_color int
 	symbols_location map[int]Symbol
+	initialized bool
 }
 
 [inline]
@@ -86,9 +95,34 @@ pub fn (mut d DockableDialog) clear() {
 pub fn (mut d DockableDialog) update(mut symbols []Symbol) {
 	d.call(sci.sci_setreadonly, 0, 0)
 	d.call(sci.sci_clearall, 0, 0)
-	symbols.sort(a.name < b.name)
+	// symbols.sort(a.name < b.name)
 	for i, symbol in symbols {
 		d.symbols_location[i] = symbol
+		if symbol.parent == 'null' {
+			d.call(sci.sci_setfoldlevel, usize(i), 0x2400)
+		} else { 
+			if i > 0 {
+				prev_fold_level := d.call(sci.sci_getfoldlevel, usize(i-1), 0)
+				match true {
+					prev_fold_level > sci.sc_foldlevelheaderflag {
+						d.call(sci.sci_setfoldlevel, usize(i), ( prev_fold_level& sci.sc_foldlevelnumbermask ) + 1)
+					}
+					prev_fold_level & sci.sc_foldlevelnumbermask == sci.sc_foldlevelbase {
+						d.call(sci.sci_setfoldlevel, usize(i), sci.sc_foldlevelbase)	
+					}
+					else {
+						d.call(sci.sci_setfoldlevel, usize(i), prev_fold_level)
+					}
+				}
+				if prev_fold_level == sci.sc_foldlevelbase {
+					d.call(sci.sci_setfoldlevel, usize(i), sci.sc_foldlevelbase)
+				} else {
+					
+				}
+			} else {
+				d.call(sci.sci_setfoldlevel, usize(i), sci.sc_foldlevelbase)
+			}
+		}
 		d.call(sci.sci_appendtext, usize(symbol.name.len), isize(symbol.name.str))
 		d.call(sci.sci_appendtext, usize(1), isize('\n'.str))
 	}
@@ -120,9 +154,53 @@ pub fn (mut d DockableDialog) init_scintilla() {
 	d.call(sci.sci_stylesetfore, 32, d.fore_color)
 	d.call(sci.sci_stylesetback, 32, d.back_color)
 	d.call(sci.sci_styleclearall, 0, 0)
+
+	// d.call(sci.sci_setlexer, 0, 0)
+	// d.call(sci.sci_stylesetfore, 1, d.fore_color)
+	// d.call(sci.sci_stylesetback, 1, d.back_color)
+	// d.call(sci.sci_stylesetfont, 1, isize('icons'.str))
+
+	// d.call(sci.sci_stylesetfore, 2, d.fore_color)
+	// d.call(sci.sci_stylesetback, 2, d.back_color)
+	// d.call(sci.sci_stylesetfont, 2, isize('icons'.str))
+	
 	d.call(sci.sci_stylesethotspot, 32, 1)
+	d.call(sci.sci_sethotspotactiveunderline, 0, 0)
+	d.call(sci.sci_sethotspotactiveback, 1, d.selected_text_color)
 	d.call(sci.sci_setselback, 1, d.selected_text_color)
-	d.call(sci.sci_setmargins, 0, 0)
+	// d.call(sci.sci_setmargins, 1, 0)
+	d.call(sci.sci_setmarginwidthn, 0, 0)
+	d.call(sci.sci_setmarginwidthn, 1, 0)
+	d.call(sci.sci_setmarginwidthn, 2, 0)
+	d.call(sci.sci_setmarginwidthn, 3, 0)
+	d.call(sci.sci_setmarginwidthn, 4, 0)
+	// folding margin setup
+	marker_definitions := [
+		[sci.sc_marknum_folderopen,    sci.sc_mark_arrowdown, 0x70635C, d.back_color, d.fore_color],
+		[sci.sc_marknum_folder,        sci.sc_mark_arrow,     0x70635C, d.back_color, d.fore_color],
+		[sci.sc_marknum_foldersub,     sci.sc_mark_empty,     0x70635C, d.back_color, d.fore_color],
+		[sci.sc_marknum_foldertail,    sci.sc_mark_empty,     0x70635C, d.back_color, d.fore_color],
+		[sci.sc_marknum_foldermidtail, sci.sc_mark_empty,     0x70635C, d.back_color, d.fore_color],
+		[sci.sc_marknum_folderopenmid, sci.sc_mark_empty,     0x70635C, d.back_color, d.fore_color],
+		[sci.sc_marknum_folderend,     sci.sc_mark_empty,     0x70635C, d.back_color, d.fore_color]
+	]
+
+	for marker_defines in marker_definitions {
+		d.call(sci.sci_markerdefine, usize(marker_defines[0]), isize(marker_defines[1]))
+		d.call(sci.sci_markersetback, usize(marker_defines[0]), isize(marker_defines[2]))
+		d.call(sci.sci_markersetfore, usize(marker_defines[0]), isize(marker_defines[3]))
+		d.call(sci.sci_markersetbackselected, usize(marker_defines[0]), isize(marker_defines[4]))
+	}
+	
+	d.call(sci.sci_setmargintypen, 2, sci.sc_margin_symbol)
+	d.call(sci.sci_setmarginwidthn, 2, 24)
+	d.call(sci.sci_setmarginmaskn, 2, sci.sc_mask_folders)
+	d.call(sci.sci_setmarginsensitiven, 2, 1)
+	d.call(sci.sci_setfoldmargincolour, 1, d.back_color)
+	d.call(sci.sci_setfoldmarginhicolour, 1, d.back_color)
+	d.call(sci.sci_setautomaticfold, 1, 0)
+	d.call(sci.sci_setfoldflags, 0, 0)
+	
 	d.call(sci.sci_setcaretfore, usize(d.back_color), 0)
 }
 
@@ -150,8 +228,51 @@ pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
 		p.npp.open_document(symbol.file_name)
 	}
 	p.editor.goto_line(symbol.line)
+	// d.call(sci.sci_togglefold, usize(line), 0)
 }
 
+pub fn (mut d DockableDialog) on_styleneeded(position isize) {
+    mut start_pos := d.call(sci.sci_getendstyled, 0, 0)
+    line_number := d.call(sci.sci_linefromposition, usize(start_pos), 0)
+    start_pos = d.call(sci.sci_positionfromline, usize(line_number), 0)
+	start_ptr := byteptr(d.call(sci.sci_getrangepointer, usize(start_pos), position))
+	if start_ptr == byteptr(0) { return }
+
+	mut content := unsafe { cstring_to_vstring(start_ptr) }
+	
+	mut state := 0
+	for i:=start_pos; i<position; i++ {
+		match content[i] {
+			`-`, `+` { state = 1 }
+			`f` { state = 2 }
+			else { state = 0 }
+		}
+		if state == 1 {
+			if content[i..].len >= 5 {
+				d.call(sci.sci_startstyling, usize(i), 31)
+				d.call(sci.sci_setstyling, 3, 1)
+				state = 0
+				i += 3
+			}
+		} else if state == 2 {
+			if content[i..].len >= 5 {
+				d.call(sci.sci_startstyling, usize(i), 31)
+				d.call(sci.sci_setstyling, 3, 1)
+				state = 0
+				i += 3
+			}
+		} else {
+			d.call(sci.sci_startstyling, usize(i), 31)
+			d.call(sci.sci_setstyling, 1, 32)
+		}
+	}
+    // MyStyleRoutine(start_pos, position);
+}
+
+pub fn (mut d DockableDialog) on_marginclick(position isize) {
+	line_number := d.call(sci.sci_linefromposition, usize(position), 0)
+	d.call(sci.sci_togglefold, usize(line_number), 0)
+}
 /* EXAMPLE
 {
     "result": [

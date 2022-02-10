@@ -440,6 +440,7 @@ fn document_symbols_response(json_message string) {
 					item.name
 					item.kind
 					item.range.start.line
+					''
 				}
 			}
 		} else {
@@ -452,6 +453,7 @@ fn document_symbols_response(json_message string) {
 					item.name
 					item.kind
 					item.location.range.start.line
+					item.container_name
 				}
 
 			}

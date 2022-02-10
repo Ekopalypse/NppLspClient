@@ -6,7 +6,7 @@ pub:
 	name string
 	kind int
 	line u32
-	// parent string
+	parent string
 	// children []Symbol
 }
 
