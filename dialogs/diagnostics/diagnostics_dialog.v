@@ -4,7 +4,7 @@ module diagnostics
 	
 	Here's how it should work:
 		The view is refreshed each time the server reports diagnostic messages or 
-		when switching from ls to another and stored diagnostics are available.
+		when switching from one ls to another and stored diagnostics are available.
 		Sorted by level: first Error, then Warning and finally Info and Hints.
 */
 import util.winapi as api
@@ -80,49 +80,35 @@ fn (mut d DockableDialog) call(msg int, wparam usize, lparam isize) isize {
 
 pub fn (mut d DockableDialog) clear(language_server string) {
 	d.call(sci.sci_clearall, 0, 0)
-	d.diag_messages[language_server].clear()
+	d.diag_messages.delete(language_server)
 }
 
 pub fn (mut d DockableDialog) display(msg DiagMessage) {
 	text := '${msg.file_name} [line:${msg.line} col:${msg.column}] - ${msg.message}\n'
-	line_count := d.call(sci.sci_getlinecount, 0, 0)
-	d.call(sci.sci_gotoline, usize(line_count-1), 0)
-	match msg.severity {
-		1...4 {
-			mut buffer := vcalloc(text.len * 2)
-			unsafe {
-				for i:=0; i<text.len; i++ {
-					buffer[i*2] = text.str[i]
-					buffer[i*2+1] = msg.severity
-				}
-			}
-			d.call(sci.sci_addstyledtext, usize(text.len * 2), isize(buffer))
-		}
-		else {
-			d.call(sci.sci_appendtext, usize(text.len), isize(text.str))
+	d.call(sci.sci_setcurrentpos, usize(d.call(sci.sci_getlength, 0, 0)), 0)
+	mut buffer := vcalloc(text.len * 2)
+	unsafe {
+		for i:=0; i<text.len; i++ {
+			buffer[i*2] = text.str[i]
+			buffer[i*2+1] = msg.severity
 		}
 	}
-
+	d.call(sci.sci_addstyledtext, usize(text.len * 2), isize(buffer))
 }
 
 pub fn (mut d DockableDialog) republish(language_server string) {
 	d.call(sci.sci_clearall, 0, 0)
-	d.current_messages.clear()
-	for _, msg in d.diag_messages[language_server] { 
-		d.current_messages << msg
-		d.display(msg) 
-	}
+	d.update(language_server, d.diag_messages[language_server])
 }
 
 pub fn (mut d DockableDialog) update(language_server string, messages []DiagMessage) {
 	d.diag_messages[language_server] = messages
 	d.current_messages.clear()
-	for msg in messages { 
+	for _, msg in d.diag_messages[language_server] {
 		d.current_messages << msg
 		d.display(msg) 
 	}
 }
-
 
 pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
 	d.output_hwnd = p.npp.create_scintilla(voidptr(0))
@@ -182,7 +168,6 @@ pub fn (mut d DockableDialog) update_settings(fore_color int,
 	d.warning_color = warning_color
 	d.selected_text_color = selected_text_color
 	d.init_scintilla()
-	
 }
 
 pub fn (mut d DockableDialog) on_hotspot_click(position isize) {

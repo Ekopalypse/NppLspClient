@@ -1029,6 +1029,7 @@ fn publish_diagnostics(params string) {
 			severity: byte(d.severity)
 		}
 	}
+	messages.sort(a.severity < b.severity)
 	p.diag_window.update(p.current_language, messages)
 }
 

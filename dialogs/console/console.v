@@ -5,10 +5,9 @@ module console
 	and some information about the plugin itself.
 	
 	Here's how it should work:
-		Any message sent to or received from a language server is added.
-		The decoded result of showMessage and logMessage is added additionally.
-		Basic plugin functionality is added.
-
+		Any message sent to or received from a language server is logged.
+		The decoded result of showMessage and logMessage is logged additionally.
+		Basic plugin functionality is logged.
 */
 import util.winapi as api
 import notepadpp
@@ -145,7 +144,6 @@ pub fn (mut d DockableDialog) init_scintilla() {
 	d.call(sci.sci_stylesetback, 32, d.back_color)
 	d.call(sci.sci_styleclearall, 0, 0)
 	d.call(sci.sci_stylesetfore, error_style, d.error_color)
-	d.call(sci.sci_stylesethotspot, error_style, 1)
 	d.call(sci.sci_stylesetfore, warning_style, d.warning_color)
 	d.call(sci.sci_stylesetfore, info_style, d.fore_color)	// normal log messages
 	d.call(sci.sci_stylesetfore, hint_style, d.fore_color)	// normal log messages

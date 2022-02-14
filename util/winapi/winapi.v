@@ -258,3 +258,8 @@ fn C.GetLastError() u32
 pub fn get_last_error() int {
 	return int(C.GetLastError())
 }
+
+fn C.GetCurrentThreadId() u32 
+pub fn get_current_thread_id() u32 {
+	return C.GetCurrentThreadId()
+}

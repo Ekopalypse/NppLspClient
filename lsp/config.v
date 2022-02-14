@@ -24,7 +24,7 @@ highlight_indicator_color = 0x64e0ff  # values must be in the range 0 - 0xffffff
 # calltip_background_color = -1  # values must be in the range -1 - 0xffffff
 
 # enable or disable logging functionality
-enable_logging = false  # values must be either false or true
+enable_logging = true  # values must be either false or true
 
 # each configured lanugage server needs to start with a section called
 # [lspservers.NAME_OF_THE_LANGUAGE_SERVER] eg. [lspservers.python]
@@ -37,10 +37,10 @@ enable_logging = false  # values must be either false or true
 # e.g.  mode = "io"
 
 # executable - the full path to the language server executable encased in SINGLE quotes.
-# e.g.  executable = \'D:\ProgramData\Python\Python38_64\Scripts\pyls.exe\'
+# e.g.  executable = \'D:\\ProgramData\\Python\\Python38_64\\Scripts\\pylsp.exe\'
 
 # args - arguments passed to the language server executable encased in SINGLE quotes.
-# e.g.  args = \'--check-parent-process --log-file D:\log.txt -vvv\'
+# e.g.  args = \'--check-parent-process --log-file D:\\log.txt -vvv\'
 
 # auto_start_server - true or false; indicates whether the language server will be started automatically when a corresponding document gets opened.
 # NOTE: currently only false should be used
@@ -49,8 +49,8 @@ enable_logging = false  # values must be either false or true
 # language server configuration example
 # [lspservers.python]
 # mode = "io"
-# executable = \'D:\ProgramData\Python\Python38_64\Scripts\pyls.exe\'
-# args = \'--check-parent-process --log-file D:\log.txt -vvv\'
+# executable = \'D:\\ProgramData\\Python\\Python38_64\\Scripts\\pylsp.exe\'
+# args = \'--check-parent-process --log-file D:\\log.txt -vvv\'
 # auto_start_server = false	
 '
 )
@@ -69,7 +69,6 @@ pub mut:
 	// open_documents []string  // used to prevent sending didOpen multiple times
 	features ServerCapabilities
 	open_response_messages map[string]fn(json_message string)
-	// diag_messages map[string][]Diagnostic
 }
 
 pub fn (mut sc ServerConfig) get_next_id() string {

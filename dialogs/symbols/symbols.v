@@ -47,10 +47,6 @@ fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 						scnotification := &sci.SCNotification(lparam)
 						p.symbols_window.on_hotspot_click(scnotification.position)
 					}
-					// sci.scn_styleneeded {
-						// scnotification := &sci.SCNotification(lparam)
-						// p.symbols_window.on_styleneeded(scnotification.position)
-					// }
 					sci.scn_marginclick {
 						scnotification := &sci.SCNotification(lparam)
 						p.symbols_window.on_marginclick(scnotification.position)
@@ -155,25 +151,14 @@ pub fn (mut d DockableDialog) init_scintilla() {
 	d.call(sci.sci_stylesetback, 32, d.back_color)
 	d.call(sci.sci_styleclearall, 0, 0)
 
-	// d.call(sci.sci_setlexer, 0, 0)
-	// d.call(sci.sci_stylesetfore, 1, d.fore_color)
-	// d.call(sci.sci_stylesetback, 1, d.back_color)
-	// d.call(sci.sci_stylesetfont, 1, isize('icons'.str))
-
-	// d.call(sci.sci_stylesetfore, 2, d.fore_color)
-	// d.call(sci.sci_stylesetback, 2, d.back_color)
-	// d.call(sci.sci_stylesetfont, 2, isize('icons'.str))
-	
 	d.call(sci.sci_stylesethotspot, 32, 1)
 	d.call(sci.sci_sethotspotactiveunderline, 0, 0)
 	d.call(sci.sci_sethotspotactiveback, 1, d.selected_text_color)
 	d.call(sci.sci_setselback, 1, d.selected_text_color)
-	// d.call(sci.sci_setmargins, 1, 0)
-	d.call(sci.sci_setmarginwidthn, 0, 0)
-	d.call(sci.sci_setmarginwidthn, 1, 0)
-	d.call(sci.sci_setmarginwidthn, 2, 0)
-	d.call(sci.sci_setmarginwidthn, 3, 0)
-	d.call(sci.sci_setmarginwidthn, 4, 0)
+
+	for i in 0..5 {
+		d.call(sci.sci_setmarginwidthn, usize(i), 0)
+	}
 	// folding margin setup
 	marker_definitions := [
 		[sci.sc_marknum_folderopen,    sci.sc_mark_arrowdown, 0x70635C, d.back_color, d.fore_color],
@@ -229,44 +214,6 @@ pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
 	}
 	p.editor.goto_line(symbol.line)
 	// d.call(sci.sci_togglefold, usize(line), 0)
-}
-
-pub fn (mut d DockableDialog) on_styleneeded(position isize) {
-    mut start_pos := d.call(sci.sci_getendstyled, 0, 0)
-    line_number := d.call(sci.sci_linefromposition, usize(start_pos), 0)
-    start_pos = d.call(sci.sci_positionfromline, usize(line_number), 0)
-	start_ptr := byteptr(d.call(sci.sci_getrangepointer, usize(start_pos), position))
-	if start_ptr == byteptr(0) { return }
-
-	mut content := unsafe { cstring_to_vstring(start_ptr) }
-	
-	mut state := 0
-	for i:=start_pos; i<position; i++ {
-		match content[i] {
-			`-`, `+` { state = 1 }
-			`f` { state = 2 }
-			else { state = 0 }
-		}
-		if state == 1 {
-			if content[i..].len >= 5 {
-				d.call(sci.sci_startstyling, usize(i), 31)
-				d.call(sci.sci_setstyling, 3, 1)
-				state = 0
-				i += 3
-			}
-		} else if state == 2 {
-			if content[i..].len >= 5 {
-				d.call(sci.sci_startstyling, usize(i), 31)
-				d.call(sci.sci_setstyling, 3, 1)
-				state = 0
-				i += 3
-			}
-		} else {
-			d.call(sci.sci_startstyling, usize(i), 31)
-			d.call(sci.sci_setstyling, 1, 32)
-		}
-	}
-    // MyStyleRoutine(start_pos, position);
 }
 
 pub fn (mut d DockableDialog) on_marginclick(position isize) {

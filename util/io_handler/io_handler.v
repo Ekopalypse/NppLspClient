@@ -81,6 +81,7 @@ pub fn read_from_stderr(pipe voidptr, msg_queue chan string) {
 pub fn write_to(message string) bool {
 	if p.proc_manager.running_processes[p.current_language].stdin == voidptr(0) {
 		p.console_window.log_error('ERROR: attempt to write to non-existent pipe\n: $message')
+		p.stop_lsp_server()
 		return false
 	}
 	p.console_window.log_outgoing('$message')

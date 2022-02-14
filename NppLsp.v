@@ -59,6 +59,10 @@ pub mut:
 	file_version_map map[u64]int
 }
 
+pub fn (p Plugin) stop_lsp_server() {
+	stop_lsp_server()
+}
+
 pub struct NppData {
 pub mut:
 	npp_handle voidptr
@@ -121,24 +125,6 @@ fn be_notified(notification &sci.SCNotification) {
 		}
 
 		notepadpp.nppn_bufferactivated {
-			/*
-				What needs to be done is
-					- check if the current document is of interest -> check_lexer
-					- if it is not 
-						- make sure it is not in the file version map
-						return
-					- it is
-						- check if current language server is running -> p.cur_lang_srv_running
-							this is set automatically when check_lexer found out that document is of interest or not
-						- if it is not running, check if it should be started automatically
-							- if it should not -> return
-							- it should
-								- start language server
-									did it start?
-										- if not, show error in console and return
-								
-							
-			*/
 			current_view := p.npp.get_current_view()
 			if current_view == 0 {
 				p.editor.current_func = p.editor.main_func
@@ -250,20 +236,10 @@ fn be_notified(notification &sci.SCNotification) {
 		}
 
 		notepadpp.nppn_shutdown {
-			stop_all_server()
+			stop_all_server()  // crash Npp 8.3.1 !!??
 		}
 
 		notepadpp.nppn_langchanged {
-			/*
-				What needs to be handled is
-				- file is not of interest and then it gets changed to a lexer of interest
-					- we have to assume that it is safe to send didOpen notification
-				- file is of interest and then it gets a lexer assigned which is not of interest
-					- we have to assume that it is safe to send a didClose notification
-					- in addition we have to
-						- delete from file version map
-						- reset current_file_version
-			*/
 			p.current_language = p.npp.get_language_name_from_id(notification.nmhdr.id_from)
 			p.editor.clear_diagnostics()
 			check_lexer(u64(notification.nmhdr.id_from))
@@ -274,7 +250,6 @@ fn be_notified(notification &sci.SCNotification) {
 		}
 
 		sci.scn_modified {
-			// if p.document_is_of_interest && os.exists(p.current_file_path) {
 			if p.document_is_of_interest {
 				if notification.modification_type & sci.sc_mod_beforedelete == sci.sc_mod_beforedelete {
 					end_pos := u32(notification.position + notification.length)
@@ -422,7 +397,7 @@ pub fn apply_config() {
 }
 
 fn read_main_config() {
-	p.console_window.log_info('rereading main config')
+	p.console_window.log_info('rereading configuration file: ${p.main_config_file}')
 	p.lsp_config = lsp.decode_config(p.main_config_file)
 	p.lsp_client.config = p.lsp_config
 	update_settings()
