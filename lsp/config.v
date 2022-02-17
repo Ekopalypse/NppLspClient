@@ -68,7 +68,7 @@ enable_logging = true  # values must be either false or true
 # executable = \'D:\\ProgramData\\Python\\Python38_64\\Scripts\\pylsp.exe\'
 # args = \'--tcp --host 127.0.0.1 --port 12345 --check-parent-process --log-file D:\\log.txt -vvv\'
 # port = 12345
-# host = 127.0.0.1
+# host = "127.0.0.1"
 # auto_start_server = false	
 '
 )
@@ -354,6 +354,20 @@ pub fn analyze_config(full_file_path string) {
 					check_if_integer_value(line)
 				} else {
 					p.console_window.log_error('highlight_indicator_color must be a field in general section')
+				}
+			}
+			line.starts_with('port') {
+				if in_lspservers_section {
+					check_if_integer_value(line)
+				} else {
+					p.console_window.log_error('port must be in lspservers section')
+				}
+			}
+			line.starts_with('host') {
+				if in_lspservers_section {
+					check_if_boolean_value(line)
+				} else {
+					p.console_window.log_error('host must be in lspservers section')
 				}
 			}
 			else {
