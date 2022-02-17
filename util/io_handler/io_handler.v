@@ -1,4 +1,6 @@
 module io_handler
+import io
+import net
 import notepadpp
 import util.winapi { read_file, write_file, send_message }
 
@@ -78,13 +80,8 @@ pub fn read_from_stderr(pipe voidptr, msg_queue chan string) {
 }
 
 // write_to stdin - main thread
-pub fn write_to(message string) bool {
-	if p.proc_manager.running_processes[p.current_language].stdin == voidptr(0) {
-		p.console_window.log_error('ERROR: attempt to write to non-existent pipe\n: $message')
-		p.stop_lsp_server()
-		return false
-	}
-	p.console_window.log_outgoing('$message')
+fn write_to_stdin(message string) bool {
+	p.console_window.log_outgoing('write_to_stdin: $message')
 	mut dw_written := u32(0)
 	mut success := false
 	success = write_file(p.proc_manager.running_processes[p.current_language].stdin, 
@@ -96,19 +93,65 @@ pub fn write_to(message string) bool {
 	if !success {
 		p.console_window.log_error('writing to pipe failed\n $message')
 		return false
-	} else
-
-	if dw_written != message.len {
+	} else if dw_written != message.len {
 		p.console_window.log_error('writing to pipe incomplete!!: written=$dw_written expected=${message.len}\n $message')
 		return false
 	}
 	return true
 }
 
-pub fn write_to_socket(socket voidptr, message string) bool {
-	return false
+fn write_to_socket(message string) bool {
+	p.console_window.log_outgoing('write_to_socket: $message')
+	mut conn := p.proc_manager.running_processes[p.current_language].socket
+	written := conn.write_string(message) or { 0 } 
+	if written == 0 {
+		p.console_window.log_error('writing to socket failed\n $message')
+		return false
+	} else if written != message.len {
+		p.console_window.log_error('writing to socket incomplete!!: written=$written expected=${message.len}\n $message')
+		return false
+	}
+	return true
 }
 
-fn read_from_socket(socket voidptr, msg_queue chan string) {
-	
+pub fn write_to(message string) bool {
+	if p.proc_manager.running_processes[p.current_language].stdin == voidptr(0) {
+		p.console_window.log_error('ERROR: attempt to write to non-existent pipe\n: $message')
+		return false
+	}
+	if p.lsp_config.lspservers[p.current_language].mode == 'io' {
+		return write_to_stdin(message)
+	} else {
+		return write_to_socket(message)
+	}
+}
+
+pub fn read_from_socket(socket voidptr, msg_queue chan string) ? {
+	mut conn := &net.TcpConn(socket)
+	conn.set_blocking(true) ?
+	mut r := io.new_buffered_reader(reader: conn)
+	for {
+		mut buffer := []byte{len: 100_000}
+		read := r.read(mut buffer) or { 0 }
+		if read > 0 {
+			content := unsafe { tos_clone(&byte(buffer.data)) }
+			if content.len > 0 {
+				_ := msg_queue.try_push(content)
+				send_message(
+					p.npp_data.npp_handle, 
+					notepadpp.nppm_msgtoplugin, 
+					usize('${p.name}.dll'.to_wide()),
+					isize(&new_message_arrived)
+				)
+			}
+		} else {
+			break
+		}
+	}
+	send_message(
+		p.npp_data.npp_handle, 
+		notepadpp.nppm_msgtoplugin, 
+		usize('${p.name}.dll'.to_wide()),
+		isize(&pipe_closed_event)
+	)
 }

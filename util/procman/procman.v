@@ -1,7 +1,9 @@
 module procman
 import os
+import net
 
 import util.winapi as api
+import lsp { ServerConfig }
 
 pub struct Process {
 pub mut:
@@ -14,6 +16,7 @@ pub mut:
 	stdout voidptr
 	stderr voidptr
 	error_message string
+	socket &net.TcpConn
 }
 
 fn (mut proc Process) start() bool {
@@ -134,13 +137,20 @@ pub mut:
 	running_processes map[string]Process
 }
 
-pub fn (mut pm ProcessManager) start(language string, exe string, args string) ? {
+// pub fn (mut pm ProcessManager) start(language string, exe string, args string, mode string) ? {
+pub fn (mut pm ProcessManager) start(language string, config ServerConfig) ? {
 	pm.check_running_processes()
 	if language in pm.running_processes { return }
 	
-	mut process := Process{exe: exe, args: args}
-	if !os.exists(exe) { return error('Cannot find executable: $exe') }
+	mut process := Process{exe: config.executable, args: config.args, socket: &net.TcpConn{}}
+	if !os.exists(config.executable) { return error('Cannot find executable: $config.executable') }
 	if !process.start() { return error('${process.error_message}') }
+
+	if config.mode == 'tcp' {
+		connection_string := '${config.host}:${config.port}'
+		mut socket := net.dial_tcp(connection_string) or { return error('Unable to connect to $connection_string')}
+		process.socket = socket
+	}
 
 	pm.running_processes[language] = process
 }
