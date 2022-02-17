@@ -60,7 +60,7 @@ enable_logging = true  # values must be either false or true
 # mode = "io"
 # executable = \'D:\\ProgramData\\Python\\Python38_64\\Scripts\\pylsp.exe\'
 # args = \'--check-parent-process --log-file D:\\log.txt -vvv\'
-# auto_start_server = false	
+# auto_start_server = false
 
 # language server configuration example for tcp mode
 # [lspservers.python]
@@ -69,7 +69,7 @@ enable_logging = true  # values must be either false or true
 # args = \'--tcp --host 127.0.0.1 --port 12345 --check-parent-process --log-file D:\\log.txt -vvv\'
 # port = 12345
 # host = "127.0.0.1"
-# auto_start_server = false	
+# auto_start_server = false
 '
 )
 
@@ -365,7 +365,7 @@ pub fn analyze_config(full_file_path string) {
 			}
 			line.starts_with('host') {
 				if in_lspservers_section {
-					check_if_boolean_value(line)
+					check_if_string_value(line)
 				} else {
 					p.console_window.log_error('host must be in lspservers section')
 				}
