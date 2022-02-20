@@ -91,7 +91,7 @@ fn (mut d DockableDialog) log(text string, style byte) {
 }
 
 pub fn (mut d DockableDialog) log_error(text string) {
-	if d.logging_enabled { d.log(text, error_style) }
+	d.log(text, error_style)
 }
 
 pub fn (mut d DockableDialog) log_warning(text string) {

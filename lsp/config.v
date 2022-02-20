@@ -29,7 +29,7 @@ enable_logging = true  # values must be either false or true
 # each configured lanugage server needs to start with a section called
 # [lspservers.NAME_OF_THE_LANGUAGE_SERVER] eg. [lspservers.python]
 # the NAME_OF_THE_LANGUAGE_SERVER must be the same as displayed in the language menu
-# if the name contains non ASCII letters like C++, then it needs to be encased in double quotes like
+# if the name contains non-alphabetic letters like C++, then it needs to be encased in double quotes like
 # [lspservers."c++"]
 
 # Currently, six attributes can be set, which are listed below
