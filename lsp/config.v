@@ -29,11 +29,11 @@ enable_logging = true  # values must be either false or true
 # each configured lanugage server needs to start with a section called
 # [lspservers.NAME_OF_THE_LANGUAGE_SERVER] eg. [lspservers.python]
 # the NAME_OF_THE_LANGUAGE_SERVER must be the same as displayed in the language menu
-# if the name contains non ASCII letters like C++, then it needs to be encased in double quotes like
+# if the name contains non-alphabetic letters like C++, then it needs to be encased in double quotes like
 # [lspservers."c++"]
 
-# Currently, four attributes can be set, which are listed below
-# mode - Note, ONLY IO is implemented currently, value encased in a double quotes.
+# Currently, six attributes can be set, which are listed below
+# mode - io or tcp, value encased in a double quotes.
 # e.g.  mode = "io"
 
 # executable - the full path to the language server executable encased in SINGLE quotes.
@@ -46,12 +46,30 @@ enable_logging = true  # values must be either false or true
 # NOTE: currently only false should be used
 # e.g.  auto_start_server = false
 
-# language server configuration example
+# port - this is only effictive and needed if mode is set to tcp and should be an integer
+# consult your language server documentation which port should be used or how to configure it.
+# e.g. port = 12345
+
+# host - this is only effictive and needed if mode is set to tcp and should be the ip address of the host running the language server
+# If language server and client are running on the same host, then 127.0.0.1 might be a good choice.
+# e.g. host = 127.0.0.1
+
+
+# language server configuration example for io mode
 # [lspservers.python]
 # mode = "io"
 # executable = \'D:\\ProgramData\\Python\\Python38_64\\Scripts\\pylsp.exe\'
 # args = \'--check-parent-process --log-file D:\\log.txt -vvv\'
-# auto_start_server = false	
+# auto_start_server = false
+
+# language server configuration example for tcp mode
+# [lspservers.python]
+# mode = "tcp"
+# executable = \'D:\\ProgramData\\Python\\Python38_64\\Scripts\\pylsp.exe\'
+# args = \'--tcp --host 127.0.0.1 --port 12345 --check-parent-process --log-file D:\\log.txt -vvv\'
+# port = 12345
+# host = "127.0.0.1"
+# auto_start_server = false
 '
 )
 
@@ -63,7 +81,7 @@ pub mut:
 	executable string
 	args string
 	port int
-	tcpretries int
+	host string
 	auto_start_server bool
 	initialized bool
 	// open_documents []string  // used to prevent sending didOpen multiple times
@@ -198,8 +216,8 @@ pub fn decode_config(full_file_path string) Configs {
 				sc.port = doc.value('lspservers.${k}.port').int()
 			}
 			
-			if !is_null(doc.value('lspservers.${k}.tcpretries')) {
-				sc.tcpretries = doc.value('lspservers.${k}.tcpretries').int()
+			if !is_null(doc.value('lspservers.${k}.host')) {
+				sc.host = doc.value('lspservers.${k}.host').string()
 			}
 			
 			lsp_config.lspservers[k] = sc
@@ -336,6 +354,20 @@ pub fn analyze_config(full_file_path string) {
 					check_if_integer_value(line)
 				} else {
 					p.console_window.log_error('highlight_indicator_color must be a field in general section')
+				}
+			}
+			line.starts_with('port') {
+				if in_lspservers_section {
+					check_if_integer_value(line)
+				} else {
+					p.console_window.log_error('port must be in lspservers section')
+				}
+			}
+			line.starts_with('host') {
+				if in_lspservers_section {
+					check_if_string_value(line)
+				} else {
+					p.console_window.log_error('host must be in lspservers section')
 				}
 			}
 			else {

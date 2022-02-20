@@ -59,10 +59,6 @@ pub mut:
 	file_version_map map[u64]int
 }
 
-pub fn (p Plugin) stop_lsp_server() {
-	stop_lsp_server()
-}
-
 pub struct NppData {
 pub mut:
 	npp_handle voidptr
@@ -215,14 +211,12 @@ fn be_notified(notification &sci.SCNotification) {
 		
 		notepadpp.nppn_filebeforesave {
 			if p.document_is_of_interest {
-				// p.current_language = p.npp.get_language_name_from_id(notification.nmhdr.id_from)
 				lsp.on_file_before_saved(p.current_file_path)
 			}
 		}
 		
 		notepadpp.nppn_filesaved {
 			if p.document_is_of_interest {
-				// p.current_language = p.npp.get_language_name_from_id(notification.nmhdr.id_from)
 				p.current_file_path = p.npp.get_filename_from_id(notification.nmhdr.id_from)
 				if p.current_file_version == -1 {
 					lsp.on_file_opened(p.current_file_path)
@@ -236,7 +230,7 @@ fn be_notified(notification &sci.SCNotification) {
 		}
 
 		notepadpp.nppn_shutdown {
-			stop_all_server()  // crash Npp 8.3.1 !!??
+			stop_all_server()
 		}
 
 		notepadpp.nppn_langchanged {
@@ -282,7 +276,9 @@ fn be_notified(notification &sci.SCNotification) {
 											   content)
 
 						if notification.length == 1 && is_insertion {
-							lsp.on_completion(p.current_file_path, start_line, start_char+1, content)
+							if ! p.editor.autocompletion_is_active() {
+								lsp.on_completion(p.current_file_path, start_line, start_char+1, content)
+							}
 							lsp.on_signature_help(p.current_file_path, start_line, start_char+1, content)
 						}
 					}
@@ -557,12 +553,17 @@ fn check_ls_status(check_auto_start bool) {
 }
 
 fn start_ls(language string) ? {
-	p.proc_manager.start(language,
-						 p.lsp_config.lspservers[language].executable,
-						 p.lsp_config.lspservers[language].args) or { return err }
-
-	go io.read_from_stdout(p.proc_manager.running_processes[language].stdout, p.message_queue)
-	go io.read_from_stderr(p.proc_manager.running_processes[language].stderr, p.message_queue)
+	p.proc_manager.start(language, p.lsp_config.lspservers[language]) or { return err }
+	match p.lsp_config.lspservers[language].mode {
+		'io' {
+			go io.read_from_stdout(p.proc_manager.running_processes[language].stdout, p.message_queue)
+			go io.read_from_stderr(p.proc_manager.running_processes[language].stderr, p.message_queue)
+		}
+		'tcp' {
+			go io.read_from_socket(p.proc_manager.running_processes[language].socket, p.message_queue)
+		}
+		else {}
+	}
 }
 
 pub fn format_document() {

@@ -58,8 +58,8 @@ pub fn (mut c Client) on_message_received(message string) {
 				break
 			}
 		} else {
-			c.incomplete_msg += if message__.len > start_position {
-				message__[start_position..]
+			c.incomplete_msg = if message__.len > start_position {
+				c.incomplete_msg + message__[start_position..]
 			} else {
 				''
 			}
@@ -189,7 +189,6 @@ pub fn on_completion(file_name string, start_line u32, start_char_pos u32, text 
 }
 
 fn completion_response(json_message string) {
-	// p.console_window.log_info('json_message: $json_message')
 	mut ci := []CompletionItem{}
 	if json_message.contains('"items":') {
 		cl := json2.decode<CompletionList>(json_message) or { CompletionList{} }
@@ -199,7 +198,6 @@ fn completion_response(json_message string) {
 		ci = cia.items
 	}
 	if ci.len > 0 {
-		// mut ci__ := ci.map(it.label)
 		mut ci__ := ci.map(fn (item CompletionItem) string {
 			label := if item.insert_text.len > 0 {
 				item.insert_text.trim_space()
@@ -208,10 +206,7 @@ fn completion_response(json_message string) {
 			}
 			return label
 		})
-
-		// mut ci__ := ci.map(it.insert_text)
 		ci__.sort()
-
 		p.editor.display_completion_list(ci__.join('\n'))
 	}
 }

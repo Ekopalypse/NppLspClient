@@ -145,3 +145,8 @@ pub fn (e Editor) goto_line(line u32) {
 pub fn (e Editor) get_document_pointer() isize {
 	return e.call(sci_getdocpointer, 0, 0)
 }
+
+pub fn (e Editor) autocompletion_is_active() bool {
+	return e.call(sci_autocactive, 0, 0) == 1
+}
+
