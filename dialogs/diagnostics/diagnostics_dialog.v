@@ -104,9 +104,21 @@ pub fn (mut d DockableDialog) republish(language_server string) {
 pub fn (mut d DockableDialog) update(language_server string, messages []DiagMessage) {
 	d.diag_messages[language_server] = messages
 	d.current_messages.clear()
+	if messages.len == 0 {
+		println('no diagnostics - closing diag panel')
+		d.hide()
+		return
+	}
+	mut has_error_messages := false
 	for _, msg in d.diag_messages[language_server] {
+		if msg.severity == 1 { has_error_messages = true }
 		d.current_messages << msg
 		d.display(msg) 
+	}
+	d.call(sci.sci_gotopos, 1, 0)
+	if has_error_messages { 
+		println('Current diags contain errors')
+		d.show() 
 	}
 }
 
