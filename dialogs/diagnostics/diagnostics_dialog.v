@@ -105,7 +105,6 @@ pub fn (mut d DockableDialog) update(language_server string, messages []DiagMess
 	d.diag_messages[language_server] = messages
 	d.current_messages.clear()
 	if messages.len == 0 {
-		println('no diagnostics - closing diag panel')
 		d.hide()
 		return
 	}
@@ -117,7 +116,6 @@ pub fn (mut d DockableDialog) update(language_server string, messages []DiagMess
 	}
 	d.call(sci.sci_gotopos, 1, 0)
 	if has_error_messages { 
-		println('Current diags contain errors')
 		d.show() 
 	}
 }
