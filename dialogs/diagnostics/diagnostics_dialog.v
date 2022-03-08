@@ -4,7 +4,7 @@ module diagnostics
 	
 	Here's how it should work:
 		The view is refreshed each time the server reports diagnostic messages or 
-		when switching from one ls to another and stored diagnostics are available.
+		when switching from one language server to another and stored diagnostics are available.
 		Sorted by level: first Error, then Warning and finally Info and Hints.
 */
 import util.winapi as api
@@ -98,27 +98,28 @@ pub fn (mut d DockableDialog) display(msg DiagMessage) {
 
 pub fn (mut d DockableDialog) republish(language_server string) {
 	d.call(sci.sci_clearall, 0, 0)
-	d.update(language_server, d.diag_messages[language_server])
+	d.update__(language_server)
 }
 
 pub fn (mut d DockableDialog) update(language_server string, messages []DiagMessage) {
 	d.diag_messages[language_server] = messages
+	d.update__(language_server)
+}
+
+fn (mut d DockableDialog) update__(language_server string) {
 	d.current_messages.clear()
-	if messages.len == 0 {
+	if d.diag_messages[language_server].len == 0 {
 		d.hide()
 		return
 	}
-	mut has_error_messages := false
-	for _, msg in d.diag_messages[language_server] {
-		if msg.severity == 1 { has_error_messages = true }
+	for msg in d.diag_messages[language_server] {
 		d.current_messages << msg
 		d.display(msg) 
 	}
-	d.call(sci.sci_gotopos, 1, 0)
-	if has_error_messages { 
-		d.show() 
-	}
+	d.call(sci.sci_setfirstvisibleline, 0, 0)
+	p.editor.grab_focus()
 }
+
 
 pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
 	d.output_hwnd = p.npp.create_scintilla(voidptr(0))
@@ -181,10 +182,46 @@ pub fn (mut d DockableDialog) update_settings(fore_color int,
 }
 
 pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
-    line := d.call(sci.sci_linefromposition, usize(position), 0)
+    line := u32(d.call(sci.sci_linefromposition, usize(position), 0))
 	diag_message := d.current_messages[line]
 	if (diag_message.file_name.len > 0) && (p.current_file_path != diag_message.file_name) {
 		p.npp.open_document(diag_message.file_name)
 	}
-	p.editor.goto_line(diag_message.line)	
+	d.show_next_message(diag_message.line)
+}
+
+pub fn (mut d DockableDialog) goto_next_message() {
+	line := u32(p.editor.line_from_current_position())
+	mut sorted_messages := d.current_messages.clone()
+	sorted_messages.sort(a.line < b.line)
+	mut next_msg_line_found := false
+	mut next_msg_line := u32(0)
+	for message in sorted_messages {
+		if message.line <= line { continue }
+		next_msg_line_found = true
+		next_msg_line = message.line
+		break
+	}
+	if next_msg_line_found {
+		d.show_next_message(next_msg_line)
+	} else {
+		if sorted_messages.len > 0 {
+			d.show_next_message(sorted_messages[0].line)
+		}
+	}
+}
+
+fn (d DockableDialog) show_next_message(line u32) {
+	p.editor.goto_line(line)
+	p.editor.goto_centered_line(line)
+	p.editor.grab_focus()
+}
+
+pub fn (mut d DockableDialog) on_save() {
+	for msg in d.current_messages {
+		if msg.severity == 1 && d.is_visible == false { 
+			d.show() 
+			break
+		}
+	}
 }

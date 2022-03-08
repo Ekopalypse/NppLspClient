@@ -42,12 +42,28 @@ pub fn (e Editor) display_completion_list(completions string) {
 	e.call(sci_autocshow, usize(word_length), isize(completions.str))
 }
 
+pub fn (e Editor) fully_typed() bool {
+	length := e.call(sci_autocgetcurrenttext, 0, 0)
+	buffer := vcalloc(int(length))
+	e.call(sci_autocgetcurrenttext, 0, voidptr(buffer))
+	word := unsafe { tos(buffer, int(length)) }
+	println('word:$word')
+    return false
+}
+
 pub fn (e Editor) get_lsp_position_info() (u32, u32) {
 	pos := u32(e.call(sci_getcurrentpos, 0, 0))
 	line := e.line_from_position(pos)
 	start := e.position_from_line(line)
 	return line, pos-start
 }
+
+pub fn (e Editor) get_lsp_position_from_position(pos u32) (u32, u32) {
+	line := e.line_from_position(pos)
+	start := e.position_from_line(line)
+	return line, pos-start
+}
+
 
 pub fn (e Editor) format_document(tea TextEditArray) {
 	e.call(sci_beginundoaction, 0, 0)
