@@ -47,6 +47,16 @@ fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 	return 0
 }
 
+[windows_stdcall]
+fn scintilla_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
+	if message == u32(C.WM_KEYDOWN) {
+		if wparam == C.VK_ESCAPE {
+			p.editor.grab_focus()
+		}
+	}
+	return api.call_window_proc(api.WndProc(p.diag_window.def_wnd_proc), hwnd, message, wparam, lparam)
+}
+
 const (
 	error_style = byte(1)
 	warning_style = byte(2)
@@ -71,6 +81,7 @@ mut:
 	selected_text_color int
 	diag_messages map[string][]DiagMessage
 	current_messages []DiagMessage
+	def_wnd_proc isize
 }
 
 [inline]
@@ -140,6 +151,9 @@ pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
 	d.hide()
 	d.output_editor_func = sci.SCI_FN_DIRECT(api.send_message(d.output_hwnd, 2184, 0, 0))
 	d.output_editor_hwnd = voidptr(api.send_message(d.output_hwnd, 2185, 0, 0))
+	d.def_wnd_proc = api.set_window_long_ptr(d.output_hwnd,
+											 C.GWLP_WNDPROC,
+											 isize(scintilla_proc))
 }
 
 pub fn (mut d DockableDialog) init_scintilla() {
