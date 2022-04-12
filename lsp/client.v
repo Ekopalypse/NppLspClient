@@ -18,6 +18,7 @@ pub mut:
 mut:
 	current_stdin  voidptr
 	incomplete_msg string
+	completion_map map[string]string
 
 	// TODO
 	current_file_version    int
@@ -68,6 +69,17 @@ pub fn (mut c Client) on_message_received(message string) {
 		start_position = length + end_of_header + 4
 	}
 }
+
+
+pub fn (mut c Client) auto_complete(completion_text string, position isize) {
+	text := c.completion_map[completion_text]
+	if text.len > 0 {
+		p.editor.insert_text(text, position)
+	} else {
+		p.editor.insert_text(completion_text, position)
+	}
+}
+
 
 pub fn stop_ls() {
 	io.write_to(shutdown_msg())
@@ -179,12 +191,15 @@ pub fn on_buffer_modified(file_name string, start_line u32, start_char_pos u32, 
 
 pub fn on_completion(file_name string, start_line u32, start_char_pos u32, text string) {
 	if p.lsp_config.lspservers[p.current_language].initialized {
-		text__ := if text in p.lsp_config.lspservers[p.current_language].features.completion_provider.trigger_characters {
-			text
-		} else {
-			''
-		}
-		io.write_to(request_completion(file_name, start_line, start_char_pos, text__))
+		if text in p.lsp_config.lspservers[p.current_language].features.completion_provider.trigger_characters {
+			io.write_to(request_completion(file_name, start_line, start_char_pos, text))
+		} 
+		// text__ := if text in p.lsp_config.lspservers[p.current_language].features.completion_provider.trigger_characters {
+			// text
+		// else {
+			// ''
+		// }
+		// io.write_to(request_completion(file_name, start_line, start_char_pos, text__))
 	}
 }
 
@@ -198,16 +213,23 @@ fn completion_response(json_message string) {
 		ci = cia.items
 	}
 	if ci.len > 0 {
-		mut ci__ := ci.map(fn (item CompletionItem) string {
-			label := if item.insert_text.len > 0 {
-				item.insert_text.trim_space()
-			} else {
-				item.label.trim_space()
-			}
-			return label
-		})
-		ci__.sort()
-		p.editor.display_completion_list(ci__.join('\n'))
+		for item in ci { 
+			p.lsp_client.completion_map[item.label] = item.insert_text
+		}
+		// mut ci__ := ci.map(fn (item CompletionItem) string {
+			// p.lsp_client.completion_map[item.label] = item.insert_text
+			// label := if item.insert_text.len > 0 {
+				// item.insert_text.trim_space()
+			// } else {
+				// item.label.trim_space()
+			// }
+			// return label
+		// })
+		// ci__.sort()
+		// p.editor.display_completion_list(ci__.join('\n'))
+		mut sorted_keys := p.lsp_client.completion_map.keys()
+		sorted_keys.sort()
+		p.editor.display_completion_list(sorted_keys.join('\n'))
 	}
 }
 

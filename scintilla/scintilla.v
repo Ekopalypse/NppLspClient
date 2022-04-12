@@ -163,3 +163,13 @@ pub fn (e Editor) line_from_current_position() isize {
 pub fn (e Editor) get_char_at(pos isize) int {
 	return int(e.call(sci_getcharat, usize(pos), 0))
 }
+
+pub fn (e Editor) cancel_autocompletion() {
+	e.call(sci_autoccancel, 0, 0)
+}
+
+pub fn (e Editor) insert_text(text string, position isize) {
+	current_pos := e.call(sci_getcurrentpos, 0, 0)
+	length := text.len - (current_pos - position)
+	e.call(sci_addtext, usize(length), isize(text[current_pos - position..].str))
+}

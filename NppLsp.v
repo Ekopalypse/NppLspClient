@@ -239,6 +239,11 @@ fn be_notified(notification &sci.SCNotification) {
 			}
 		}
 		
+		sci.scn_autocselection {
+			p.editor.cancel_autocompletion()
+			p.lsp_client.auto_complete(unsafe { cstring_to_vstring(notification.text) }, notification.position)
+		}
+		
 		else {}  // make match happy
 	}
 }
