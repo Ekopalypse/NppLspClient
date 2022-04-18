@@ -214,7 +214,7 @@ fn completion_response(json_message string) {
 	}
 	if ci.len > 0 {
 		for item in ci { 
-			p.lsp_client.completion_map[item.label] = item.insert_text
+			p.lsp_client.completion_map[item.label.trim_space()] = item.insert_text.trim_space()
 		}
 		// mut ci__ := ci.map(fn (item CompletionItem) string {
 			// p.lsp_client.completion_map[item.label] = item.insert_text
