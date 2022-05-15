@@ -95,7 +95,6 @@ type DocumentUri = string
 
 fn make_path(uri string) string {
 	path := uri.all_after('file:///').replace_each(decode_list)
-	println('path: $path')
 	return path
 }
 
