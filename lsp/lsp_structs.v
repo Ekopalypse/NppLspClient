@@ -33,15 +33,75 @@ pub fn (mut m JsonMessage) from_json(f json2.Any) {
 	}
 }
 
+const (
+	decode_list = [
+		'%20', ' ',
+		'%21', '!',
+		'%23', '#',
+		'%24', '$',
+		'%26', '&',
+		'%27', "'",
+		'%28', '(',
+		'%29', ')',
+		'%2A', '*',
+		'%2B', '+',
+		'%2C', ',',
+		'%2F', '/',
+		'%3A', ':',
+		'%3B', ';',
+		'%3D', '=',
+		'%3F', '?',
+		'%40', '@',
+		'%5B', '[',
+		'%5D', ']',
+		// lower case variant
+		'%2a', '*',
+		'%2b', '+',
+		'%2c', ',',
+		'%2f', '/',
+		'%3a', ':',
+		'%3b', ';',
+		'%3d', '=',
+		'%3f', '?',
+		'%5b', '[',
+		'%5d', ']',
+		'/',   '\\'   // not from specification, but needed for windows
+	]
+	encode_list = [
+		' ', '%20',
+		'!', '%21',
+		'#', '%23',
+		'$', '%24',
+		'&', '%26',
+		"'", '%27',
+		'(', '%28',
+		')', '%29',
+		'*', '%2A',
+		'+', '%2B',
+		',', '%2C',
+		// '/', '%2F',
+		':', '%3A',
+		';', '%3B',
+		'=', '%3D',
+		'?', '%3F',
+		'@', '%40',
+		'[', '%5B',
+		']', '%5D',
+		'\\', '/'   // not from specification, but needed for windows
+	]
+)
+
 type DocumentUri = string
 
 fn make_path(uri string) string {
-	return uri.all_after('file:///').replace_each(['/', '\\', '%3A', ':'])
+	path := uri.all_after('file:///').replace_each(decode_list)
+	println('path: $path')
+	return path
 }
 
 fn make_uri(path string) string {
-	escaped := path.replace_each(['\\', '/', ':', '%3A'])
-	return 'file:///$escaped'
+	uri := path.replace_each(encode_list)
+	return 'file:///$uri'
 }
 
 fn make_range(start_line u32, start_char u32, end_line u32, end_char u32) string {

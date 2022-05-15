@@ -54,7 +54,7 @@ pub fn (n Npp) get_filename_from_id(buffer_id usize) string {
 	if buffer_size == 0 { return ''}  // nppm_getfullpathfrombufferid returns -1 on error
 	mut buffer := alloc_wide(buffer_size)
 	n.call(nppm_getfullpathfrombufferid, buffer_id, voidptr(buffer))
-	return unsafe { string_from_wide(buffer) }
+	return unsafe { string_from_wide(&u16(buffer)) }
 }
 
 pub fn (n Npp) get_current_buffer_id() isize {
@@ -71,7 +71,7 @@ pub fn (n Npp) get_language_name_from_id(buffer_id usize) string {
 	mut buffer := alloc_wide(buffer_size)
 	
 	n.call(nppm_getlanguagename, usize(lang_type), voidptr(buffer))
-	mut lang_name := unsafe { string_from_wide(buffer) }
+	mut lang_name := unsafe { string_from_wide(&u16(buffer)) }
 	return if lang_name.starts_with('udf - ') { lang_name[6..].to_lower() } else { lang_name.to_lower() }
 }
 
@@ -85,7 +85,7 @@ pub fn (n Npp) get_plugin_config_dir() string {
 	mut buffer := alloc_wide(buffer_size)
 	
 	n.call(nppm_getpluginsconfigdir, usize(buffer_size), voidptr(buffer))
-	return unsafe { string_from_wide(buffer) }
+	return unsafe { string_from_wide(&u16(buffer)) }
 }
 
 pub fn (n Npp) open_document(filename string) {

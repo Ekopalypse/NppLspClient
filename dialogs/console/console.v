@@ -15,7 +15,7 @@ import scintilla as sci
 
 #include "resource.h"
 
-[windows_stdcall]
+[callconv: stdcall]
 fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 	match int(message) {
 		C.WM_INITDIALOG {
@@ -34,10 +34,10 @@ fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 	return 0
 }
 
-[windows_stdcall]
+[callconv: stdcall]
 fn scintilla_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 	if message == u32(C.WM_KEYDOWN) {
-		if wparam == C.VK_ESCAPE {
+		if wparam == usize(C.VK_ESCAPE) {
 			p.editor.grab_focus()
 		}
 	}

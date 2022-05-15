@@ -299,7 +299,7 @@ fn get_funcs_array(mut nb_func &int) &FuncItem {
 		'Highlight in document': document_highlight
 		'List all symbols from document': document_symbols
 		'Clear highlighting': clear_document_highlighting
-		'Clear peeked implemenation': clear_implementation
+		'Clear peeked implementation': clear_implementation
 		'Clear peeked definition': clear_definition
 		'Goto next diagnostic message': goto_next_message
 		'----': voidptr(0)
@@ -644,7 +644,7 @@ pub fn goto_next_message() {
 	p.diag_window.goto_next_message()
 }
 
-[windows_stdcall]
+[callconv: stdcall]
 [export: DllMain]
 fn main(hinst voidptr, fdw_reason int, lp_reserved voidptr) bool{
 	match fdw_reason {
