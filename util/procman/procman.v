@@ -137,10 +137,9 @@ pub mut:
 	running_processes map[string]Process
 }
 
-// pub fn (mut pm ProcessManager) start(language string, exe string, args string, mode string) ? {
-pub fn (mut pm ProcessManager) start(language string, config ServerConfig) ? {
+pub fn (mut pm ProcessManager) start(language_server string, config ServerConfig) ? {
 	pm.check_running_processes()
-	if language in pm.running_processes { return }
+	if language_server in pm.running_processes { return }
 	
 	mut process := Process{exe: config.executable, args: config.args, socket: &net.TcpConn{}}
 	if !os.exists(config.executable) { return error('Cannot find executable: $config.executable') }
@@ -152,7 +151,7 @@ pub fn (mut pm ProcessManager) start(language string, config ServerConfig) ? {
 		process.socket = socket
 	}
 
-	pm.running_processes[language] = process
+	pm.running_processes[language_server] = process
 }
 
 pub fn (mut pm ProcessManager) check_running_processes() {

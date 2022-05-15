@@ -118,81 +118,12 @@ fn be_notified(notification &sci.SCNotification) {
 			if os.exists(p.main_config_file) {
 				read_main_config()
 			}
+			// simulate a fake nppn_bufferactivated event
+			p.on_buffer_activated(usize(p.npp.get_current_buffer_id()))
 		}
 
 		notepadpp.nppn_bufferactivated {
-			current_view := p.npp.get_current_view()
-			if current_view == 0 {
-				p.editor.current_func = p.editor.main_func
-				p.editor.current_hwnd = p.editor.main_hwnd
-			}
-			else {
-				p.editor.current_func = p.editor.second_func
-				p.editor.current_hwnd = p.editor.second_hwnd
-			}
-			check_lexer(u64(notification.nmhdr.id_from))
-			p.current_file_path = p.npp.get_filename_from_id(notification.nmhdr.id_from)
-
-			// Return early if document is not of interest or language server is not running
-			// if !(p.document_is_of_interest && p.lsp_client.cur_lang_srv_running && os.exists(p.current_file_path)) { 
-			if !(p.document_is_of_interest && p.lsp_client.cur_lang_srv_running) { 
-				p.editor.clear_diagnostics()
-				p.symbols_window.clear()
-				p.diag_window.clear(p.current_language)
-				p.console_window.log_info('Document: either not of interest, LS not running or File does not exist')
-				p.working_buffer_id = u64(notification.nmhdr.id_from)
-				p.current_file_version = -1
-				return 
-			}
-
-			p.editor.initialize()
-
-			if p.lsp_config.lspservers[p.current_language].initialized {
-				// If we receive a buffer ID that is identical to the one currently in use, 
-				// it is a reload event or it has been moved from the other view or something like nppm_switchtofile ...
-				// In case of a relaod event the buffer id is still in the map as there was no file close event sent,
-				// in case the buffer was moved from one view to the other the file close event has been sent. 
-				if p.working_buffer_id == u64(notification.nmhdr.id_from) {
-					p.console_window.log_info('buffer reloaded, activated or moved between views')
-					// p.current_file_version = 0
-					// if p.working_buffer_id in p.file_version_map {
-						// lsp.on_file_closed(p.current_file_path)
-					// }
-					// lsp.on_file_opened(p.current_file_path)
-					return
-				}
-				// Saving the old buffer state if it has not been closed in the meantime.
-				if p.working_buffer_id in p.file_version_map {
-					p.console_window.log_info('Saving the state of the previous buffer (${p.working_buffer_id}) : ${p.current_file_version}')
-					p.file_version_map[p.working_buffer_id] = p.current_file_version
-				}
-				// Assign new buffer as working buffer
-				p.working_buffer_id = u64(notification.nmhdr.id_from)
-				p.console_window.log_info('Assigned new working buffer: ${p.working_buffer_id}')
-				
-				p.current_file_version = p.file_version_map[p.working_buffer_id] or { -1 }
-				p.console_window.log_info('The last used file version for ${p.working_buffer_id} (${p.current_file_path}) is: ${p.current_file_version}')
-				// V's map behaviour ensures that a newly added object receives an intial value of -1.
-				// If this is the case, it must be a new buffer.
-				if p.current_file_version == -1 {
-					p.current_file_version = 0
-					lsp.on_file_opened(p.current_file_path)
-					p.file_version_map[p.working_buffer_id] = p.current_file_version
-				}
-				// reapply diagnostics
-				p.diag_window.republish(p.current_language)
-
-				// rerequest symbols
-				lsp.on_document_symbols(p.current_file_path)
-				
-			} else {
-				// Sending the didOpen notification as well as setting the initial parameters
-				// is handled within the initialize_response function. 
-				// Since there is no way to be sure which open files are handled by this language server,
-				// this is only done for the current buffer.
-				current_directory := os.dir(p.current_file_path)
-				lsp.on_initialize(os.getpid(), current_directory)
-			}
+			p.on_buffer_activated(notification.nmhdr.id_from)
 		}
 
 		// notepadpp.nppn_fileopened is handled in nppn_bufferactivated
@@ -223,6 +154,7 @@ fn be_notified(notification &sci.SCNotification) {
 					return
 				}
 				lsp.on_file_saved(p.current_file_path)
+				p.diag_window.on_save()
 			}
 			if p.current_file_path == p.main_config_file {
 				lsp.analyze_config(p.main_config_file)
@@ -245,22 +177,19 @@ fn be_notified(notification &sci.SCNotification) {
 
 		sci.scn_modified {
 			if p.document_is_of_interest {
+				mut deleted := true
 				if notification.modification_type & sci.sc_mod_beforedelete == sci.sc_mod_beforedelete {
-					end_pos := u32(notification.position + notification.length)
-					p.end_line = p.editor.line_from_position(usize(end_pos))
-					end_line_start_pos := p.editor.position_from_line(p.end_line)
-					p.end_char = end_pos - end_line_start_pos
+					pos := u32(notification.position + notification.length)
+					p.end_line, p.end_char = p.editor.get_lsp_position_from_position(pos)
 				} else {
 					mod_type := notification.modification_type & (sci.sc_mod_inserttext | sci.sc_mod_deletetext)
 					if mod_type > 0 {
-						start_line := p.editor.line_from_position(usize(notification.position))
-						line_start_pos := p.editor.position_from_line(start_line)
-						start_char := u32(notification.position) - line_start_pos
+						start_line, start_char := p.editor.get_lsp_position_from_position(u32(notification.position))
 						mut range_length := u32(notification.length)
 						mut content := ''
 						
-						is_insertion := mod_type & sci.sc_mod_inserttext == sci.sc_mod_inserttext
-						if is_insertion {
+						if mod_type & sci.sc_mod_inserttext == sci.sc_mod_inserttext {
+							deleted = false
 							p.end_line = start_line
 							p.end_char = start_char
 							range_length = 0
@@ -274,18 +203,30 @@ fn be_notified(notification &sci.SCNotification) {
 											   p.end_char,
 											   range_length,
 											   content)
-
-						if notification.length == 1 && is_insertion {
-							if ! p.editor.autocompletion_is_active() {
-								lsp.on_completion(p.current_file_path, start_line, start_char+1, content)
+						if deleted {
+							if notification.position > 0 {
+								ch := p.editor.get_char_at(notification.position-1)
+								if ch > 32 {
+									chr := rune(ch).str()
+									lsp.on_completion(p.current_file_path, start_line, start_char, chr)
+									lsp.on_signature_help(p.current_file_path, start_line, start_char, chr)
+								}
 							}
-							lsp.on_signature_help(p.current_file_path, start_line, start_char+1, content)
 						}
 					}
 				}
 			}
 		}
 		
+		sci.scn_charadded {
+			line, pos := p.editor.get_lsp_position_info()
+			if notification.ch > 32 {
+				chr := rune(notification.ch).str()
+				lsp.on_completion(p.current_file_path, line, pos, chr)
+				lsp.on_signature_help(p.current_file_path, line, pos, chr)
+			}
+		}
+
 		sci.scn_dwellend {
 			p.editor.cancel_calltip()
 			p.lsp_client.current_hover_position = 0
@@ -296,6 +237,11 @@ fn be_notified(notification &sci.SCNotification) {
 				p.lsp_client.current_hover_position = u32(notification.position)
 				lsp.on_hover(p.current_file_path)
 			}
+		}
+		
+		sci.scn_autocselection {
+			p.editor.cancel_autocompletion()
+			p.lsp_client.auto_complete(unsafe { cstring_to_vstring(notification.text) }, notification.position)
 		}
 		
 		else {}  // make match happy
@@ -353,8 +299,9 @@ fn get_funcs_array(mut nb_func &int) &FuncItem {
 		'Highlight in document': document_highlight
 		'List all symbols from document': document_symbols
 		'Clear highlighting': clear_document_highlighting
-		'Clear peeked implemenation': clear_implementation
+		'Clear peeked implementation': clear_implementation
 		'Clear peeked definition': clear_definition
+		'Goto next diagnostic message': goto_next_message
 		'----': voidptr(0)
 		'About': about
 	}
@@ -374,6 +321,81 @@ fn get_funcs_array(mut nb_func &int) &FuncItem {
 	}
 	unsafe { *nb_func = p.func_items.len }
 	return p.func_items.data
+}
+
+fn (mut p Plugin) on_buffer_activated(buffer_id usize) {
+	current_view := p.npp.get_current_view()
+	if current_view == 0 {
+		p.editor.current_func = p.editor.main_func
+		p.editor.current_hwnd = p.editor.main_hwnd
+	}
+	else {
+		p.editor.current_func = p.editor.second_func
+		p.editor.current_hwnd = p.editor.second_hwnd
+	}
+	check_lexer(u64(buffer_id))
+	p.current_file_path = p.npp.get_filename_from_id(buffer_id)
+
+	// Return early if document is not of interest or language server is not running
+	// if !(p.document_is_of_interest && p.lsp_client.cur_lang_srv_running && os.exists(p.current_file_path)) { 
+	if !(p.document_is_of_interest && p.lsp_client.cur_lang_srv_running) { 
+		p.editor.clear_diagnostics()
+		p.symbols_window.clear()
+		p.diag_window.clear(p.current_language)
+		p.console_window.log_info('Document: either not of interest, LS not running or File does not exist')
+		p.working_buffer_id = u64(buffer_id)
+		p.current_file_version = -1
+		return 
+	}
+
+	p.editor.initialize()
+
+	if p.lsp_config.lspservers[p.current_language].initialized {
+		// If we receive a buffer ID that is identical to the one currently in use, 
+		// it is a reload event or it has been moved from the other view or something like nppm_switchtofile ...
+		// In case of a relaod event the buffer id is still in the map as there was no file close event sent,
+		// in case the buffer was moved from one view to the other the file close event has been sent. 
+		if p.working_buffer_id == u64(buffer_id) {
+			p.console_window.log_info('buffer reloaded, activated or moved between views')
+			// p.current_file_version = 0
+			// if p.working_buffer_id in p.file_version_map {
+				// lsp.on_file_closed(p.current_file_path)
+			// }
+			// lsp.on_file_opened(p.current_file_path)
+			return
+		}
+		// Saving the old buffer state if it has not been closed in the meantime.
+		if p.working_buffer_id in p.file_version_map {
+			p.console_window.log_info('Saving the state of the previous buffer (${p.working_buffer_id}) : ${p.current_file_version}')
+			p.file_version_map[p.working_buffer_id] = p.current_file_version
+		}
+		// Assign new buffer as working buffer
+		p.working_buffer_id = u64(buffer_id)
+		p.console_window.log_info('Assigned new working buffer: ${p.working_buffer_id}')
+		
+		p.current_file_version = p.file_version_map[p.working_buffer_id] or { -1 }
+		p.console_window.log_info('The last used file version for ${p.working_buffer_id} (${p.current_file_path}) is: ${p.current_file_version}')
+		// V's map behaviour ensures that a newly added object receives an intial value of -1.
+		// If this is the case, it must be a new buffer.
+		if p.current_file_version == -1 {
+			p.current_file_version = 0
+			lsp.on_file_opened(p.current_file_path)
+			p.file_version_map[p.working_buffer_id] = p.current_file_version
+		}
+		// reapply diagnostics
+		p.diag_window.republish(p.current_language)
+
+		// rerequest symbols
+		lsp.on_document_symbols(p.current_file_path)
+		
+	} else {
+		// Sending the didOpen notification as well as setting the initial parameters
+		// is handled within the initialize_response function. 
+		// Since there is no way to be sure which open files are handled by this language server,
+		// this is only done for the current buffer.
+		current_directory := os.dir(p.current_file_path)
+		lsp.on_initialize(os.getpid(), current_directory)
+	}
 }
 
 fn check_lexer(buffer_id u64) {
@@ -618,7 +640,11 @@ pub fn document_symbols() {
 	lsp.on_document_symbols(p.current_file_path)		
 }
 
-[windows_stdcall]
+pub fn goto_next_message() {
+	p.diag_window.goto_next_message()
+}
+
+[callconv: stdcall]
 [export: DllMain]
 fn main(hinst voidptr, fdw_reason int, lp_reserved voidptr) bool{
 	match fdw_reason {

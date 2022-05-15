@@ -150,3 +150,26 @@ pub fn (e Editor) autocompletion_is_active() bool {
 	return e.call(sci_autocactive, 0, 0) == 1
 }
 
+pub fn (e Editor) goto_centered_line(line isize) {
+	e.call(sci_setvisiblepolicy, usize(visible_strict), isize(caret_strict))
+	e.call(sci_ensurevisibleenforcepolicy, usize(line), 0)
+}
+
+pub fn (e Editor) line_from_current_position() isize {
+	pos := e.call(sci_getcurrentpos, 0, 0)
+	return e.call(sci_linefromposition, usize(pos), 0)
+}
+
+pub fn (e Editor) get_char_at(pos isize) int {
+	return int(e.call(sci_getcharat, usize(pos), 0))
+}
+
+pub fn (e Editor) cancel_autocompletion() {
+	e.call(sci_autoccancel, 0, 0)
+}
+
+pub fn (e Editor) insert_text(text string, position isize) {
+	current_pos := e.call(sci_getcurrentpos, 0, 0)
+	length := text.len - (current_pos - position)
+	e.call(sci_addtext, usize(length), isize(text[current_pos - position..].str))
+}

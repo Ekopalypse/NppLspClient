@@ -22,7 +22,7 @@ const (
 	error_style = byte(2)
 )
 
-[windows_stdcall]
+[callconv: stdcall]
 fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 	match int(message) {
 		C.WM_COMMAND {
@@ -55,6 +55,16 @@ fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 	return 0
 }
 
+[callconv: stdcall]
+fn scintilla_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
+	if message == u32(C.WM_KEYDOWN) {
+		if wparam == usize(C.VK_ESCAPE) {
+			p.editor.grab_focus()
+		}
+	}
+	return api.call_window_proc(api.WndProc(p.references_window.def_wnd_proc), hwnd, message, wparam, lparam)
+}
+
 pub struct DockableDialog {
 	name &u16 = 'Found references'.to_wide()
 pub mut:
@@ -72,6 +82,7 @@ mut:
 	error_style_color int
 	reference_cursor u32
 	references_map map[u32]Reference
+	def_wnd_proc isize
 }
 
 [inline]
@@ -155,6 +166,9 @@ pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
 	d.hide()
 	d.output_editor_func = sci.SCI_FN_DIRECT(api.send_message(d.output_hwnd, 2184, 0, 0))
 	d.output_editor_hwnd = voidptr(api.send_message(d.output_hwnd, 2185, 0, 0))
+	d.def_wnd_proc = api.set_window_long_ptr(d.output_hwnd,
+											 C.GWLP_WNDPROC,
+											 isize(scintilla_proc))
 }
 
 pub fn (mut d DockableDialog) init_scintilla() {

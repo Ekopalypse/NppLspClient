@@ -127,9 +127,9 @@ fn is_null(item toml.Any) bool {
 pub fn decode_config(full_file_path string) Configs {
 	mut failed := false
 	content := os.read_file(full_file_path) or { '' }
-	doc := toml.parse(content) or { 
+	doc := toml.parse_text(content) or { 
 		failed = true
-		toml.parse('') or { panic(err) }
+		toml.parse_text('') or { panic(err) }
 	}
 	
 	mut lsp_config := Configs{}
