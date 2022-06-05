@@ -23,7 +23,7 @@ import common { Symbol }
 
 #include "resource.h"
 
-[windows_stdcall]
+[callconv: stdcall]
 fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 	match int(message) {
 		C.WM_COMMAND {

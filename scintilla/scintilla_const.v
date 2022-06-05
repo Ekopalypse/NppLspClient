@@ -956,6 +956,30 @@ pub const (
     sci_setrepresentation = 2665
     sci_getrepresentation = 2666
     sci_clearrepresentation = 2667
+    
+    sci_eolannotationsettext = 2740
+    sci_eolannotationgettext = 2741
+    sci_eolannotationsetstyle = 2742
+    sci_eolannotationgetstyle = 2743
+    sci_eolannotationclearall = 2744
+    sci_eolannotationsetvisible = 2745
+    sci_eolannotationgetvisible = 2746
+    sci_eolannotationsetstyleoffset = 2747
+    sci_eolannotationgetstyleoffset = 2748
+    
+    eolannotation_hidden = 0x0
+    eolannotation_standard = 0x1
+    eolannotation_boxed = 0x2
+    eolannotation_stadium = 0x100
+    eolannotation_flat_circle = 0x101
+    eolannotation_angle_circle = 0x102
+    eolannotation_circle_flat = 0x110
+    eolannotation_flats = 0x111
+    eolannotation_angle_flat = 0x112
+    eolannotation_circle_angle = 0x120
+    eolannotation_flat_angle = 0x121
+    eolannotation_angles = 0x122
+    
     sci_startrecord = 3001
     sci_stoprecord = 3002
     sci_setlexer = 4001
@@ -1059,6 +1083,7 @@ pub const (
     sc_charactersource_direct_input = 0
     sc_charactersource_tentative_input = 1
     sc_charactersource_ime_result = 2
+    
     scn_styleneeded = 2000
     scn_charadded = 2001
     scn_savepointreached = 2002

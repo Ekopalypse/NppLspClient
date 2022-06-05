@@ -126,15 +126,16 @@ pub fn write_to(message string) bool {
 	}
 }
 
-pub fn read_from_socket(socket voidptr, msg_queue chan string) ? {
-	mut conn := &net.TcpConn(socket)
+pub fn read_from_socket(socket net.TcpConn, msg_queue chan string) ? {
+	// mut conn := &net.TcpConn(socket)
+	mut conn := socket
 	conn.set_blocking(true) ?
 	mut r := io.new_buffered_reader(reader: conn)
 	for {
-		mut buffer := []byte{len: 100_000}
+		mut buffer := []u8{len: 100_000}
 		read := r.read(mut buffer) or { 0 }
 		if read > 0 {
-			content := unsafe { tos_clone(&byte(buffer.data)) }
+			content := unsafe { tos_clone(&u8(buffer.data)) }
 			if content.len > 0 {
 				_ := msg_queue.try_push(content)
 				send_message(

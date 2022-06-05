@@ -1,6 +1,6 @@
 module notepadpp
 
-import util.winapi { send_message, RECT }
+import util.winapi { send_message, RECT, hiword, loword }
 
 pub struct TbData {
 	client voidptr		// client Window Handle
@@ -42,7 +42,9 @@ mut:
 }
 
 [inline]
-fn alloc_wide(size isize) &byte { return vcalloc(int(size) * 2 ) }
+fn alloc_wide(size isize) &u16 {
+	return unsafe { &u16(vcalloc(int(size) * 2 )) } 
+}
 
 [inline]
 fn (n Npp) call(msg int, wparam usize, lparam isize) isize {
@@ -121,4 +123,8 @@ pub fn(n Npp) get_current_filename() string {
 	id := n.get_current_buffer_id()
 	filename := n.get_filename_from_id(usize(id))
 	return filename
+}
+
+pub fn(n Npp) get_notepad_version() usize {
+	return usize(n.call(nppm_getnppversion, 0, 0))
 }

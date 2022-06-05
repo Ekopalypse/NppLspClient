@@ -15,7 +15,7 @@ import scintilla as sci
 
 #include "resource.h"
 
-[windows_stdcall]
+[callconv: stdcall]
 fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 	match int(message) {
 		C.WM_COMMAND {
@@ -74,12 +74,12 @@ pub fn (mut d DockableDialog) clear() {
 	d.call(sci.sci_clearall, 0, 0)
 }
 
-fn (mut d DockableDialog) log(text string, style byte) {
+fn (mut d DockableDialog) log(text string, style u8) {
 	mut text__ := if text.ends_with('\n') { text } else { text + '\n'}
 	if style == 3 {
 		d.call(sci.sci_appendtext, usize(text__.len), isize(text__.str))
 	} else {
-		mut buffer := []byte{len: text__.len * 2}
+		mut buffer := []u8{len: text__.len * 2}
 		for i:=0; i<text__.len; i++ {
 			buffer[i*2] = text__[i]
 			buffer[i*2+1] = style
@@ -114,7 +114,7 @@ pub fn (mut d DockableDialog) log_incoming(text string) {
 	if d.logging_enabled { d.log(text, incoming_msg_style) }
 }
 
-pub fn (mut d DockableDialog) log_styled(text string, style byte) {
+pub fn (mut d DockableDialog) log_styled(text string, style u8) {
 	if d.logging_enabled { d.log(text, style) }
 }
 

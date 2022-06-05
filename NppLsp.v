@@ -45,6 +45,7 @@ pub mut:
 	references_window references.DockableDialog
 	symbols_window symbols.DockableDialog
 	message_queue chan string = chan string{cap: 100}
+	npp_version usize
 
 	// lsp client related
 	document_is_of_interest bool
@@ -118,6 +119,7 @@ fn be_notified(notification &sci.SCNotification) {
 			if os.exists(p.main_config_file) {
 				read_main_config()
 			}
+			p.npp_version = p.npp.get_notepad_version()
 		}
 
 		notepadpp.nppn_bufferactivated {
@@ -618,7 +620,7 @@ pub fn document_symbols() {
 	lsp.on_document_symbols(p.current_file_path)		
 }
 
-[windows_stdcall]
+[callconv: stdcall]
 [export: DllMain]
 fn main(hinst voidptr, fdw_reason int, lp_reserved voidptr) bool{
 	match fdw_reason {

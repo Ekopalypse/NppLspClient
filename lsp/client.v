@@ -1015,13 +1015,16 @@ fn publish_diagnostics(params string) {
 		end := p.editor.position_from_line(d.range.end.line) + d.range.end.character
 		if p.current_file_path == diag.uri {
 			p.editor.add_diag_indicator(start, end - start, d.severity)
+			if p.npp_version >= 0x80021 {
+				p.editor.add_diag_annotation(d.range.start.line, d.severity, d.message.replace_each(["\r", " ", "\n", " "]))
+			}
 		}
 		messages << DiagMessage {
 			file_name: diag.uri
 			line: d.range.start.line
 			column: d.range.start.character
 			message: d.message
-			severity: byte(d.severity)
+			severity: u8(d.severity)
 		}
 	}
 	messages.sort(a.severity < b.severity)
@@ -1030,7 +1033,7 @@ fn publish_diagnostics(params string) {
 
 fn log_message(json_message string) {
 	smp := json2.decode<ShowMessageParams>(json_message) or { ShowMessageParams{} }
-	p.console_window.log_styled(smp.message, byte(smp.type_))
+	p.console_window.log_styled(smp.message, u8(smp.type_))
 }
 
 fn decode_cancel_request_notification(json_message string) {
@@ -1088,7 +1091,7 @@ fn request_handler(json_message JsonMessage) {
 			smrp := json2.decode<ShowMessageRequestParams>(json_message.params) or {
 				ShowMessageRequestParams{}
 			}
-			p.console_window.log_styled('$smrp.message\n${smrp.actions.join('\n')}', byte(smrp.type_))
+			p.console_window.log_styled('$smrp.message\n${smrp.actions.join('\n')}', u8(smrp.type_))
 			send_null_response(json_message.id)
 		}
 		'window/showDocument' {

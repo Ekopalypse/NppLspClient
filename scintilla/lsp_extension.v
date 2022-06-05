@@ -23,8 +23,20 @@ pub fn (e Editor) add_diag_indicator(position u32, length u32, severity int) {
 	}
 }
 
+pub fn (e Editor) add_diag_annotation(line u32, severity int, message string) {
+	style := match severity {
+		1 { e.eol_error_style }
+		2 { e.eol_warning_style }
+		else { e.eol_info_style }
+	}	
+    e.call(sci_eolannotationsetstyle, usize(line), isize(style))
+	e.call(sci_eolannotationsettext, usize(line), isize(message.str))
+    e.call(sci_eolannotationsetvisible, eolannotation_angle_circle, 0)
+}
+
 pub fn (e Editor) clear_diagnostics() {
 	e.call(sci_annotationclearall, 0, 0)
+	e.call(sci_eolannotationclearall, 0, 0)
 	e.call(sci_setindicatorcurrent, e.diag_indicator, 0)
 	e.call(sci_indicatorclearrange, 0, e.call(sci_getlength, 0, 0))
 }

@@ -66,6 +66,9 @@ pub mut:
 	highlight_indicator_color int = 0x64e0ff
 	calltip_foreground_color int = 0x0
 	calltip_background_color int = 0xffffff
+	eol_error_style int = 40
+	eol_warning_style int = 41
+	eol_info_style int = 42
 }
 
 [inline]
@@ -120,6 +123,16 @@ pub fn (mut e Editor) initialize() {
 	
 	e.call(sci_calltipsetfore, usize(e.calltip_foreground_color), 0)
 	e.call(sci_calltipsetback, usize(e.calltip_background_color), 0)
+	
+	// eol annotation styles
+	e.call(sci_stylesetfore, usize(e.eol_error_style), e.error_msg_color)
+	e.call(sci_stylesetfore, usize(e.eol_warning_style), e.warning_msg_color)
+	e.call(sci_stylesetfore, usize(e.eol_info_style), e.info_msg_color)
+
+	e.call(sci_stylesetitalic, usize(e.eol_error_style), 1)
+	e.call(sci_stylesetitalic, usize(e.eol_warning_style), 1)
+	e.call(sci_stylesetitalic, usize(e.eol_info_style), 1)
+	
 }
 
 pub fn (mut e Editor) update_styles() {
