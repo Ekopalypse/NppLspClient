@@ -77,16 +77,16 @@ pub struct ServerConfig {
 mut:
 	message_id_counter int = -1
 pub mut:
-	mode string
-	executable string
-	args string
-	port int
-	host string
+	mode              string
+	executable        string
+	args              string
+	port              int
+	host              string
 	auto_start_server bool
-	initialized bool
+	initialized       bool
 	// open_documents []string  // used to prevent sending didOpen multiple times
-	features ServerCapabilities
-	open_response_messages map[string]fn(json_message string)
+	features               ServerCapabilities
+	open_response_messages map[string]fn (json_message string)
 }
 
 pub fn (mut sc ServerConfig) get_next_id() string {
@@ -99,25 +99,24 @@ pub fn (mut sc ServerConfig) init_id() string {
 	return sc.message_id_counter.str()
 }
 
-
 pub struct Configs {
 pub mut:
-	diag_indicator_id int = 12
-	error_color int = 0x756ce0
-	warning_color int = 0x64e0ff
-	incoming_msg_color int = 0x7bc399
-	outgoing_msg_color int = 0xffac59
-	selected_text_color int = 0x745227
-	enable_logging bool
-	lspservers map[string]ServerConfig
-	calltip_foreground_color int = -1
-	calltip_background_color int = -1
-	highlight_indicator_id int = 13
+	diag_indicator_id         int = 12
+	error_color               int = 0x756ce0
+	warning_color             int = 0x64e0ff
+	incoming_msg_color        int = 0x7bc399
+	outgoing_msg_color        int = 0xffac59
+	selected_text_color       int = 0x745227
+	enable_logging            bool
+	lspservers                map[string]ServerConfig
+	calltip_foreground_color  int = -1
+	calltip_background_color  int = -1
+	highlight_indicator_id    int = 13
 	highlight_indicator_color int = 0x64e0ff
 }
-	
+
 pub fn create_default() string {
-	return example_config_content
+	return lsp.example_config_content
 }
 
 fn is_null(item toml.Any) bool {
@@ -127,23 +126,24 @@ fn is_null(item toml.Any) bool {
 pub fn decode_config(full_file_path string) Configs {
 	mut failed := false
 	content := os.read_file(full_file_path) or { '' }
-	doc := toml.parse_text(content) or { 
+	doc := toml.parse_text(content) or {
 		failed = true
 		toml.parse_text('') or { panic(err) }
 	}
-	
+
 	mut lsp_config := Configs{}
-	if failed { 
+	if failed {
 		p.console_window.log_error('error decoding the configuration file')
 		analyze_config(full_file_path)
 		return lsp_config
 	}
-	
+
 	if doc.value('general').string().len == 0 {
-		message_box(p.npp_data.npp_handle, 'Configuration file is missing the general section', 'ERROR', 3)
+		message_box(p.npp_data.npp_handle, 'Configuration file is missing the general section',
+			'ERROR', 3)
 		return lsp_config
 	}
-	
+
 	if !is_null(doc.value('general.diag_indicator_id')) {
 		lsp_config.diag_indicator_id = doc.value('general.diag_indicator_id').int()
 	}
@@ -159,23 +159,23 @@ pub fn decode_config(full_file_path string) Configs {
 	if !is_null(doc.value('general.outgoing_msg_color')) {
 		lsp_config.outgoing_msg_color = doc.value('general.outgoing_msg_color').int()
 	}
-	
+
 	if !is_null(doc.value('general.incoming_msg_color')) {
 		lsp_config.incoming_msg_color = doc.value('general.incoming_msg_color').int()
 	}
-	
+
 	if !is_null(doc.value('general.selected_text_color')) {
 		lsp_config.selected_text_color = doc.value('general.selected_text_color').int()
 	}
-	
+
 	if !is_null(doc.value('general.enable_logging')) {
-		lsp_config.enable_logging =	doc.value('general.enable_logging').bool()
+		lsp_config.enable_logging = doc.value('general.enable_logging').bool()
 	}
 
 	if !is_null(doc.value('general.calltip_foreground_color')) {
 		lsp_config.calltip_foreground_color = doc.value('general.calltip_foreground_color').int()
 	}
-	
+
 	if !is_null(doc.value('general.calltip_background_color')) {
 		lsp_config.calltip_background_color = doc.value('general.calltip_background_color').int()
 	}
@@ -197,29 +197,29 @@ pub fn decode_config(full_file_path string) Configs {
 				continue
 			}
 			sc.mode = doc.value('lspservers.${k}.mode').string()
-			
+
 			if is_null(doc.value('lspservers.${k}.executable')) {
 				p.console_window.log_error('$k - mandatory field missing: executable')
 				continue
 			}
 			sc.executable = doc.value('lspservers.${k}.executable').string()
-			
+
 			if !is_null(doc.value('lspservers.${k}.args')) {
 				sc.args = doc.value('lspservers.${k}.args').string()
 			}
-			
+
 			if !is_null(doc.value('lspservers.${k}.auto_start_server')) {
 				sc.auto_start_server = doc.value('lspservers.${k}.auto_start_server').bool()
 			}
-			
+
 			if !is_null(doc.value('lspservers.${k}.port')) {
 				sc.port = doc.value('lspservers.${k}.port').int()
 			}
-			
+
 			if !is_null(doc.value('lspservers.${k}.host')) {
 				sc.host = doc.value('lspservers.${k}.host').string()
 			}
-			
+
 			lsp_config.lspservers[k] = sc
 		}
 	}
@@ -236,12 +236,14 @@ pub fn analyze_config(full_file_path string) {
 	if content.len == 0 {
 		p.console_window.log_error('Config file: $full_file_path seems to be empty')
 	}
-	
+
 	mut in_general_section := false
 	mut in_lspservers_section := false
 	for line in content.split_into_lines() {
 		p.console_window.log_info('line: $line')
-		if line.starts_with('#') || line.trim_space().len == 0 { continue }
+		if line.starts_with('#') || line.trim_space().len == 0 {
+			continue
+		}
 		match true {
 			line.starts_with('[general]') {
 				in_lspservers_section = false
@@ -384,7 +386,7 @@ fn strip_added_comment(line string) string {
 fn check_if_boolean_value(line string) {
 	parts := strip_added_comment(line).split('=')
 	if parts.len != 2 {
-		p.console_window.log_error('$line\nexpected key=value scheme but received: ${parts.join("=")}')
+		p.console_window.log_error('$line\nexpected key=value scheme but received: ${parts.join('=')}')
 	}
 	trimmed_string := parts[1].trim_space()
 	if trimmed_string != 'false' && trimmed_string != 'true' {
@@ -395,23 +397,24 @@ fn check_if_boolean_value(line string) {
 fn check_if_integer_value(line string) {
 	parts := strip_added_comment(line).split('=')
 	if parts.len != 2 {
-		p.console_window.log_error('$line\nexpected key=value scheme but received: ${parts.join("=")}')
+		p.console_window.log_error('$line\nexpected key=value scheme but received: ${parts.join('=')}')
 	}
 	trimmed_string := parts[1].trim_space()
 	if trimmed_string.u64() == 0 {
 		if trimmed_string != '0' && trimmed_string.to_lower() != '0x0' {
-			p.console_window.log_error('$line\nvalue must be an integer but received: ${trimmed_string}')
+			p.console_window.log_error('$line\nvalue must be an integer but received: $trimmed_string')
 		}
 	}
 }
 
 fn check_if_string_value(line string) {
 	stripped_line := strip_added_comment(line)
+
 	// key := stripped_line.all_before('=').trim_space()
 	value := stripped_line.all_after('=').trim_space()
 
 	start_quote := value[0].ascii_str()
-	end_quote := value[value.len-1].ascii_str()
+	end_quote := value[value.len - 1].ascii_str()
 
 	if start_quote in ["'", '"'] && end_quote in ["'", '"'] {
 		if start_quote != end_quote {

@@ -1,33 +1,50 @@
 module lsp
+
 import x.json2
 
 // used for decoding
 struct JsonMessage {
 pub mut:
-	jsonrpc string	// all
-	method string	// request and notification
-	id string		// request and response
-	params string	// request and notification
-	result string	// response
-	error string	// response
+	jsonrpc string
+	// all
+	method  string
+	// request and notification
+	id      string
+	// request and response
+	params  string
+	// request and notification
+	result  string
+	// response
+	error   string
+	// response
 }
 
 pub fn (mut m JsonMessage) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'jsonrpc' { m.jsonrpc =	 v.str() }
-			'method' { m.method = v.str() }
-			'id' { 
+			'jsonrpc' {
+				m.jsonrpc = v.str()
+			}
+			'method' {
+				m.method = v.str()
+			}
+			'id' {
 				m.id = if v.type_name() == 'string' {
-					'"${v.str()}"'
+					'"$v.str()"'
 				} else {
 					v.str()
 				}
 			}
-			'params' { m.params = v.str() }
-			'result' { m.result = v.str() }
-			'error' { m.error = v.str() }
+			'params' {
+				m.params = v.str()
+			}
+			'result' {
+				m.result = v.str()
+			}
+			'error' {
+				m.error = v.str()
+			}
 			else {}
 		}
 	}
@@ -65,7 +82,7 @@ pub fn (mut tdi TextDocumentIdentifier) from_json(f json2.Any) {
 
 pub struct Position {
 pub mut:
-	line	  u32
+	line      u32
 	character u32
 }
 
@@ -83,7 +100,7 @@ pub fn (mut p Position) from_json(f json2.Any) {
 pub struct Range {
 pub mut:
 	start Position
-	end	  Position
+	end   Position
 }
 
 pub fn (mut r Range) from_json(f json2.Any) {
@@ -100,7 +117,7 @@ pub fn (mut r Range) from_json(f json2.Any) {
 pub struct Location {
 pub mut:
 	valid bool = true
-	uri	  DocumentUri
+	uri   DocumentUri
 	range Range
 }
 
@@ -109,7 +126,7 @@ pub fn (mut l Location) from_json(f json2.Any) {
 	for k, v in obj {
 		match k {
 			'uri' { l.uri = make_path(v.str()) }
-			'range' { l.range = json2.decode<Range>(v.str()) or { Range{} } } 
+			'range' { l.range = json2.decode<Range>(v.str()) or { Range{} } }
 			else {}
 		}
 	}
@@ -135,12 +152,10 @@ pub mut:
 	// range at the mouse position.
 	///
 	origin_selection_range Range
-
 	//
 	// The target resource identifier of this link.
 	///
 	target_uri DocumentUri
-
 	//
 	// The full target range of this link. If the target for example is a symbol
 	// then target range is the range enclosing this symbol not including
@@ -148,7 +163,6 @@ pub mut:
 	// information is typically used to highlight the range in the editor.
 	///
 	target_range Range
-
 	//
 	// The range that should be selected and revealed when this link is being
 	// followed, e.g the name of a function. Must be contained by the the
@@ -161,10 +175,14 @@ pub fn (mut ll LocationLink) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'originSelectionRange' { ll.origin_selection_range = json2.decode<Range>(v.str()) or { Range{} } }
+			'originSelectionRange' { ll.origin_selection_range = json2.decode<Range>(v.str()) or {
+					Range{}
+				} }
 			'targetUri' { ll.target_uri = make_path(v.str()) }
 			'targetRange' { ll.target_range = json2.decode<Range>(v.str()) or { Range{} } }
-			'targetSelectionRange' { ll.target_selection_range = json2.decode<Range>(v.str()) or { Range{} } }
+			'targetSelectionRange' { ll.target_selection_range = json2.decode<Range>(v.str()) or {
+					Range{}
+				} }
 			else {}
 		}
 	}
@@ -183,15 +201,19 @@ pub fn (mut lla LocationLinkArray) from_json(f json2.Any) {
 
 pub struct Diagnostic {
 pub mut:
-	range				Range
-	severity			int		// DiagnosticSeverity
-	code				string
-	code_description	string	// CodeDescription
-	source				string
-	message				string
-	tags				string	// []DiagnosticTag
-	related_information string	// []DiagnosticRelatedInformation
-	data				string
+	range               Range
+	severity            int
+	// DiagnosticSeverity
+	code                string
+	code_description    string
+	// CodeDescription
+	source              string
+	message             string
+	tags                string
+	// []DiagnosticTag
+	related_information string
+	// []DiagnosticRelatedInformation
+	data                string
 }
 
 pub fn (mut d Diagnostic) from_json(f json2.Any) {
@@ -215,7 +237,7 @@ pub fn (mut d Diagnostic) from_json(f json2.Any) {
 pub struct DiagnosticRelatedInformation {
 pub mut:
 	location Location
-	message	 string
+	message  string
 }
 
 pub fn (mut dri DiagnosticRelatedInformation) from_json(f json2.Any) {
@@ -230,9 +252,9 @@ pub fn (mut dri DiagnosticRelatedInformation) from_json(f json2.Any) {
 }
 
 pub struct PublishDiagnosticsParams {
-pub mut :
-	uri			DocumentUri
-	version		u32
+pub mut:
+	uri         DocumentUri
+	version     u32
 	diagnostics []Diagnostic
 }
 
@@ -240,9 +262,13 @@ pub fn (mut pd PublishDiagnosticsParams) from_json(f json2.Any) {
 	obj_map := f.as_map()
 	for k, v in obj_map {
 		match k {
-			'uri' { pd.uri = make_path(v.str()) }
-			'version' { pd.version = u32(v.int()) }
-			'diagnostics' { 
+			'uri' {
+				pd.uri = make_path(v.str())
+			}
+			'version' {
+				pd.version = u32(v.int())
+			}
+			'diagnostics' {
 				for diag in v.arr() {
 					pd.diagnostics << json2.decode<Diagnostic>(diag.str()) or { Diagnostic{} }
 				}
@@ -255,15 +281,17 @@ pub fn (mut pd PublishDiagnosticsParams) from_json(f json2.Any) {
 pub struct CompletionList {
 pub mut:
 	is_incomplete bool
-	items		  []CompletionItem
+	items         []CompletionItem
 }
 
 pub fn (mut cl CompletionList) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'is_incomplete' { cl.is_incomplete = v.bool() }
-			'items' { 
+			'is_incomplete' {
+				cl.is_incomplete = v.bool()
+			}
+			'items' {
 				for item in v.arr() {
 					cl.items << json2.decode<CompletionItem>(item.str()) or { CompletionItem{} }
 				}
@@ -275,24 +303,24 @@ pub fn (mut cl CompletionList) from_json(f json2.Any) {
 
 pub struct CompletionItem {
 pub mut:
-	label					string
-	label_details			string
-	kind					string
-	tags					string
-	detail					string
-	documentation			string
-	deprecated_				bool
-	preselect				bool
-	sort_text				string
-	filter_text				string
-	insert_text				string
-	insert_text_format		string
-	insert_text_mode		string
-	text_edit				string
-	additional_text_edits	string
-	commit_characters		string
-	command					string
-	data					string
+	label                 string
+	label_details         string
+	kind                  string
+	tags                  string
+	detail                string
+	documentation         string
+	deprecated_           bool
+	preselect             bool
+	sort_text             string
+	filter_text           string
+	insert_text           string
+	insert_text_format    string
+	insert_text_mode      string
+	text_edit             string
+	additional_text_edits string
+	commit_characters     string
+	command               string
+	data                  string
 }
 
 pub fn (mut ci CompletionItem) from_json(f json2.Any) {
@@ -335,7 +363,7 @@ pub fn (mut cla CompletionItemArray) from_json(f json2.Any) {
 
 pub struct SignatureHelp {
 pub mut:
-	signatures []SignatureInformation
+	signatures       []SignatureInformation
 	active_signature u32
 	active_parameter u32
 }
@@ -344,13 +372,19 @@ pub fn (mut sh SignatureHelp) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'signatures' { 
+			'signatures' {
 				for item in v.arr() {
-					sh.signatures << json2.decode<SignatureInformation>(item.str()) or { SignatureInformation{} }
+					sh.signatures << json2.decode<SignatureInformation>(item.str()) or {
+						SignatureInformation{}
+					}
 				}
 			}
-			'activeSignature' { sh.active_signature = u32(v.int()) }
-			'activeParameter' { sh.active_parameter = u32(v.int()) }
+			'activeSignature' {
+				sh.active_signature = u32(v.int())
+			}
+			'activeParameter' {
+				sh.active_parameter = u32(v.int())
+			}
 			else {}
 		}
 	}
@@ -358,9 +392,9 @@ pub fn (mut sh SignatureHelp) from_json(f json2.Any) {
 
 pub struct SignatureInformation {
 pub mut:
-	label string
-	documentation string
-	parameters []ParameterInformation
+	label            string
+	documentation    string
+	parameters       []ParameterInformation
 	active_parameter u32
 }
 
@@ -368,14 +402,22 @@ pub fn (mut si SignatureInformation) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'label' { si.label = v.str() }
-			'documentation' { si.documentation = v.str() }
-			'parameters' { 
-				for item in v.arr() {
-					si.parameters << json2.decode<ParameterInformation>(item.str()) or { ParameterInformation{} }
-				}			
+			'label' {
+				si.label = v.str()
 			}
-			'activeParameter' { si.active_parameter = u32(v.int()) }
+			'documentation' {
+				si.documentation = v.str()
+			}
+			'parameters' {
+				for item in v.arr() {
+					si.parameters << json2.decode<ParameterInformation>(item.str()) or {
+						ParameterInformation{}
+					}
+				}
+			}
+			'activeParameter' {
+				si.active_parameter = u32(v.int())
+			}
 			else {}
 		}
 	}
@@ -383,7 +425,7 @@ pub fn (mut si SignatureInformation) from_json(f json2.Any) {
 
 pub struct ParameterInformation {
 pub mut:
-	label string
+	label         string
 	documentation string
 }
 
@@ -411,7 +453,7 @@ pub fn (mut tea TextEditArray) from_json(f json2.Any) {
 
 pub struct TextEdit {
 pub mut:
-	range Range
+	range    Range
 	new_text string
 }
 
@@ -428,7 +470,7 @@ pub fn (mut te TextEdit) from_json(f json2.Any) {
 
 pub struct ShowMessageParams {
 pub mut:
-	type_ int
+	type_   int
 	message string
 }
 
@@ -445,7 +487,7 @@ pub fn (mut smp ShowMessageParams) from_json(f json2.Any) {
 
 pub struct ShowMessageRequestParams {
 pub mut:
-	type_ int
+	type_   int
 	message string
 	actions []string
 }
@@ -465,19 +507,16 @@ pub fn (mut smrp ShowMessageRequestParams) from_json(f json2.Any) {
 pub struct ShowDocumentParams {
 pub mut:
 	uri DocumentUri
-
 	// Indicates to show the resource in an external program.
 	// To show for example `https://code.visualstudio.com/`
 	// in the default WEB browser set `external` to `true`.
 	external bool
-
 	// An optional property to indicate whether the editor
 	// showing the document should take focus or not.
 	// Clients might ignore this property if an external program is started.
 	take_focus bool
-
 	// An optional selection range if the document is a text
-	// document. Clients might ignore the property if an external program is started 
+	// document. Clients might ignore the property if an external program is started
 	// or the file is not a text file.
 	selection Range
 }
@@ -499,9 +538,9 @@ pub struct DocumentHighlight {
 pub mut:
 	// The range this highlight applies to.
 	range Range
-
 	// The highlight kind, default is DocumentHighlightKind.Text.
-	kind int // DocumentHighlightKind
+	kind int
+	// DocumentHighlightKind
 }
 
 pub fn (mut dh DocumentHighlight) from_json(f json2.Any) {
@@ -532,31 +571,27 @@ pub mut:
 	// therefore must not be an empty string or a string only consisting of
 	// white spaces.
 	name string
-
 	// More detail for this symbol, e.g the signature of a function.
 	detail string
-
 	// The kind of this symbol.
-	kind int  // SymbolKind
-
+	kind int
+	// SymbolKind
 	// Tags for this document symbol.
 	// @since 3.16.0
-	tags []int  // SymbolTag[]
-
+	tags []int
+	// SymbolTag[]
 	// Indicates if this symbol is deprecated.
 	// @deprecated Use tags instead
 	deprecated bool
-
 	// The range enclosing this symbol not including leading/trailing whitespace
 	// but everything else like comments. This information is typically used to
 	// determine if the clients cursor is inside the symbol to reveal in the
 	// symbol in the UI.
 	range Range
-
 	// The range that should be selected and revealed when this symbol is being
 	// picked, e.g. the name of a function. Must be contained by the `range`.
-	selection_range Range //selectionRange
-
+	selection_range Range
+	// selectionRange
 	// Children of this symbol, e.g. properties of a class.
 	children []DocumentSymbol
 }
@@ -565,34 +600,35 @@ pub fn (mut ds DocumentSymbol) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'name' { ds.name = v.str()}
-			'detail' { ds.detail = v.str()}
-			'kind' { ds.kind = v.int()}
-			'tags' { ds.tags << v.arr().map(it.int())}
-			'deprecated' { ds.deprecated = v.bool()}
-			'range' { ds.range = json2.decode<Range>(v.str()) or { Range{} }}
-			'selectionRange' { ds.selection_range = json2.decode<Range>(v.str()) or { Range{} }}
-			'children' { ds.children << json2.decode<DocumentSymbol>(v.str()) or { DocumentSymbol{} }}
+			'name' { ds.name = v.str() }
+			'detail' { ds.detail = v.str() }
+			'kind' { ds.kind = v.int() }
+			'tags' { ds.tags << v.arr().map(it.int()) }
+			'deprecated' { ds.deprecated = v.bool() }
+			'range' { ds.range = json2.decode<Range>(v.str()) or { Range{} } }
+			'selectionRange' { ds.selection_range = json2.decode<Range>(v.str()) or { Range{} } }
+			'children' { ds.children << json2.decode<DocumentSymbol>(v.str()) or {
+					DocumentSymbol{}
+				} }
 			else {}
 		}
-	}}
+	}
+}
 
 pub struct SymbolInformation {
 pub mut:
 	// The name of this symbol.
 	name string
-
 	// The kind of this symbol.
-	kind int // SymbolKind
-
+	kind int
+	// SymbolKind
 	// Tags for this symbol.
 	// @since 3.16.0
-	tags []int // SymbolTag
-
+	tags []int
+	// SymbolTag
 	// Indicates if this symbol is deprecated.
 	// @deprecated Use tags instead
 	deprecated bool
-
 	// The location of this symbol. The location's range is used by a tool
 	// to reveal the location in the editor. If the symbol is selected in the
 	// tool the range's start information is used to position the cursor. So
@@ -603,24 +639,24 @@ pub mut:
 	// syntax tree. It can therefore not be used to re-construct a hierarchy of
 	// the symbols.
 	location Location
-
 	// The name of the symbol containing this symbol. This information is for
 	// user interface purposes (e.g. to render a qualifier in the user interface
 	// if necessary). It can't be used to re-infer a hierarchy for the document
 	// symbols.
-	container_name string //containerName
+	container_name string
+	// containerName
 }
 
 pub fn (mut si SymbolInformation) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'name' { si.name = v.str()}
-			'kind' { si.kind = v.int()}
-			'tags' { si.tags << v.arr().map(it.int())}
-			'deprecated' { si.deprecated = v.bool()}
-			'location' { si.location = json2.decode<Location>(v.str()) or { Location{} }}
-			'containerName' { si.container_name = v.str()}
+			'name' { si.name = v.str() }
+			'kind' { si.kind = v.int() }
+			'tags' { si.tags << v.arr().map(it.int()) }
+			'deprecated' { si.deprecated = v.bool() }
+			'location' { si.location = json2.decode<Location>(v.str()) or { Location{} } }
+			'containerName' { si.container_name = v.str() }
 			else {}
 		}
 	}
@@ -651,8 +687,8 @@ pub fn (mut sia SymbolInformationArray) from_json(f json2.Any) {
 pub struct Hover {
 pub mut:
 	// The hover's content
-	contents string // MarkedString | MarkedString[] | MarkupContent
-
+	contents string
+	// MarkedString | MarkedString[] | MarkupContent
 	// An optional range is a range inside a text document
 	// that is used to visualize a hover, e.g. by changing the background color.
 	range Range
@@ -664,11 +700,11 @@ pub fn (mut h Hover) from_json(f json2.Any) {
 		match k {
 			'contents' {
 				match true {
-					v.str().starts_with('{') { 
+					v.str().starts_with('{') {
 						mc := json2.decode<MarkupContent>(v.str()) or { MarkupContent{} }
 						h.contents = mc.value
 					}
-					v.str().starts_with('[') { 
+					v.str().starts_with('[') {
 						h.contents = v.arr().map(it.str()).join('\n')
 					}
 					else {
@@ -676,17 +712,18 @@ pub fn (mut h Hover) from_json(f json2.Any) {
 					}
 				}
 			}
-			'range' { h.range = json2.decode<Range>(v.str()) or { Range{} }}
+			'range' {
+				h.range = json2.decode<Range>(v.str()) or { Range{} }
+			}
 			else {}
 		}
-	}	
+	}
 }
 
 pub struct MarkupContent {
 pub mut:
 	// The type of the Markup
 	kind string
-
 	// The content itself
 	value string
 }
@@ -699,7 +736,7 @@ pub fn (mut mc MarkupContent) from_json(f json2.Any) {
 			'value' { mc.value = v.str() }
 			else {}
 		}
-	}	
+	}
 }
 
 pub struct CancelParams {
@@ -713,9 +750,8 @@ pub fn (mut cp CancelParams) from_json(f json2.Any) {
 
 pub struct ProgressParams {
 pub mut:
-	 // The progress token provided by the client or server.
+	// The progress token provided by the client or server.
 	token string
-
 	// The progress data.
 	value string
 }
@@ -728,12 +764,12 @@ pub fn (mut pp ProgressParams) from_json(f json2.Any) {
 			'value' { pp.value = v.str() }
 			else {}
 		}
-	}	
+	}
 }
 
 pub struct WorkDoneProgressCreateParams {
 pub mut:
-	//The token to be used to report progress.
+	// The token to be used to report progress.
 	token string
 }
 
@@ -743,7 +779,7 @@ pub fn (mut wdpcp WorkDoneProgressCreateParams) from_json(f json2.Any) {
 
 pub struct WorkDoneProgressCancelParams {
 pub mut:
-	//The token to be used to report progress.
+	// The token to be used to report progress.
 	token string
 }
 
@@ -802,7 +838,7 @@ pub fn (mut fr FileRename) from_json(f json2.Any) {
 			'newUri' { fr.new_uri = make_path(v.str()) }
 			else {}
 		}
-	}	
+	}
 }
 
 pub struct DeleteFilesParams {
@@ -837,8 +873,10 @@ pub fn (mut rp RegistrationParams) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'registrations' { 
-				rp.registrations = v.arr().map(json2.decode<Registration>(it.str()) or { Registration{} }) 
+			'registrations' {
+				rp.registrations = v.arr().map(json2.decode<Registration>(it.str()) or {
+					Registration{}
+				})
 			}
 			else {}
 		}
@@ -847,16 +885,15 @@ pub fn (mut rp RegistrationParams) from_json(f json2.Any) {
 
 pub struct Registration {
 pub mut:
-	// The id used to register the request. 
+	// The id used to register the request.
 	// The id can be used to deregister the request again.
 	id string
-
 	// The method / capability to register for.
 	method string
-
 	// Options necessary for the registration.
 	register_options string
 }
+
 pub fn (mut r Registration) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
@@ -866,7 +903,7 @@ pub fn (mut r Registration) from_json(f json2.Any) {
 			'registerOptions' { r.register_options = v.str() }
 			else {}
 		}
-	}	
+	}
 }
 
 pub struct UnregistrationParams {
@@ -878,22 +915,24 @@ pub fn (mut up UnregistrationParams) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'unregistrations' { 
-				up.unregistrations = v.arr().map(json2.decode<Unregistration>(it.str()) or { Unregistration{} }) 
+			'unregistrations' {
+				up.unregistrations = v.arr().map(json2.decode<Unregistration>(it.str()) or {
+					Unregistration{}
+				})
 			}
 			else {}
 		}
-	}	
+	}
 }
 
 pub struct Unregistration {
 pub mut:
-	// The id used to unregister the request. 
+	// The id used to unregister the request.
 	id string
-
 	// The method / capability to unregister for.
 	method string
 }
+
 pub fn (mut u Unregistration) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
@@ -902,7 +941,7 @@ pub fn (mut u Unregistration) from_json(f json2.Any) {
 			'method' { u.method = v.str() }
 			else {}
 		}
-	}	
+	}
 }
 
 pub struct ColorInformationArray {
@@ -914,7 +953,7 @@ pub fn (mut cia ColorInformationArray) from_json(f json2.Any) {
 	items := f.arr()
 	for item in items {
 		cia.items << json2.decode<ColorInformation>(item.str()) or { ColorInformation{} }
-	}	
+	}
 }
 
 pub struct ColorInformation {
@@ -929,11 +968,11 @@ pub fn (mut ci ColorInformation) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'range' { ci.range = json2.decode<Range>(v.str()) or { Range{}} }
-			'color' { ci.color = json2.decode<Color>(v.str()) or { Color{}} }
+			'range' { ci.range = json2.decode<Range>(v.str()) or { Range{} } }
+			'color' { ci.color = json2.decode<Color>(v.str()) or { Color{} } }
 			else {}
 		}
-	}	
+	}
 }
 
 pub struct Color {
@@ -958,7 +997,7 @@ pub fn (mut c Color) from_json(f json2.Any) {
 			'alpha' { c.alpha = v.f32() }
 			else {}
 		}
-	}	
+	}
 }
 
 pub struct ColorPresentationArray {
@@ -966,12 +1005,11 @@ pub mut:
 	items []ColorPresentation
 }
 
-
 pub fn (mut cpa ColorPresentationArray) from_json(f json2.Any) {
 	items := f.arr()
 	for item in items {
 		cpa.items << json2.decode<ColorPresentation>(item.str()) or { ColorPresentation{} }
-	}	
+	}
 }
 
 pub struct ColorPresentation {
@@ -984,7 +1022,6 @@ pub mut:
 	// this presentation for the color. When `falsy` the
 	// [label](#ColorPresentation.label) is used.
 	text_edit TextEdit
-
 	// An optional array of additional [text edits](#TextEdit) that are applied
 	// when selecting this color presentation.
 	// Edits must not overlap with the main [edit](#ColorPresentation.textEdit) nor with themselves.
@@ -995,9 +1032,13 @@ pub fn (mut cp ColorPresentation) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'label' { cp.label = v.str() }
-			'TextEdit' { cp.text_edit = json2.decode<TextEdit>(v.str()) or { TextEdit{} } }
-			'additionalTextEdits' { 
+			'label' {
+				cp.label = v.str()
+			}
+			'TextEdit' {
+				cp.text_edit = json2.decode<TextEdit>(v.str()) or { TextEdit{} }
+			}
+			'additionalTextEdits' {
 				text_edit_array := json2.decode<TextEditArray>(v.str()) or { TextEditArray{} }
 				for item in text_edit_array.items {
 					cp.additional_text_edits << item
@@ -1005,12 +1046,12 @@ pub fn (mut cp ColorPresentation) from_json(f json2.Any) {
 			}
 			else {}
 		}
-	}	
+	}
 }
 
 pub struct WorkspaceFolder {
 pub mut:
-	uri string
+	uri  string
 	name string
 }
 
@@ -1025,12 +1066,12 @@ fn (wfa WorkspaceFolderArray) make_lsp_message() string {
 		uri_path := make_uri(folder.uri)
 		folders__ << '{"uri":"$uri_path","name":"$folder.name"}'
 	}
-	return '[${folders__.join(",")}]'
+	return '[${folders__.join(',')}]'
 }
 
 pub struct FileEvent {
 pub mut:
-	uri string
+	uri    string
 	type__ u32
 }
 
@@ -1045,7 +1086,7 @@ fn (fea FileEventArray) make_lsp_message() string {
 		uri_path := make_uri(event.uri)
 		changes << '{"uri":"$uri_path","type":event.type__}'
 	}
-	return '[${changes.join(",")}]'
+	return '[${changes.join(',')}]'
 }
 
 pub struct FileCreateArray {
@@ -1059,7 +1100,7 @@ fn (fca FileCreateArray) make_lsp_message() string {
 		uri_path := make_uri(f.uri)
 		files__ << '{"uri":"$uri_path"}'
 	}
-	return '[${files__.join(",")}]'
+	return '[${files__.join(',')}]'
 }
 
 pub struct FileDeleteArray {
@@ -1073,7 +1114,7 @@ fn (fda FileDeleteArray) make_lsp_message() string {
 		uri_path := make_uri(f.uri)
 		files__ << '{"uri":"$uri_path"}'
 	}
-	return '[${files__.join(",")}]'
+	return '[${files__.join(',')}]'
 }
 
 pub struct FileRenameArray {
@@ -1088,13 +1129,14 @@ fn (fra FileRenameArray) make_lsp_message() string {
 		new_uri_path := make_uri(f.new_uri)
 		files__ << '{"oldUri":"$old_uri_path","newUri":"$new_uri_path"}'
 	}
-	return '[${files__.join(",")}]'
+	return '[${files__.join(',')}]'
 }
 
 pub struct ConfigurationItem {
 pub mut:
 	// The scope to get the configuration section for.
-	scope_uri string //  scopeUri DocumentUri
+	scope_uri string
+	//  scopeUri DocumentUri
 	// The configuration section asked for.
 	section string
 }
@@ -1107,7 +1149,7 @@ pub fn (mut ci ConfigurationItem) from_json(f json2.Any) {
 			'section' { ci.section = v.str() }
 			else {}
 		}
-	}	
+	}
 }
 
 pub struct ConfigurationParams {
@@ -1119,8 +1161,10 @@ pub fn (mut cp ConfigurationParams) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'items' { 
-				cp.items = v.arr().map(json2.decode<ConfigurationItem>(it.str()) or { ConfigurationItem{} })
+			'items' {
+				cp.items = v.arr().map(json2.decode<ConfigurationItem>(it.str()) or {
+					ConfigurationItem{}
+				})
 			}
 			else {}
 		}

@@ -5,7 +5,7 @@ module winapi
 #flag -luser32
 #flag -lShell32
 
-pub type WndProc = fn(hwnd voidptr, message u32, wparam usize, lparam isize) isize
+pub type WndProc = fn (hwnd voidptr, message u32, wparam usize, lparam isize) isize
 
 pub const (
 	still_active = u32(259)
@@ -13,9 +13,9 @@ pub const (
 
 pub struct RECT {
 pub mut:
-	left int
-	top int
-	right int
+	left   int
+	top    int
+	right  int
 	bottom int
 }
 
@@ -63,8 +63,13 @@ pub mut:
 }
 
 // helper functions
-pub fn loword(value usize) u16 { return u16(value & 0xFFFF) }
-pub fn hiword(value usize) u16 { return u16((value >>16) & 0xFFFF) }
+pub fn loword(value usize) u16 {
+	return u16(value & 0xFFFF)
+}
+
+pub fn hiword(value usize) u16 {
+	return u16((value >> 16) & 0xFFFF)
+}
 
 // macro
 fn C.MAKEINTRESOURCE(dialogID int) voidptr
@@ -73,7 +78,7 @@ pub fn make_int_resource(dialog_id int) voidptr {
 }
 
 fn C.SendMessageW(hwnd voidptr, msg u32, wparam usize, lparam isize) isize
-pub fn send_message(hwnd voidptr, msg u32, wparam usize, lparam isize) isize{
+pub fn send_message(hwnd voidptr, msg u32, wparam usize, lparam isize) isize {
 	return C.SendMessageW(hwnd, msg, wparam, lparam)
 }
 
@@ -184,7 +189,7 @@ pub fn dialog_box(hinstance voidptr, lptemplate &u16, hwndparent voidptr, lpdial
 
 fn C.GetParent(hWnd voidptr) voidptr
 pub fn get_parent(hwnd voidptr) voidptr {
-	return C.GetParent(hwnd) 
+	return C.GetParent(hwnd)
 }
 
 fn C.GetStdHandle(nStdHandle u32) voidptr
@@ -205,53 +210,36 @@ pub fn get_exit_code_process(process_handle voidptr, exit_code &u32) bool {
 // conflicts with the one V defines itself -- ??
 // fn C.ReadFile(hFile voidptr, lpBuffer &i8, nNumberOfBytesToRead u32, lpNumberOfBytesRead &u32, lpOverlapped voidptr) bool
 pub fn read_file(file_handle voidptr, buffer &i8, number_of_bytes_to_read u32, number_of_bytes_read &u32, overlapped voidptr) bool {
-	return C.ReadFile(file_handle, buffer, number_of_bytes_to_read, C.LPDWORD(number_of_bytes_read), overlapped) 
+	return C.ReadFile(file_handle, buffer, number_of_bytes_to_read, C.LPDWORD(number_of_bytes_read),
+		overlapped)
 }
 
 fn C.WriteFile(hFile voidptr, lpBuffer &i8, nNumberOfBytesToWrite u32, lpNumberOfBytesWritten &u32, lpOverlapped voidptr) bool
 pub fn write_file(file_handle voidptr, buffer &i8, number_of_bytes_to_write u32, lnumber_of_bytes_written &u32, overlapped voidptr) bool {
-	return C.WriteFile(file_handle, buffer, number_of_bytes_to_write, lnumber_of_bytes_written, overlapped)
+	return C.WriteFile(file_handle, buffer, number_of_bytes_to_write, lnumber_of_bytes_written,
+		overlapped)
 }
 
 fn C.CreatePipe(hReadPipe voidptr, hWritePipe voidptr, lpPipeAttributes voidptr, nSize u32) bool
 pub fn create_pipe(read_pipe_handle voidptr, write_pipe_handle voidptr, pipe_attributes voidptr, size u32) bool {
-	return C.CreatePipe(read_pipe_handle, write_pipe_handle, pipe_attributes, size) 
+	return C.CreatePipe(read_pipe_handle, write_pipe_handle, pipe_attributes, size)
 }
 
 fn C.SetHandleInformation(hObject voidptr, dwMask u32, dwFlags u32) bool
 pub fn set_handle_information(object_handle voidptr, mask u32, flags u32) bool {
-	return C.SetHandleInformation(object_handle, mask, flags) 
+	return C.SetHandleInformation(object_handle, mask, flags)
 }
 
 fn C.CloseHandle(hObject voidptr) bool
 pub fn close_handle(object_handle voidptr) bool {
-	return C.CloseHandle(object_handle) 
+	return C.CloseHandle(object_handle)
 }
 
 fn C.CreateProcessW(lpApplicationName &u16, lpCommandLine &u16, lpProcessAttributes voidptr, lpThreadAttributes voidptr, bInheritHandles bool, dwCreationFlags u32, lpEnvironment voidptr, lpCurrentDirectory &u16, lpStartupInfo &STARTUPINFO, lpProcessInformation &PROCESS_INFORMATION) bool
-pub fn create_process(
-	application_name voidptr, 
-	command_line string, 
-	process_attributes voidptr, 
-	thread_attributes voidptr, 
-	inherit_handles bool, 
-	creation_flags u32, 
-	environment voidptr, 
-	current_directory &u16, 
-	startup_info &STARTUPINFO, 
-	process_information &PROCESS_INFORMATION) bool {
-	
-	return C.CreateProcessW(
-		application_name, 
-		command_line.to_wide(), 
-		process_attributes, 
-		thread_attributes, 
-		inherit_handles , 
-		creation_flags, 
-		environment, 
-		current_directory, 
-		startup_info, 
-		process_information) 
+pub fn create_process(application_name voidptr, command_line string, process_attributes voidptr, thread_attributes voidptr, inherit_handles bool, creation_flags u32, environment voidptr, current_directory &u16, startup_info &STARTUPINFO, process_information &PROCESS_INFORMATION) bool {
+	return C.CreateProcessW(application_name, command_line.to_wide(), process_attributes,
+		thread_attributes, inherit_handles, creation_flags, environment, current_directory,
+		startup_info, process_information)
 }
 
 fn C.GetLastError() u32
@@ -259,7 +247,7 @@ pub fn get_last_error() int {
 	return int(C.GetLastError())
 }
 
-fn C.GetCurrentThreadId() u32 
+fn C.GetCurrentThreadId() u32
 pub fn get_current_thread_id() u32 {
 	return C.GetCurrentThreadId()
 }

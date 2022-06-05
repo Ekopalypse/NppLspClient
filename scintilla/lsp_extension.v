@@ -1,6 +1,6 @@
 module scintilla
 
-import lsp { TextEditArray, DocumentHighlightArray }
+import lsp { DocumentHighlightArray, TextEditArray }
 
 pub fn (e Editor) add_diag_indicator(position u32, length u32, severity int) {
 	mut color := match severity {
@@ -14,7 +14,7 @@ pub fn (e Editor) add_diag_indicator(position u32, length u32, severity int) {
 		word_length := e.get_current_word_length()
 		if word_length == 0 {
 			start, end := e.get_current_line_positions(position)
-			e.call(sci_indicatorfillrange, usize(start), isize(end-start))
+			e.call(sci_indicatorfillrange, usize(start), isize(end - start))
 		} else {
 			e.call(sci_indicatorfillrange, usize(position), isize(word_length))
 		}
@@ -28,10 +28,10 @@ pub fn (e Editor) add_diag_annotation(line u32, severity int, message string) {
 		1 { e.eol_error_style }
 		2 { e.eol_warning_style }
 		else { e.eol_info_style }
-	}	
-    e.call(sci_eolannotationsetstyle, usize(line), isize(style))
+	}
+	e.call(sci_eolannotationsetstyle, usize(line), isize(style))
 	e.call(sci_eolannotationsettext, usize(line), isize(message.str))
-    e.call(sci_eolannotationsetvisible, eolannotation_angle_circle, 0)
+	e.call(sci_eolannotationsetvisible, eolannotation_angle_circle, 0)
 }
 
 pub fn (e Editor) clear_diagnostics() {
@@ -41,7 +41,6 @@ pub fn (e Editor) clear_diagnostics() {
 	e.call(sci_indicatorclearrange, 0, e.call(sci_getlength, 0, 0))
 }
 
-
 pub fn (e Editor) display_signature_hints(hints string) {
 	pos := e.call(sci_getcurrentpos, 0, 0)
 	e.call(sci_calltipsetposition, 1, 0)
@@ -50,7 +49,7 @@ pub fn (e Editor) display_signature_hints(hints string) {
 
 pub fn (e Editor) display_completion_list(completions string) {
 	e.call(sci_autocsetseparator, 10, 0)
-    word_length := e.get_current_word_length()
+	word_length := e.get_current_word_length()
 	e.call(sci_autocshow, usize(word_length), isize(completions.str))
 }
 
@@ -58,7 +57,7 @@ pub fn (e Editor) get_lsp_position_info() (u32, u32) {
 	pos := u32(e.call(sci_getcurrentpos, 0, 0))
 	line := e.line_from_position(pos)
 	start := e.position_from_line(line)
-	return line, pos-start
+	return line, pos - start
 }
 
 pub fn (e Editor) format_document(tea TextEditArray) {
@@ -111,7 +110,7 @@ pub fn (e Editor) get_current_word_length() u32 {
 	pos := u32(e.call(sci_getcurrentpos, 0, 0))
 	start := e.call(sci_wordstartposition, usize(pos), 1)
 	end := e.call(sci_wordendposition, usize(pos), 1)
-	return u32(end-start)
+	return u32(end - start)
 }
 
 pub fn (e Editor) get_current_line_positions(position u32) (u32, u32) {
@@ -130,17 +129,18 @@ pub fn (e Editor) highlight_occurances(dha DocumentHighlightArray) {
 	for item in dha.items {
 		start_pos := u32(e.position_from_line(item.range.start.line)) + item.range.start.character
 		end_pos := u32(e.position_from_line(item.range.end.line)) + item.range.end.character
-		e.call(sci_setindicatorvalue, usize(e.highlight_indicator_color | sc_indicvaluebit), 0)
-		e.call(sci_indicatorfillrange, usize(start_pos), isize(end_pos-start_pos))
+		e.call(sci_setindicatorvalue, usize(e.highlight_indicator_color | sc_indicvaluebit),
+			0)
+		e.call(sci_indicatorfillrange, usize(start_pos), isize(end_pos - start_pos))
 	}
 }
 
 pub fn (e Editor) clear_highlighted_occurances() {
 	e.call(sci_setindicatorcurrent, e.highlight_indicator, 0)
-	e.call(sci_indicatorclearrange, 0, e.call(sci_getlength, 0, 0))	
+	e.call(sci_indicatorclearrange, 0, e.call(sci_getlength, 0, 0))
 }
 
-pub fn(e Editor) clear_indicators() {
+pub fn (e Editor) clear_indicators() {
 	e.clear_diagnostics()
 	e.clear_highlighted_occurances()
 }

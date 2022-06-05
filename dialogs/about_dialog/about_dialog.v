@@ -11,7 +11,7 @@ fn about_dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isiz
 			match int(id) {
 				C.IDOK {
 					api.end_dialog(hwnd, id)
-					return 1	
+					return 1
 				}
 				else {}
 			}
@@ -29,7 +29,8 @@ fn about_dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isiz
 }
 
 pub fn show(npp_hwnd voidptr) {
-	dlg_hwnd := voidptr(api.create_dialog_param(p.dll_instance, api.make_int_resource(C.IDD_ABOUTDLG), npp_hwnd, api.WndProc(about_dialog_proc), 0))
+	dlg_hwnd := voidptr(api.create_dialog_param(p.dll_instance, api.make_int_resource(C.IDD_ABOUTDLG),
+		npp_hwnd, api.WndProc(about_dialog_proc), 0))
 
 	npp_rect := api.RECT{}
 	api.get_client_rect(npp_hwnd, &npp_rect)

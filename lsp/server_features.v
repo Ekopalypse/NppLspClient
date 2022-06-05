@@ -1,67 +1,68 @@
 module lsp
+
 import x.json2
 
 pub struct ServerCapabilities {
 pub mut:
-	text_document_sync								int
-	send_open_close_notif							bool = true
-	send_save_notif									bool = true
-	include_text_in_save_notif						bool	
-	supports_will_save								bool
-	supports_will_save_wait_until					bool
+	text_document_sync            int
+	send_open_close_notif         bool = true
+	send_save_notif               bool = true
+	include_text_in_save_notif    bool
+	supports_will_save            bool
+	supports_will_save_wait_until bool
 
-	completion_provider								CompletionOptions
-	signature_help_provider							SignatureHelpOptions
-	hover_provider									bool
-	hover_work_done_provider						bool
-	declaration_provider							bool
-	declaration_work_done_provider					bool
-	definition_provider								bool
-	definition_work_done_provider					bool
-	type_definition_provider						bool
-	type_definition_work_done_provider				bool
-	implementation_provider							bool
-	implementation_work_done_provider				bool
-	references_provider								bool
-	references_work_done_provider					bool
-	document_highlight_provider						bool
-	document_highlight_work_done_provider			bool
-	document_symbol_provider						bool
-	document_symbol_work_done_provider				bool
-	code_action_provider							bool
-	code_action_resolve_provider					bool
-	code_lens_provider								bool
-	document_link_provider							bool
-	color_provider									bool
-	color_work_done_provider						bool
-	document_formatting_provider					bool
-	document_formatting_work_done_provider			bool
-	document_range_formatting_provider				bool
-	document_range_formatting_work_done_provider	bool
-	document_on_type_formatting_provider			bool
-	rename_provider									bool
-	rename_work_done_provider						bool
-	folding_range_provider							bool
-	folding_range_work_done_provider				bool
-	execute_command_provider						bool
-	execute_command_work_done_provider				bool
-	execute_commands								[]string
-	selection_range_provider						bool
-	selection_range_work_done_provider				bool
-	linked_editing_range_provider					bool
-	linked_editing_range_work_done_provider			bool
-	call_hierarchy_provider							bool
-	call_hierarchy_prepare_call						bool
-	call_hierarchy_work_done_provider				bool
-	semantic_tokens_provider						bool
-	semantic_tokens_work_done_provider				bool
-	moniker_provider								bool
-	moniker_work_done_provider						bool
-	workspace_symbol_provider						bool
-	workspace_capabilities							WorkspaceCapabilities
-	supports_workspace_capabilities					bool
+	completion_provider                          CompletionOptions
+	signature_help_provider                      SignatureHelpOptions
+	hover_provider                               bool
+	hover_work_done_provider                     bool
+	declaration_provider                         bool
+	declaration_work_done_provider               bool
+	definition_provider                          bool
+	definition_work_done_provider                bool
+	type_definition_provider                     bool
+	type_definition_work_done_provider           bool
+	implementation_provider                      bool
+	implementation_work_done_provider            bool
+	references_provider                          bool
+	references_work_done_provider                bool
+	document_highlight_provider                  bool
+	document_highlight_work_done_provider        bool
+	document_symbol_provider                     bool
+	document_symbol_work_done_provider           bool
+	code_action_provider                         bool
+	code_action_resolve_provider                 bool
+	code_lens_provider                           bool
+	document_link_provider                       bool
+	color_provider                               bool
+	color_work_done_provider                     bool
+	document_formatting_provider                 bool
+	document_formatting_work_done_provider       bool
+	document_range_formatting_provider           bool
+	document_range_formatting_work_done_provider bool
+	document_on_type_formatting_provider         bool
+	rename_provider                              bool
+	rename_work_done_provider                    bool
+	folding_range_provider                       bool
+	folding_range_work_done_provider             bool
+	execute_command_provider                     bool
+	execute_command_work_done_provider           bool
+	execute_commands                             []string
+	selection_range_provider                     bool
+	selection_range_work_done_provider           bool
+	linked_editing_range_provider                bool
+	linked_editing_range_work_done_provider      bool
+	call_hierarchy_provider                      bool
+	call_hierarchy_prepare_call                  bool
+	call_hierarchy_work_done_provider            bool
+	semantic_tokens_provider                     bool
+	semantic_tokens_work_done_provider           bool
+	moniker_provider                             bool
+	moniker_work_done_provider                   bool
+	workspace_symbol_provider                    bool
+	workspace_capabilities                       WorkspaceCapabilities
+	supports_workspace_capabilities              bool
 
-	experimental									map[string]bool
+	experimental map[string]bool
 }
 
 pub fn (mut sc ServerCapabilities) from_json(f json2.Any) {
@@ -70,44 +71,52 @@ pub fn (mut sc ServerCapabilities) from_json(f json2.Any) {
 		match k {
 			'textDocumentSync' {
 				if v.str().starts_with('{') {
-					sync_opt := json2.decode<TextDocumentSyncOptions>(v.str()) or { TextDocumentSyncOptions{} }
+					sync_opt := json2.decode<TextDocumentSyncOptions>(v.str()) or {
+						TextDocumentSyncOptions{}
+					}
 					sc.text_document_sync = sync_opt.change
 					sc.send_open_close_notif = sync_opt.open_close
-					sc.send_save_notif	= sync_opt.save_options
-					sc.include_text_in_save_notif	= sync_opt.include_text
+					sc.send_save_notif = sync_opt.save_options
+					sc.include_text_in_save_notif = sync_opt.include_text
 					sc.supports_will_save = sync_opt.will_save
 					sc.supports_will_save_wait_until = sync_opt.will_save_wait_until
 				} else {
-					sc.text_document_sync = v.int()	
+					sc.text_document_sync = v.int()
 				}
 			}
-			'hoverProvider' { 
+			'hoverProvider' {
 				if v.str().starts_with('{') {
 					ho := json2.decode<HoverOptions>(v.str()) or { HoverOptions{} }
 					sc.hover_provider = true
 					sc.hover_work_done_provider = ho.work_done_progress
 				} else {
-					sc.hover_provider = v.bool()					
+					sc.hover_provider = v.bool()
 				}
 			}
-			'completionProvider' { 
-				sc.completion_provider = json2.decode<CompletionOptions>(v.str()) or { CompletionOptions{} }
+			'completionProvider' {
+				sc.completion_provider = json2.decode<CompletionOptions>(v.str()) or {
+					CompletionOptions{}
+				}
 			}
-			'signatureHelpProvider' { 
-				sc.signature_help_provider = json2.decode<SignatureHelpOptions>(v.str()) or { SignatureHelpOptions{} }
+			'signatureHelpProvider' {
+				sc.signature_help_provider = json2.decode<SignatureHelpOptions>(v.str()) or {
+					SignatureHelpOptions{}
+				}
 			}
-			'definitionProvider' { 
+			'definitionProvider' {
 				if v.str().starts_with('{') {
 					do := json2.decode<DefinitionOptions>(v.str()) or { DefinitionOptions{} }
 					sc.definition_provider = true
 					sc.definition_work_done_provider = do.work_done_progress
 				} else {
-					sc.definition_provider = v.bool()					
+					sc.definition_provider = v.bool()
 				}
 			}
 			'typeDefinitionProvider' {
 				if v.str().starts_with('{') {
-					tdo := json2.decode<TypeDefinitionOptions>(v.str()) or { TypeDefinitionOptions{} }
+					tdo := json2.decode<TypeDefinitionOptions>(v.str()) or {
+						TypeDefinitionOptions{}
+					}
 					sc.type_definition_provider = true
 					sc.type_definition_work_done_provider = tdo.work_done_progress
 				} else {
@@ -116,41 +125,49 @@ pub fn (mut sc ServerCapabilities) from_json(f json2.Any) {
 			}
 			'implementationProvider' {
 				if v.str().starts_with('{') {
-					io := json2.decode<ImplementationOptions>(v.str()) or { ImplementationOptions{} }
+					io := json2.decode<ImplementationOptions>(v.str()) or {
+						ImplementationOptions{}
+					}
 					sc.implementation_provider = true
 					sc.implementation_work_done_provider = io.work_done_progress
 				} else {
 					sc.implementation_provider = v.bool()
 				}
-			}  // | ImplementationOptions | ImplementationRegistrationOptions
-			'referencesProvider' { 
+			} // | ImplementationOptions | ImplementationRegistrationOptions
+			'referencesProvider' {
 				if v.str().starts_with('{') {
 					ro := json2.decode<ReferenceOptions>(v.str()) or { ReferenceOptions{} }
 					sc.references_provider = true
 					sc.references_work_done_provider = ro.work_done_progress
 				} else {
-					sc.references_provider = v.bool() 
+					sc.references_provider = v.bool()
 				}
-			}  // | ReferenceOptions
+			} // | ReferenceOptions
 			'documentHighlightProvider' {
 				if v.str().starts_with('{') {
-					dho := json2.decode<DocumentHighlightOptions>(v.str()) or { DocumentHighlightOptions{} }
+					dho := json2.decode<DocumentHighlightOptions>(v.str()) or {
+						DocumentHighlightOptions{}
+					}
 					sc.document_highlight_provider = true
 					sc.document_highlight_work_done_provider = dho.work_done_progress
 				} else {
-					sc.document_highlight_provider = v.bool() 
+					sc.document_highlight_provider = v.bool()
 				}
 			}
 			'documentSymbolProvider' {
 				if v.str().starts_with('{') {
-					dso := json2.decode<DocumentSymbolOptions>(v.str()) or { DocumentSymbolOptions{} }
+					dso := json2.decode<DocumentSymbolOptions>(v.str()) or {
+						DocumentSymbolOptions{}
+					}
 					sc.document_symbol_provider = true
 					sc.document_symbol_work_done_provider = dso.work_done_progress
 				} else {
-					sc.document_symbol_provider = v.bool() 
+					sc.document_symbol_provider = v.bool()
 				}
 			}
-			'workspaceSymbolProvider' { sc.workspace_symbol_provider = v.bool() }  // | WorkspaceSymbolOptions
+			'workspaceSymbolProvider' {
+				sc.workspace_symbol_provider = v.bool()
+			} // | WorkspaceSymbolOptions
 			'codeActionProvider' {
 				if v.str().starts_with('{') {
 					cao := json2.decode<CodeActionOptions>(v.str()) or { CodeActionOptions{} }
@@ -159,14 +176,16 @@ pub fn (mut sc ServerCapabilities) from_json(f json2.Any) {
 				} else {
 					sc.code_action_provider = v.bool()
 				}
-			}  // | 
-			'codeLensProvider' { 
+			} // |
+			'codeLensProvider' {
 				clo := json2.decode<CodeLensOptions>(v.str()) or { CodeLensOptions{} }
 				sc.code_lens_provider = clo.resolve_provider
 			}
 			'documentFormattingProvider' {
 				if v.str().starts_with('{') {
-					dfo := json2.decode<DocumentFormattingOptions>(v.str()) or { DocumentFormattingOptions{} }
+					dfo := json2.decode<DocumentFormattingOptions>(v.str()) or {
+						DocumentFormattingOptions{}
+					}
 					sc.document_formatting_provider = true
 					sc.document_formatting_work_done_provider = dfo.work_done_progress
 				} else {
@@ -174,7 +193,9 @@ pub fn (mut sc ServerCapabilities) from_json(f json2.Any) {
 				}
 			}
 			'documentOnTypeFormattingProvider' {
-				dotfo := json2.decode<DocumentOnTypeFormattingOptions>(v.str()) or { DocumentOnTypeFormattingOptions{} }
+				dotfo := json2.decode<DocumentOnTypeFormattingOptions>(v.str()) or {
+					DocumentOnTypeFormattingOptions{}
+				}
 				sc.document_on_type_formatting_provider = dotfo.first_trigger_character.len > 0
 			}
 			'renameProvider' {
@@ -228,19 +249,22 @@ pub fn (mut sc ServerCapabilities) from_json(f json2.Any) {
 				sc.semantic_tokens_provider = true
 				sc.semantic_tokens_work_done_provider = sto.work_done_progress
 			}
-			
 			'documentRangeFormattingProvider' {
 				if v.str().starts_with('{') {
-					drfo := json2.decode<DocumentRangeFormattingOptions>(v.str()) or { DocumentRangeFormattingOptions{} }
+					drfo := json2.decode<DocumentRangeFormattingOptions>(v.str()) or {
+						DocumentRangeFormattingOptions{}
+					}
 					sc.document_range_formatting_provider = true
 					sc.document_range_formatting_work_done_provider = drfo.work_done_progress
 				} else {
-					sc.document_range_formatting_provider = v.bool() 
+					sc.document_range_formatting_provider = v.bool()
 				}
 			}
 			'selectionRangeProvider' {
 				if v.str().starts_with('{') {
-					sro := json2.decode<SelectionRangeOptions>(v.str()) or { SelectionRangeOptions{} }
+					sro := json2.decode<SelectionRangeOptions>(v.str()) or {
+						SelectionRangeOptions{}
+					}
 					sc.selection_range_provider = true
 					sc.selection_range_work_done_provider = sro.work_done_progress
 				} else {
@@ -249,7 +273,9 @@ pub fn (mut sc ServerCapabilities) from_json(f json2.Any) {
 			}
 			'linkedEditingRangeProvider' {
 				if v.str().starts_with('{') {
-					lero := json2.decode<LinkedEditingRangeOptions>(v.str()) or { LinkedEditingRangeOptions{} }
+					lero := json2.decode<LinkedEditingRangeOptions>(v.str()) or {
+						LinkedEditingRangeOptions{}
+					}
 					sc.linked_editing_range_provider = true
 					sc.linked_editing_range_work_done_provider = lero.work_done_progress
 				} else {
@@ -262,7 +288,7 @@ pub fn (mut sc ServerCapabilities) from_json(f json2.Any) {
 					sc.call_hierarchy_provider = true
 					sc.call_hierarchy_work_done_provider = cho.work_done_progress
 				} else {
-					sc.call_hierarchy_provider = v.bool() 
+					sc.call_hierarchy_provider = v.bool()
 				}
 			}
 			'monikerProvider' {
@@ -274,17 +300,17 @@ pub fn (mut sc ServerCapabilities) from_json(f json2.Any) {
 					sc.moniker_provider = v.bool()
 				}
 			}
-			'workspace' { 
+			'workspace' {
 				sc.supports_workspace_capabilities = true
-				sc.workspace_capabilities = json2.decode<WorkspaceCapabilities>(v.str()) or { WorkspaceCapabilities{} } 
+				sc.workspace_capabilities = json2.decode<WorkspaceCapabilities>(v.str()) or {
+					WorkspaceCapabilities{}
+				}
 			}
-
 			// 'experimental' { sc.experimental = v.str() }
 			else {}
 		}
 	}
 }
-
 
 pub struct CompletionOptions {
 pub mut:
@@ -296,7 +322,7 @@ pub fn (mut co CompletionOptions) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'resolveProvider' { co.resolve_provider =  v.bool() }
+			'resolveProvider' { co.resolve_provider = v.bool() }
 			'triggerCharacters' { co.trigger_characters = v.arr().map(it.str()) }
 			else {}
 		}
@@ -308,21 +334,17 @@ pub mut:
 	// Open and close notifications are sent to the server.
 	// If omitted open close notification should not be sent.
 	open_close bool
-
 	// Change notifications are sent to the server.
 	// TextDocumentSyncKind.None, TextDocumentSyncKind.Full and
 	// TextDocumentSyncKind.Incremental.
 	// If omitted it defaults to TextDocumentSyncKind.None.
 	change int
-
 	// If present will save notifications are sent to the server.
 	// If omitted the notification should not be sent.
 	will_save bool
-
 	// If present will save wait until requests are sent to the server.
 	// If omitted the request should not be sent.
 	will_save_wait_until bool
-
 	// If present save notifications are sent to the server.
 	// If omitted the notification should not be sent.
 	save_options bool
@@ -333,10 +355,18 @@ pub fn (mut tdso TextDocumentSyncOptions) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'openClose' { tdso.open_close = v.bool() }
-			'change' { tdso.change = v.int() }
-			'willSave' { tdso.will_save = v.bool() }
-			'willSaveWaitUntil' { tdso.will_save_wait_until = v.bool() }
+			'openClose' {
+				tdso.open_close = v.bool()
+			}
+			'change' {
+				tdso.change = v.int()
+			}
+			'willSave' {
+				tdso.will_save = v.bool()
+			}
+			'willSaveWaitUntil' {
+				tdso.will_save_wait_until = v.bool()
+			}
 			'save' {
 				if v.str().starts_with('{') {
 					tdso.save_options = true
@@ -363,7 +393,7 @@ pub fn (mut so SaveOptions) from_json(f json2.Any) {
 
 pub struct SignatureHelpOptions {
 pub mut:
-	trigger_characters	 []string
+	trigger_characters   []string
 	retrigger_characters []string
 }
 
@@ -372,7 +402,7 @@ pub fn (mut sho SignatureHelpOptions) from_json(f json2.Any) {
 	for k, v in obj {
 		match k {
 			'triggerCharacters' { sho.trigger_characters = v.arr().map(it.str()) }
-			'retriggerCharacters' { sho.retrigger_characters =	v.arr().map(it.str()) }
+			'retriggerCharacters' { sho.retrigger_characters = v.arr().map(it.str()) }
 			else {}
 		}
 	}
@@ -387,7 +417,7 @@ pub fn (mut clo CodeLensOptions) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'resolveProvider' { clo.resolve_provider =	v.bool() }
+			'resolveProvider' { clo.resolve_provider = v.bool() }
 			else {}
 		}
 	}
@@ -396,14 +426,14 @@ pub fn (mut clo CodeLensOptions) from_json(f json2.Any) {
 pub struct DocumentOnTypeFormattingOptions {
 pub mut:
 	first_trigger_character string
-	more_trigger_character	[]string
+	more_trigger_character  []string
 }
 
 pub fn (mut dtfo DocumentOnTypeFormattingOptions) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'firstTriggerCharacter' { dtfo.first_trigger_character =  v.str() }
+			'firstTriggerCharacter' { dtfo.first_trigger_character = v.str() }
 			'moreTriggerCharacter' { dtfo.more_trigger_character = v.arr().map(it.str()) }
 			else {}
 		}
@@ -413,15 +443,19 @@ pub fn (mut dtfo DocumentOnTypeFormattingOptions) from_json(f json2.Any) {
 pub struct WorkspaceCapabilities {
 pub mut:
 	workspace_folders WorkspaceFoldersServerCapabilities
-	file_operations FileOperation
+	file_operations   FileOperation
 }
 
 pub fn (mut wc WorkspaceCapabilities) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'workspaceFolders' { wc.workspace_folders = json2.decode<WorkspaceFoldersServerCapabilities>(v.str()) or { WorkspaceFoldersServerCapabilities{} } } 
-			'fileOperations' { wc.file_operations = json2.decode<FileOperation>(v.str()) or { FileOperation{} } } 
+			'workspaceFolders' { wc.workspace_folders = json2.decode<WorkspaceFoldersServerCapabilities>(v.str()) or {
+					WorkspaceFoldersServerCapabilities{}
+				} }
+			'fileOperations' { wc.file_operations = json2.decode<FileOperation>(v.str()) or {
+					FileOperation{}
+				} }
 			else {}
 		}
 	}
@@ -430,12 +464,12 @@ pub fn (mut wc WorkspaceCapabilities) from_json(f json2.Any) {
 pub struct WorkspaceFoldersServerCapabilities {
 pub mut:
 	supported bool
-
 	// If a string is provided, the string is treated as an ID
 	// under which the notification is registered on the client
 	// side. The ID can be used to unregister for these events
 	// using the `client/unregisterCapability` request.
-	change_notifications string // | boolean
+	change_notifications string
+	// | boolean
 }
 
 pub fn (mut wfsc WorkspaceFoldersServerCapabilities) from_json(f json2.Any) {
@@ -451,48 +485,59 @@ pub fn (mut wfsc WorkspaceFoldersServerCapabilities) from_json(f json2.Any) {
 
 pub struct FileOperation {
 pub mut:
-	did_create FileOperationRegistrationOptions
-	did_create_supported bool
-	will_create FileOperationRegistrationOptions
+	did_create            FileOperationRegistrationOptions
+	did_create_supported  bool
+	will_create           FileOperationRegistrationOptions
 	will_create_supported bool
-	did_rename FileOperationRegistrationOptions
-	did_rename_supported bool
-	will_rename FileOperationRegistrationOptions
+	did_rename            FileOperationRegistrationOptions
+	did_rename_supported  bool
+	will_rename           FileOperationRegistrationOptions
 	will_rename_supported bool
-	did_delete FileOperationRegistrationOptions
-	did_delete_supported bool
-	will_delete FileOperationRegistrationOptions
+	did_delete            FileOperationRegistrationOptions
+	did_delete_supported  bool
+	will_delete           FileOperationRegistrationOptions
 	will_delete_supported bool
-
 }
 
 pub fn (mut fo FileOperation) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'didCreate' { 
+			'didCreate' {
 				fo.did_create_supported = true
-				fo.did_create = json2.decode<FileOperationRegistrationOptions>(v.str()) or { FileOperationRegistrationOptions{} } 
+				fo.did_create = json2.decode<FileOperationRegistrationOptions>(v.str()) or {
+					FileOperationRegistrationOptions{}
+				}
 			}
-			'willCreate' { 
+			'willCreate' {
 				fo.will_create_supported = true
-				fo.will_create = json2.decode<FileOperationRegistrationOptions>(v.str()) or { FileOperationRegistrationOptions{} } 
+				fo.will_create = json2.decode<FileOperationRegistrationOptions>(v.str()) or {
+					FileOperationRegistrationOptions{}
+				}
 			}
-			'didRename' { 
+			'didRename' {
 				fo.did_rename_supported = true
-				fo.did_rename = json2.decode<FileOperationRegistrationOptions>(v.str()) or { FileOperationRegistrationOptions{} } 
+				fo.did_rename = json2.decode<FileOperationRegistrationOptions>(v.str()) or {
+					FileOperationRegistrationOptions{}
+				}
 			}
-			'willRename' { 
+			'willRename' {
 				fo.will_rename_supported = true
-				fo.will_rename = json2.decode<FileOperationRegistrationOptions>(v.str()) or { FileOperationRegistrationOptions{} } 
+				fo.will_rename = json2.decode<FileOperationRegistrationOptions>(v.str()) or {
+					FileOperationRegistrationOptions{}
+				}
 			}
-			'didDelete' { 
+			'didDelete' {
 				fo.did_delete_supported = true
-				fo.did_delete = json2.decode<FileOperationRegistrationOptions>(v.str()) or { FileOperationRegistrationOptions{} } 
+				fo.did_delete = json2.decode<FileOperationRegistrationOptions>(v.str()) or {
+					FileOperationRegistrationOptions{}
+				}
 			}
-			'willDelete' { 
+			'willDelete' {
 				fo.will_delete_supported = true
-				fo.will_delete = json2.decode<FileOperationRegistrationOptions>(v.str()) or { FileOperationRegistrationOptions{} } 
+				fo.will_delete = json2.decode<FileOperationRegistrationOptions>(v.str()) or {
+					FileOperationRegistrationOptions{}
+				}
 			}
 			else {}
 		}
@@ -514,7 +559,7 @@ pub fn (mut foro FileOperationRegistrationOptions) from_json(f json2.Any) {
 pub struct FileOperationFilter {
 pub mut:
 	// A Uri like `file` or `untitled`.
-	scheme string
+	scheme  string
 	pattern FileOperationPattern
 }
 
@@ -523,7 +568,9 @@ pub fn (mut fof FileOperationFilter) from_json(f json2.Any) {
 	for k, v in obj {
 		match k {
 			'scheme' { fof.scheme = v.str() }
-			'pattern' { fof.pattern = json2.decode<FileOperationPattern>(v.str()) or { FileOperationPattern{} } }
+			'pattern' { fof.pattern = json2.decode<FileOperationPattern>(v.str()) or {
+					FileOperationPattern{}
+				} }
 			else {}
 		}
 	}
@@ -542,10 +589,9 @@ pub mut:
 	// - `[!...]` to negate a range of characters to match in a path segment
 	//	 (e.g., `example.[!0-9]` to match on `example.a`, `example.b`, but
 	//	 not `example.0`)
-
-	glob string
-	matches string	// is either 'file' | 'folder', matches both if undefined.
-
+	glob    string
+	matches string
+	// is either 'file' | 'folder', matches both if undefined.
 	// Additional options used during matching
 	options FileOperationPatternOptions
 }
@@ -556,7 +602,9 @@ pub fn (mut fop FileOperationPattern) from_json(f json2.Any) {
 		match k {
 			'glob' { fop.glob = v.str() }
 			'matches' { fop.matches = v.str() }
-			'options' { fop.options = json2.decode<FileOperationPatternOptions>(v.str()) or { FileOperationPatternOptions{} } }
+			'options' { fop.options = json2.decode<FileOperationPatternOptions>(v.str()) or {
+					FileOperationPatternOptions{}
+				} }
 			else {}
 		}
 	}
@@ -633,7 +681,8 @@ pub mut:
 pub fn (mut dho DocumentHighlightOptions) from_json(f json2.Any) {
 	dho.work_done_progress = f.bool()
 }
-pub struct DocumentColorOptions {
+
+pub struct DocumentColorOptions {
 pub mut:
 	work_done_progress bool
 }
@@ -650,7 +699,8 @@ pub mut:
 pub fn (mut dfo DocumentFormattingOptions) from_json(f json2.Any) {
 	dfo.work_done_progress = f.bool()
 }
-pub struct DocumentRangeFormattingOptions {
+
+pub struct DocumentRangeFormattingOptions {
 pub mut:
 	work_done_progress bool
 }
@@ -667,7 +717,8 @@ pub mut:
 pub fn (mut fro FoldingRangeOptions) from_json(f json2.Any) {
 	fro.work_done_progress = f.bool()
 }
-pub struct SelectionRangeOptions {
+
+pub struct SelectionRangeOptions {
 pub mut:
 	work_done_progress bool
 }
@@ -684,7 +735,8 @@ pub mut:
 pub fn (mut lero LinkedEditingRangeOptions) from_json(f json2.Any) {
 	lero.work_done_progress = f.bool()
 }
-pub struct CallHierarchyOptions {
+
+pub struct CallHierarchyOptions {
 pub mut:
 	work_done_progress bool
 }
@@ -701,6 +753,7 @@ pub mut:
 pub fn (mut mo MonikerOptions) from_json(f json2.Any) {
 	mo.work_done_progress = f.bool()
 }
+
 pub struct WorkspaceSymbolOptions {
 pub mut:
 	work_done_progress bool
@@ -709,10 +762,11 @@ pub mut:
 pub fn (mut wso WorkspaceSymbolOptions) from_json(f json2.Any) {
 	wso.work_done_progress = f.bool()
 }
-pub struct DocumentSymbolOptions {
+
+pub struct DocumentSymbolOptions {
 pub mut:
 	work_done_progress bool
-	label string
+	label              string
 }
 
 pub fn (mut dso DocumentSymbolOptions) from_json(f json2.Any) {
@@ -725,11 +779,12 @@ pub fn (mut dso DocumentSymbolOptions) from_json(f json2.Any) {
 		}
 	}
 }
+
 pub struct CodeActionOptions {
 pub mut:
 	work_done_progress bool
-	code_action_kinds []string
-	resolve_provider bool
+	code_action_kinds  []string
+	resolve_provider   bool
 }
 
 pub fn (mut cao CodeActionOptions) from_json(f json2.Any) {
@@ -743,10 +798,11 @@ pub fn (mut cao CodeActionOptions) from_json(f json2.Any) {
 		}
 	}
 }
-pub struct DocumentLinkOptions {
+
+pub struct DocumentLinkOptions {
 pub mut:
 	work_done_progress bool
-	resolve_provider bool
+	resolve_provider   bool
 }
 
 pub fn (mut dlo DocumentLinkOptions) from_json(f json2.Any) {
@@ -758,10 +814,12 @@ pub fn (mut dlo DocumentLinkOptions) from_json(f json2.Any) {
 			else {}
 		}
 	}
-}pub struct RenameOptions {
+}
+
+pub struct RenameOptions {
 pub mut:
 	work_done_progress bool
-	prepare_provider bool
+	prepare_provider   bool
 }
 
 pub fn (mut cao RenameOptions) from_json(f json2.Any) {
@@ -774,10 +832,11 @@ pub fn (mut cao RenameOptions) from_json(f json2.Any) {
 		}
 	}
 }
-pub struct ExecuteCommandOptions {
+
+pub struct ExecuteCommandOptions {
 pub mut:
 	work_done_progress bool
-	commands []string
+	commands           []string
 }
 
 pub fn (mut cao ExecuteCommandOptions) from_json(f json2.Any) {
@@ -794,17 +853,14 @@ pub fn (mut cao ExecuteCommandOptions) from_json(f json2.Any) {
 pub struct SemanticTokensOptions {
 pub mut:
 	work_done_progress bool
-	legend SemanticTokensLegend
-
+	legend             SemanticTokensLegend
 	// TODO: ?? unsure what that means ??
-	
 	// // Server supports providing semantic tokens for a specific range of a document.
 	// range?: bool | {}
-
 	// // Server supports providing semantic tokens for a full document.
 	// full?: bool | {
-		// // The server supports deltas for full documents.
-		// delta?: bool
+	// // The server supports deltas for full documents.
+	// delta?: bool
 	// }
 }
 
@@ -813,16 +869,19 @@ pub fn (mut sto SemanticTokensOptions) from_json(f json2.Any) {
 	for k, v in obj {
 		match k {
 			'workDoneProgress' { sto.work_done_progress = v.bool() }
-			'legend' { sto.legend = json2.decode<SemanticTokensLegend>(v.str()) or { SemanticTokensLegend{} } }
-			'range' { }
-			'full' { }
+			'legend' { sto.legend = json2.decode<SemanticTokensLegend>(v.str()) or {
+					SemanticTokensLegend{}
+				} }
+			'range' {}
+			'full' {}
 			else {}
 		}
 	}
 }
+
 pub struct SemanticTokensLegend {
 pub mut:
-	token_types []string
+	token_types     []string
 	token_modifiers []string
 }
 
@@ -835,4 +894,4 @@ pub fn (mut stl SemanticTokensLegend) from_json(f json2.Any) {
 			else {}
 		}
 	}
-}
+}

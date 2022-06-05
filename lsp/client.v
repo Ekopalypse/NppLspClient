@@ -3,7 +3,7 @@ module lsp
 import x.json2
 import os
 import util.io_handler as io
-import common { Symbol, Reference, DiagMessage }
+import common { DiagMessage, Reference, Symbol }
 
 const (
 	content_length = 'Content-Length: '
@@ -12,17 +12,16 @@ const (
 
 struct Client {
 pub mut:
-	config               Configs
-	cur_lang_srv_running bool
-	current_hover_position  u32
+	config                 Configs
+	cur_lang_srv_running   bool
+	current_hover_position u32
 mut:
 	current_stdin  voidptr
 	incomplete_msg string
-
 	// TODO
-	current_file_version    int
-	working_buffer_id       u64
-	file_version_map        map[u64]int
+	current_file_version int
+	working_buffer_id    u64
+	file_version_map     map[u64]int
 }
 
 pub fn (mut c Client) on_message_received(message string) {
@@ -391,10 +390,7 @@ fn find_references_response(json_message string) {
 		loca := json2.decode<LocationArray>(json_message) or { LocationArray{} }
 		if loca.items.len > 0 {
 			for item in loca.items {
-				references << Reference{
-					item.uri 
-					item.range.start.line
-				}
+				references << Reference{item.uri, item.range.start.line}
 			}
 			p.references_window.update(references)
 		}
@@ -430,32 +426,18 @@ fn document_symbols_response(json_message string) {
 		if json_message.contains('selectionRange') {
 			dsa := json2.decode<DocumentSymbolArray>(json_message) or { DocumentSymbolArray{} }
 			for item in dsa.items {
-				symbols << Symbol {
-					''
-					item.name
-					item.kind
-					item.range.start.line
-					''
-				}
+				symbols << Symbol{'', item.name, item.kind, item.range.start.line, ''}
 			}
 		} else {
 			sia := json2.decode<SymbolInformationArray>(json_message) or {
 				SymbolInformationArray{}
 			}
 			for item in sia.items {
-				symbols << Symbol {
-					item.location.uri
-					item.name
-					item.kind
-					item.location.range.start.line
-					item.container_name
-				}
-
+				symbols << Symbol{item.location.uri, item.name, item.kind, item.location.range.start.line, item.container_name}
 			}
 		}
 	}
 	p.symbols_window.update(mut symbols)
-
 }
 
 pub fn on_hover(file_name string) {
@@ -1016,10 +998,15 @@ fn publish_diagnostics(params string) {
 		if p.current_file_path == diag.uri {
 			p.editor.add_diag_indicator(start, end - start, d.severity)
 			if p.npp_version >= 0x80021 {
-				p.editor.add_diag_annotation(d.range.start.line, d.severity, d.message.replace_each(["\r", " ", "\n", " "]))
+				p.editor.add_diag_annotation(d.range.start.line, d.severity, d.message.replace_each([
+					'\r',
+					' ',
+					'\n',
+					' ',
+				]))
 			}
 		}
-		messages << DiagMessage {
+		messages << DiagMessage{
 			file_name: diag.uri
 			line: d.range.start.line
 			column: d.range.start.character
