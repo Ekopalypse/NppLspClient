@@ -7,15 +7,15 @@ struct JsonMessage {
 pub mut:
 	jsonrpc string
 	// all
-	method  string
+	method string
 	// request and notification
-	id      string
+	id string
 	// request and response
-	params  string
+	params string
 	// request and notification
-	result  string
+	result string
 	// response
-	error   string
+	error string
 	// response
 }
 
@@ -175,14 +175,18 @@ pub fn (mut ll LocationLink) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'originSelectionRange' { ll.origin_selection_range = json2.decode<Range>(v.str()) or {
-					Range{}
-				} }
-			'targetUri' { ll.target_uri = make_path(v.str()) }
-			'targetRange' { ll.target_range = json2.decode<Range>(v.str()) or { Range{} } }
-			'targetSelectionRange' { ll.target_selection_range = json2.decode<Range>(v.str()) or {
-					Range{}
-				} }
+			'originSelectionRange' {
+				ll.origin_selection_range = json2.decode<Range>(v.str()) or { Range{} }
+			}
+			'targetUri' {
+				ll.target_uri = make_path(v.str())
+			}
+			'targetRange' {
+				ll.target_range = json2.decode<Range>(v.str()) or { Range{} }
+			}
+			'targetSelectionRange' {
+				ll.target_selection_range = json2.decode<Range>(v.str()) or { Range{} }
+			}
 			else {}
 		}
 	}
@@ -201,19 +205,19 @@ pub fn (mut lla LocationLinkArray) from_json(f json2.Any) {
 
 pub struct Diagnostic {
 pub mut:
-	range               Range
-	severity            int
+	range    Range
+	severity int
 	// DiagnosticSeverity
-	code                string
-	code_description    string
+	code             string
+	code_description string
 	// CodeDescription
-	source              string
-	message             string
-	tags                string
+	source  string
+	message string
+	tags    string
 	// []DiagnosticTag
 	related_information string
 	// []DiagnosticRelatedInformation
-	data                string
+	data string
 }
 
 pub fn (mut d Diagnostic) from_json(f json2.Any) {
@@ -600,14 +604,28 @@ pub fn (mut ds DocumentSymbol) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'name' { ds.name = v.str() }
-			'detail' { ds.detail = v.str() }
-			'kind' { ds.kind = v.int() }
-			'tags' { ds.tags << v.arr().map(it.int()) }
-			'deprecated' { ds.deprecated = v.bool() }
-			'range' { ds.range = json2.decode<Range>(v.str()) or { Range{} } }
-			'selectionRange' { ds.selection_range = json2.decode<Range>(v.str()) or { Range{} } }
-			'children' { 
+			'name' {
+				ds.name = v.str()
+			}
+			'detail' {
+				ds.detail = v.str()
+			}
+			'kind' {
+				ds.kind = v.int()
+			}
+			'tags' {
+				ds.tags << v.arr().map(it.int())
+			}
+			'deprecated' {
+				ds.deprecated = v.bool()
+			}
+			'range' {
+				ds.range = json2.decode<Range>(v.str()) or { Range{} }
+			}
+			'selectionRange' {
+				ds.selection_range = json2.decode<Range>(v.str()) or { Range{} }
+			}
+			'children' {
 				for item in v.arr() {
 					ds.children << json2.decode<DocumentSymbol>(item.str()) or { DocumentSymbol{} }
 				}

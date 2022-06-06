@@ -427,11 +427,8 @@ fn document_symbols_response(json_message string) {
 			// TODO: bad hack, json2 decoder has issues with double backslash
 			json_message__ := json_message.replace('\\', '/')
 			dsa := json2.decode<DocumentSymbolArray>(json_message__) or { DocumentSymbolArray{} }
-			println(dsa)
 			for item in dsa.items {
-				println(item)
 				for sym in item.children {
-					println(sym)
 					symbols << Symbol{item.name, sym.name, sym.kind, sym.range.start.line, ''}
 				}
 			}
