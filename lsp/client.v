@@ -424,9 +424,16 @@ fn document_symbols_response(json_message string) {
 	mut symbols := []Symbol{}
 	if json_message.starts_with('[') {
 		if json_message.contains('selectionRange') {
-			dsa := json2.decode<DocumentSymbolArray>(json_message) or { DocumentSymbolArray{} }
+			// TODO: bad hack, json2 decoder has issues with double backslash
+			json_message__ := json_message.replace('\\', '/')
+			dsa := json2.decode<DocumentSymbolArray>(json_message__) or { DocumentSymbolArray{} }
+			println(dsa)
 			for item in dsa.items {
-				symbols << Symbol{'', item.name, item.kind, item.range.start.line, ''}
+				println(item)
+				for sym in item.children {
+					println(sym)
+					symbols << Symbol{item.name, sym.name, sym.kind, sym.range.start.line, ''}
+				}
 			}
 		} else {
 			sia := json2.decode<SymbolInformationArray>(json_message) or {

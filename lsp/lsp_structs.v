@@ -607,9 +607,11 @@ pub fn (mut ds DocumentSymbol) from_json(f json2.Any) {
 			'deprecated' { ds.deprecated = v.bool() }
 			'range' { ds.range = json2.decode<Range>(v.str()) or { Range{} } }
 			'selectionRange' { ds.selection_range = json2.decode<Range>(v.str()) or { Range{} } }
-			'children' { ds.children << json2.decode<DocumentSymbol>(v.str()) or {
-					DocumentSymbol{}
-				} }
+			'children' { 
+				for item in v.arr() {
+					ds.children << json2.decode<DocumentSymbol>(item.str()) or { DocumentSymbol{} }
+				}
+			}
 			else {}
 		}
 	}
