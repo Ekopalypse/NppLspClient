@@ -184,8 +184,9 @@ pub fn did_change_incremental(file_path DocumentUri, file_version int, text_chan
 	return m.encode()
 }
 
-pub fn did_change_full(file_path DocumentUri, file_version int, changes string) string {
+pub fn did_change_full(file_path DocumentUri, file_version int, text_changes string) string {
 	uri_path := make_uri(file_path)
+	changes := '{"text":"$text_changes"}'
 	m := Message{
 		msg_type: JsonRpcMessageType.notification
 		method: '"textDocument/didChange"'
