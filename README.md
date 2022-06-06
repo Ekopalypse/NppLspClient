@@ -71,7 +71,7 @@ endif
 
 ## Release History
 
-* 0.0.10
+* 0.0.11
     * Work in progress
 
 ## Meta
