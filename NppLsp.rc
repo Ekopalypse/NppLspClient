@@ -3,6 +3,39 @@
 
 IDI_LSP ICON "NppLsp.ico"
 
+VS_VERSION_INFO	VERSIONINFO
+FILEVERSION    	0, 0, 1, 0
+PRODUCTVERSION 	0, 0, 1, 0
+FILEFLAGSMASK  	VS_FFI_FILEFLAGSMASK
+#ifdef _DEBUG
+	FILEFLAGS	VS_FF_DEBUG | VS_FF_PRERELEASE
+#else
+	FILEFLAGS	0
+#endif
+FILEOS			VOS_NT_WINDOWS32
+FILETYPE		VFT_DLL  // VFT_APP
+FILESUBTYPE		VFT2_UNKNOWN
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904b0"  // 04b0 == 1200
+    BEGIN
+      VALUE "CompanyName", "Ekopalypse"
+      VALUE "FileDescription", "LSP client plugin for Notepad++"
+      VALUE "FileVersion", "0.0.1.0"
+      VALUE "InternalName", "NppLspClient"
+      VALUE "LegalCopyright", "Copyright (C) 2022 Ekopalypse"
+      VALUE "OriginalFilename", "NppLspClient.dll"
+      VALUE "ProductName", "NppLspClient"
+      VALUE "ProductVersion", "0.0.1.0"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x0409, 1200
+  END
+END
+
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL 
 IDD_ABOUTDLG DIALOGEX 0, 0, 223, 130
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_BORDER | WS_SYSMENU
