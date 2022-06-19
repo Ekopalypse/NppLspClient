@@ -63,14 +63,17 @@ pub fn (e Editor) get_lsp_position_info() (u32, u32) {
 pub fn (e Editor) format_document(tea TextEditArray) {
 	e.call(sci_beginundoaction, 0, 0)
 	reversed_tea := tea.items.reverse()
+	mut current_pos := e.call(sci_getcurrentpos, 0, 0)
 	for item in reversed_tea {
 		start_pos := u32(e.position_from_line(item.range.start.line)) + item.range.start.character
 		end_pos := u32(e.position_from_line(item.range.end.line)) + item.range.end.character
+		current_pos += isize(item.new_text.len) - isize(end_pos - start_pos)
 		e.call(sci_settargetstart, usize(start_pos), 0)
 		e.call(sci_settargetend, usize(end_pos), 0)
 		e.call(sci_replacetarget, -1, isize(item.new_text.str))
 	}
 	e.call(sci_endundoaction, 0, 0)
+	e.call(sci_gotopos, usize(current_pos), 0)
 }
 
 pub fn (e Editor) goto_position(line u32, column u32) {
