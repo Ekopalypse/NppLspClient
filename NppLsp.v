@@ -454,15 +454,11 @@ fn update_settings() {
 	p.editor.update_styles()
 }
 
-fn create_unicode_buffer(size int) &u8 {
-	return unsafe { vcalloc((size + 1) * 2) }
-}
-
 fn get_hwnd_infos(hwnd voidptr) (string, string) {
 	unsafe {
-		mut curr_class := create_unicode_buffer(max_path)
+		mut curr_class := api.create_unicode_buffer(max_path)
 		length := api.get_window_text_length(hwnd)
-		mut buffer := create_unicode_buffer(length)
+		mut buffer := api.create_unicode_buffer(length)
 		api.get_window_text(hwnd, &u16(buffer), length+1)
 		api.get_class_name(hwnd, &u16(curr_class), max_path)
 		curr_class_value := string_from_wide(curr_class)
@@ -485,7 +481,7 @@ fn foreach_window(hwnd voidptr, lparam isize) bool {
             for root_handle != isize(0) {
                 tvitem.hitem = voidptr(root_handle)
                 tvitem.text_max = max_path
-                mut buffer := create_unicode_buffer(max_path)
+                mut buffer := api.create_unicode_buffer(max_path)
                 tvitem.text = unsafe { &u16(buffer) }
 
                 if api.send_message(hwnd, u32(api.tvm_getitemw), 0, isize(&tvitem)) != 0 {

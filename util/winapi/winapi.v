@@ -106,6 +106,10 @@ pub fn hiword(value usize) u16 {
 	return u16((value >> 16) & 0xFFFF)
 }
 
+pub fn create_unicode_buffer(size isize) &u8 {
+	return unsafe { vcalloc((size + 1) * 2) }
+}
+
 // macro
 fn C.MAKEINTRESOURCE(dialogID int) voidptr
 pub fn make_int_resource(dialog_id int) voidptr {

@@ -1,6 +1,6 @@
 module notepadpp
 
-import util.winapi { RECT, send_message }
+import util.winapi { RECT, send_message, create_unicode_buffer }
 
 pub struct TbData {
 	client voidptr
@@ -49,10 +49,6 @@ mut:
 	hwnd voidptr
 }
 
-fn alloc_wide(size isize) &u8 {
-	return unsafe { vcalloc((size + 1) * 2) }
-}
-
 [inline]
 fn (n Npp) call(msg int, wparam usize, lparam isize) isize {
 	return send_message(n.hwnd, u32(msg), wparam, lparam)
@@ -64,7 +60,7 @@ pub fn (n Npp) get_filename_from_id(buffer_id usize) string {
 		return ''
 	}
 	// nppm_getfullpathfrombufferid returns -1 on error
-	mut buffer := alloc_wide(buffer_size)
+	mut buffer := create_unicode_buffer(buffer_size)
 	n.call(nppm_getfullpathfrombufferid, buffer_id, isize(buffer))
 	return unsafe { string_from_wide(buffer) }
 }
@@ -80,7 +76,7 @@ pub fn (n Npp) get_current_view() isize {
 pub fn (n Npp) get_language_name_from_id(buffer_id usize) string {
 	lang_type := n.call(nppm_getbufferlangtype, buffer_id, 0)
 	buffer_size := n.call(nppm_getlanguagename, usize(lang_type), 0)
-	mut buffer := alloc_wide(buffer_size)
+	mut buffer := create_unicode_buffer(buffer_size)
 
 	n.call(nppm_getlanguagename, usize(lang_type), isize(buffer))
 	mut lang_name := unsafe { string_from_wide(buffer) }
@@ -98,7 +94,7 @@ pub fn (n Npp) get_language_name_for_current_buffer() string {
 
 pub fn (n Npp) get_plugin_config_dir() string {
 	buffer_size := n.call(nppm_getpluginsconfigdir, 0, 0)
-	mut buffer := alloc_wide(buffer_size)
+	mut buffer := create_unicode_buffer(buffer_size)
 	n.call(nppm_getpluginsconfigdir, usize(buffer_size + 1), isize(buffer))
 	return unsafe { string_from_wide(buffer) }
 }
