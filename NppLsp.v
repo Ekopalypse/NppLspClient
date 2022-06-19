@@ -507,6 +507,7 @@ fn foreach_window(hwnd voidptr, lparam isize) bool {
 
 fn get_workspaces_roots() {
 	p.console_window.log_info('get_workspaces_roots')
+	p.workspaces.clear()
 	api.enum_child_windows(p.npp_data.npp_handle, api.WndEnumProc(foreach_window), 0)
 }
 
