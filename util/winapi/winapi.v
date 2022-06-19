@@ -6,9 +6,19 @@ module winapi
 #flag -lShell32
 
 pub type WndProc = fn (hwnd voidptr, message u32, wparam usize, lparam isize) isize
+pub type WndEnumProc = fn (hwnd voidptr, lparam isize) bool
 
 pub const (
 	still_active = u32(259)
+	tvif_text = 1
+	tvif_param = 4
+	tvgn_root = 0
+	tvgn_next = 1
+	tv_first = 0x1100
+	tvm_getcount = tv_first + 5
+	tvm_getnextitem = tv_first + 10
+	tvm_getitemw = tv_first + 62
+	tvm_getitem = tvm_getitemw
 )
 
 pub struct RECT {
@@ -60,6 +70,31 @@ pub mut:
 	n_length               u32
 	lp_security_descriptor voidptr
 	b_inherit_handle       bool
+}
+
+pub struct TVITEMEX {
+pub mut:
+	mask           u32
+	hitem          voidptr
+	state          u32
+	state_mask     u32
+	text           &u16
+	text_max       int
+	image          int
+	selected_image int
+	children       int
+	lparam         &Dummy
+	integral       int
+	state_ex       u32
+	hwnd           voidptr
+	expanded_image int
+	reserved       int
+}
+
+
+pub struct Dummy {
+pub mut:
+	root_path &u16
 }
 
 // helper functions
@@ -250,4 +285,24 @@ pub fn get_last_error() int {
 fn C.GetCurrentThreadId() u32
 pub fn get_current_thread_id() u32 {
 	return C.GetCurrentThreadId()
+}
+
+fn C.FindWindowW(lpClassName &u16, lpWindowName &u16) voidptr
+pub fn findwindoww(class_name &u16, window_name &u16) voidptr {
+	return C.FindWindowW(class_name, window_name) 
+}
+
+fn C.EnumChildWindows(hWndParent voidptr, lpEnumFunc WndEnumProc, lParam isize) bool
+pub fn enum_child_windows(hwnd_parent voidptr, enum_callback WndEnumProc, lparam isize) bool {
+	return C.EnumChildWindows(hwnd_parent, enum_callback, lparam) 
+}
+
+fn C.IsWindowVisible(hWnd voidptr) bool
+pub fn is_window_visible(hwnd voidptr) bool {
+	return C.IsWindowVisible(hwnd) 
+}
+
+fn C.GetClassNameW(hWnd voidptr, lpClassName &u16, nMaxCount int) int
+pub fn get_class_name(hwnd voidptr, class_name &u16, max_count int) int {
+	return C.GetClassNameW(hwnd, class_name, max_count ) 
 }

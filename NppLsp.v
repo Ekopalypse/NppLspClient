@@ -11,6 +11,7 @@ import dialogs.references
 import dialogs.symbols
 import util.io_handler as io
 import util.procman as pm
+import util.winapi as api
 
 fn C._vinit(int, voidptr)
 fn C._vcleanup()
@@ -20,6 +21,7 @@ const (
 	plugin_name        = 'NppLspClient'
 	configuration_file = 'NppLspClientConfig.toml'
 	log_file           = 'NppLspClient.log'
+	max_path		   = 260
 )
 
 __global (
@@ -57,6 +59,7 @@ pub mut:
 	current_file_version int
 	working_buffer_id    u64
 	file_version_map     map[u64]int
+	workspaces			 []string
 }
 
 pub struct NppData {
@@ -199,8 +202,14 @@ fn be_notified(notification &sci.SCNotification) {
 				// is handled within the initialize_response function.
 				// Since there is no way to be sure which open files are handled by this language server,
 				// this is only done for the current buffer.
-				current_directory := os.dir(p.current_file_path)
-				lsp.on_initialize(os.getpid(), current_directory)
+				mut workspace_root_directory := os.dir(p.current_file_path)
+				for dir in p.workspaces {
+					if p.current_file_path.starts_with(dir) {
+						workspace_root_directory = dir
+						break
+					}
+				}
+				lsp.on_initialize(os.getpid(), workspace_root_directory)
 			}
 		}
 		// notepadpp.nppn_fileopened is handled in nppn_bufferactivated
@@ -445,7 +454,64 @@ fn update_settings() {
 	p.editor.update_styles()
 }
 
+fn create_unicode_buffer(size int) &u8 {
+	return unsafe { vcalloc((size + 1) * 2) }
+}
+
+fn get_hwnd_infos(hwnd voidptr) (string, string) {
+	unsafe {
+		mut curr_class := create_unicode_buffer(max_path)
+		length := api.get_window_text_length(hwnd)
+		mut buffer := create_unicode_buffer(length)
+		api.get_window_text(hwnd, &u16(buffer), length+1)
+		api.get_class_name(hwnd, &u16(curr_class), max_path)
+		curr_class_value := string_from_wide(curr_class)
+		buffer_value := string_from_wide(buffer)
+		return curr_class_value, buffer_value
+	}
+}
+
+[callconv: stdcall]
+fn foreach_window(hwnd voidptr, lparam isize) bool {
+    class_name, _ := get_hwnd_infos(hwnd)
+    if class_name == 'SysTreeView32' {
+		_, parent_window_text := get_hwnd_infos(api.get_parent(hwnd))
+        if api.is_window_visible(hwnd) && parent_window_text == 'File Browser' {
+			mut dummy := api.Dummy{root_path: &u16(0)}
+            mut tvitem := api.TVITEMEX{ text: &u16(0), lparam: &dummy }
+            tvitem.mask = api.tvif_param + api.tvif_text
+            mut root_handle := isize(0)
+            root_handle = api.send_message(hwnd, u32(api.tvm_getnextitem), api.tvgn_root, 0)
+            for root_handle != isize(0) {
+                tvitem.hitem = voidptr(root_handle)
+                tvitem.text_max = max_path
+                mut buffer := create_unicode_buffer(max_path)
+                tvitem.text = unsafe { &u16(buffer) }
+
+                if api.send_message(hwnd, u32(api.tvm_getitemw), 0, isize(&tvitem)) != 0 {
+                    dummy = *tvitem.lparam
+					root_path := unsafe { string_from_wide(dummy.root_path) }
+					p.console_window.log_info('  $root_path')
+					p.workspaces << root_path
+                } else {
+                    p.console_window.log_error('Unable to get the root nodes from Folder as Workspace dialog')
+					break
+				}
+                root_handle = api.send_message(hwnd, u32(api.tvm_getnextitem), api.tvgn_next, root_handle)
+			}
+            return false
+		}
+	}
+    return true	
+}
+
+fn get_workspaces_roots() {
+	p.console_window.log_info('get_workspaces_roots')
+	api.enum_child_windows(p.npp_data.npp_handle, api.WndEnumProc(foreach_window), 0)
+}
+
 pub fn start_lsp_server() {
+	get_workspaces_roots()
 	p.console_window.log_info('starting language server: $p.current_language')
 	check_ls_status(false)
 
