@@ -10,7 +10,7 @@ const (
 	report_at      = 'please report this as an issue at https://github.com/Ekopalypse/NppLspClient/issues'
 )
 
-struct Client {
+pub struct Client {
 pub mut:
 	config                 Configs
 	cur_lang_srv_running   bool

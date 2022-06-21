@@ -87,14 +87,19 @@ pub fn (mut d DockableDialog) clear() {
 
 pub fn (mut d DockableDialog) update(references []Reference) {
 	mut file_map := map[string][]u32{}
+	mut header := ''
 	for reference in references {
-		d.reference_cursor++
+		if reference.file_name != header { 
+			d.reference_cursor++ 
+			header = reference.file_name
+		}
 		d.references_map[d.reference_cursor] = reference
 		file_map[reference.file_name] << reference.line
+		d.reference_cursor++
 	}
-	d.reference_cursor++
 
 	d.call(sci.sci_setreadonly, 0, 0)
+	d.clear()
 	for file_name, line_positions in file_map {
 		mut ref := ''
 		lines := os.read_lines(file_name) or { []string{} }
