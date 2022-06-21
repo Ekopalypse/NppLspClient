@@ -1,6 +1,11 @@
 # NppLSPClient
 A [LSP](https://microsoft.github.io/language-server-protocol/) client plugin for Notepad++.
 
+***NOTE: The latest builds assume that the Folder as Workspace (faw) dialog is used.  
+This means that the rootPath component of the [initialize request](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initializeParams) sent from the client to the server  
+is set to the directory of the root item that contains the current buffer. 
+If no faw dialog is used or the file is not part of one of the root elements, the directory of the file is used.***
+
 ## Installation
 
 - Download and unpack the NppLspClient zip-archive (the NppLspClient_x*86 or 64*.zip) from https://github.com/Ekopalypse/NppLspClient/releases to the folder "Notepad++\plugins".
