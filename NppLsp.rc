@@ -4,8 +4,8 @@
 IDI_LSP ICON "NppLsp.ico"
 
 VS_VERSION_INFO	VERSIONINFO
-FILEVERSION    	0, 0, 12, 0
-PRODUCTVERSION 	0, 0, 12, 0
+FILEVERSION    	0, 0, 13, 0
+PRODUCTVERSION 	0, 0, 13, 0
 FILEFLAGSMASK  	VS_FFI_FILEFLAGSMASK
 #ifdef _DEBUG
 	FILEFLAGS	VS_FF_DEBUG | VS_FF_PRERELEASE
@@ -22,12 +22,12 @@ BEGIN
     BEGIN
       VALUE "CompanyName", "Ekopalypse"
       VALUE "FileDescription", "LSP client plugin for Notepad++"
-      VALUE "FileVersion", "0.0.12.0"
+      VALUE "FileVersion", "0.0.13.0"
       VALUE "InternalName", "NppLspClient"
       VALUE "LegalCopyright", "Copyright (C) 2022 Ekopalypse"
       VALUE "OriginalFilename", "NppLspClient.dll"
       VALUE "ProductName", "NppLspClient"
-      VALUE "ProductVersion", "0.0.12.0"
+      VALUE "ProductVersion", "0.0.13.0"
     END
   END
   BLOCK "VarFileInfo"
