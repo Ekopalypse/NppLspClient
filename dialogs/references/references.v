@@ -2,7 +2,7 @@ module references
 
 /*
 A "poor man's search window result"-like view of the found references.
-	
+
 	Here's how it should work:
 		each result of a new search is appended at the end of the view
 		and thus previous results are still available
@@ -89,8 +89,8 @@ pub fn (mut d DockableDialog) update(references []Reference) {
 	mut file_map := map[string][]u32{}
 	mut header := ''
 	for reference in references {
-		if reference.file_name != header { 
-			d.reference_cursor++ 
+		if reference.file_name != header {
+			d.reference_cursor++
 			header = reference.file_name
 		}
 		d.references_map[d.reference_cursor] = reference

@@ -176,6 +176,8 @@ pub fn (e Editor) goto_pos(position u32) {
 }
 
 pub fn (e Editor) goto_line(line u32) {
+	e.call(sci_setvisiblepolicy, usize(caret_jumps | caret_even), 0)
+	e.call(sci_ensurevisibleenforcepolicy, usize(line), 0)
 	e.call(sci_gotoline, usize(line), 0)
 }
 
