@@ -18,9 +18,9 @@ import arrays
 #include "resource.h"
 
 const (
-	line_style   = byte(0)
-	header_style = byte(1)
-	error_style  = byte(2)
+	line_style   = u8(0)
+	header_style = u8(1)
+	error_style  = u8(2)
 )
 
 [callconv: stdcall]

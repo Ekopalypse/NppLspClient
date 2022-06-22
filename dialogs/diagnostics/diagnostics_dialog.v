@@ -49,10 +49,10 @@ fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 }
 
 const (
-	error_style   = byte(1)
-	warning_style = byte(2)
-	info_style    = byte(3)
-	hint_style    = byte(4)
+	error_style   = u8(1)
+	warning_style = u8(2)
+	info_style    = u8(3)
+	hint_style    = u8(4)
 )
 
 pub struct DockableDialog {

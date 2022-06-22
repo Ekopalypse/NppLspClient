@@ -22,5 +22,5 @@ pub:
 	line      u32
 	column    u32
 	message   string
-	severity  byte
+	severity  u8
 }
