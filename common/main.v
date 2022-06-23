@@ -14,6 +14,8 @@ pub struct Reference {
 pub:
 	file_name string
 	line      u32
+	start_pos u32
+	end_pos   u32
 }
 
 pub struct DiagMessage {

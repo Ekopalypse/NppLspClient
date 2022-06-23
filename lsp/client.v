@@ -384,13 +384,12 @@ pub fn on_find_references(file_name string) {
 }
 
 fn find_references_response(json_message string) {
-	p.references_window.clear()
 	mut references := []Reference{}
 	if json_message.starts_with('[') {
 		loca := json2.decode<LocationArray>(json_message) or { LocationArray{} }
 		if loca.items.len > 0 {
 			for item in loca.items {
-				references << Reference{item.uri, item.range.start.line}
+				references << Reference{item.uri, item.range.start.line, item.range.start.character, item.range.end.character}
 			}
 			p.references_window.update(references)
 		}

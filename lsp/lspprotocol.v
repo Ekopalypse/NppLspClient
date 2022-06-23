@@ -1,7 +1,6 @@
 module lsp
 
 // import x.json2
-
 enum JsonRpcMessageType {
 	response
 	notification
@@ -156,6 +155,7 @@ pub fn shutdown_msg() string {
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"shutdown"'
 	}
+
 	// p.lsp_config.lspservers[p.current_language].message_id_counter++
 	_ := p.lsp_config.lspservers[p.current_language].get_next_id()
 	return m.encode()
@@ -564,6 +564,7 @@ pub fn code_action(file_path DocumentUri, start_line u32, start_char u32, end_li
 	uri_path := make_uri(file_path)
 	text_document := '"textDocument":{"uri":"$uri_path"}'
 	range := make_range(start_line, start_char, end_line, end_char)
+
 	// export interface CodeActionContext {
 	// /**
 	// * An array of diagnostics known on the client side overlapping the range
@@ -687,6 +688,7 @@ pub fn on_type_formatting(file_path DocumentUri, line u32, char_position u32, ch
 	text_document := '"textDocument":{"uri":"$uri_path"}'
 	position := '"position":{"character":$char_position,"line":$line}'
 	character := '"ch":"$ch"'
+
 	// FormattingOptions
 	// Size of a tab in spaces.
 	// tabSize: u32

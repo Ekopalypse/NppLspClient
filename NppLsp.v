@@ -21,7 +21,7 @@ const (
 	plugin_name        = 'NppLspClient'
 	configuration_file = 'NppLspClientConfig.toml'
 	log_file           = 'NppLspClient.log'
-	max_path		   = 260
+	max_path           = 260
 )
 
 __global (
@@ -59,7 +59,7 @@ pub mut:
 	current_file_version int
 	working_buffer_id    u64
 	file_version_map     map[u64]int
-	workspaces			 []string
+	workspaces           []string
 }
 
 pub struct NppData {
@@ -355,6 +355,7 @@ fn get_funcs_array(mut nb_func &int) &FuncItem {
 		'Peek implementation':                 peek_implementation
 		'Goto declaration':                    goto_declaration
 		'Find references':                     find_references
+		'Clear references':                    clear_references
 		'Highlight in document':               document_highlight
 		'List all symbols from document':      document_symbols
 		'Clear highlighting':                  clear_document_highlighting
@@ -370,11 +371,13 @@ fn get_funcs_array(mut nb_func &int) &FuncItem {
 		}
 		mut func_name := [64]u16{init: 0}
 		func_name_length := k.len * 2
-		unsafe { C.memcpy(&func_name[0], k.to_wide(), if func_name_length < 128 {
-			func_name_length
-		} else {
-			127
-		}) }
+		unsafe {
+			C.memcpy(&func_name[0], k.to_wide(), if func_name_length < 128 {
+				func_name_length
+			} else {
+				127
+			})
+		}
 		p.func_items << FuncItem{
 			item_name: func_name
 			p_func: v
@@ -434,7 +437,7 @@ fn update_settings() {
 		p.lsp_config.selected_text_color, p.lsp_config.enable_logging)
 	p.symbols_window.update_settings(fore_color, back_color, p.lsp_config.selected_text_color)
 	p.references_window.update_settings(fore_color, back_color, p.lsp_config.selected_text_color,
-		p.lsp_config.outgoing_msg_color, p.lsp_config.error_color)
+		p.lsp_config.outgoing_msg_color, p.lsp_config.error_color, p.lsp_config.incoming_msg_color)
 
 	p.editor.error_msg_color = p.lsp_config.error_color
 	p.editor.warning_msg_color = p.lsp_config.warning_color
@@ -456,11 +459,11 @@ fn update_settings() {
 
 fn get_hwnd_infos(hwnd voidptr) (string, string) {
 	unsafe {
-		mut curr_class := api.create_unicode_buffer(max_path)
+		mut curr_class := api.create_unicode_buffer(npp_plugin.max_path)
 		length := api.get_window_text_length(hwnd)
 		mut buffer := api.create_unicode_buffer(length)
-		api.get_window_text(hwnd, &u16(buffer), length+1)
-		api.get_class_name(hwnd, &u16(curr_class), max_path)
+		api.get_window_text(hwnd, &u16(buffer), length + 1)
+		api.get_class_name(hwnd, &u16(curr_class), npp_plugin.max_path)
 		curr_class_value := string_from_wide(curr_class)
 		buffer_value := string_from_wide(buffer)
 		return curr_class_value, buffer_value
@@ -469,36 +472,43 @@ fn get_hwnd_infos(hwnd voidptr) (string, string) {
 
 [callconv: stdcall]
 fn foreach_window(hwnd voidptr, lparam isize) bool {
-    class_name, _ := get_hwnd_infos(hwnd)
-    if class_name == 'SysTreeView32' {
+	class_name, _ := get_hwnd_infos(hwnd)
+	if class_name == 'SysTreeView32' {
 		_, parent_window_text := get_hwnd_infos(api.get_parent(hwnd))
-        if api.is_window_visible(hwnd) && parent_window_text == 'File Browser' {
-			mut dummy := api.Dummy{root_path: &u16(0)}
-            mut tvitem := api.TVITEMEX{ text: &u16(0), lparam: &dummy }
-            tvitem.mask = api.tvif_param + api.tvif_text
-            mut root_handle := isize(0)
-            root_handle = api.send_message(hwnd, u32(api.tvm_getnextitem), api.tvgn_root, 0)
-            for root_handle != isize(0) {
-                tvitem.hitem = voidptr(root_handle)
-                tvitem.text_max = max_path
-                mut buffer := api.create_unicode_buffer(max_path)
-                tvitem.text = unsafe { &u16(buffer) }
+		if api.is_window_visible(hwnd) && parent_window_text == 'File Browser' {
+			mut dummy := api.Dummy{
+				root_path: &u16(0)
+			}
+			mut tvitem := api.TVITEMEX{
+				text: &u16(0)
+				lparam: &dummy
+			}
+			tvitem.mask = api.tvif_param + api.tvif_text
+			mut root_handle := isize(0)
+			root_handle = api.send_message(hwnd, u32(api.tvm_getnextitem), api.tvgn_root,
+				0)
+			for root_handle != isize(0) {
+				tvitem.hitem = voidptr(root_handle)
+				tvitem.text_max = npp_plugin.max_path
+				mut buffer := api.create_unicode_buffer(npp_plugin.max_path)
+				tvitem.text = unsafe { &u16(buffer) }
 
-                if api.send_message(hwnd, u32(api.tvm_getitemw), 0, isize(&tvitem)) != 0 {
-                    dummy = *tvitem.lparam
+				if api.send_message(hwnd, u32(api.tvm_getitemw), 0, isize(&tvitem)) != 0 {
+					dummy = *tvitem.lparam
 					root_path := unsafe { string_from_wide(dummy.root_path) }
 					p.console_window.log_info('  $root_path')
 					p.workspaces << root_path
-                } else {
-                    p.console_window.log_error('Unable to get the root nodes from Folder as Workspace dialog')
+				} else {
+					p.console_window.log_error('Unable to get the root nodes from Folder as Workspace dialog')
 					break
 				}
-                root_handle = api.send_message(hwnd, u32(api.tvm_getnextitem), api.tvgn_next, root_handle)
+				root_handle = api.send_message(hwnd, u32(api.tvm_getnextitem), api.tvgn_next,
+					root_handle)
 			}
-            return false
+			return false
 		}
 	}
-    return true	
+	return true
 }
 
 fn get_workspaces_roots() {
@@ -671,6 +681,10 @@ pub fn goto_declaration() {
 
 pub fn find_references() {
 	lsp.on_find_references(p.current_file_path)
+}
+
+pub fn clear_references() {
+	p.references_window.clear()
 }
 
 pub fn document_highlight() {

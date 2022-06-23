@@ -31,39 +31,39 @@ pub mut:
 	text &char
 	// SCN_MODIFIED, SCN_USERLISTSELECTION,
 	// SCN_AUTOCSELECTION, SCN_URIDROPPED
-	length                 isize
+	length isize
 	// SCN_MODIFIED
-	lines_added            isize
+	lines_added isize
 	// SCN_MODIFIED
-	message                int
+	message int
 	// SCN_MACRORECORD
-	wparam                 usize
+	wparam usize
 	// SCN_MACRORECORD
-	lparam                 isize
+	lparam isize
 	// SCN_MACRORECORD
-	line                   isize
+	line isize
 	// SCN_MODIFIED
-	fold_level_now         int
+	fold_level_now int
 	// SCN_MODIFIED
-	fold_level_prev        int
+	fold_level_prev int
 	// SCN_MODIFIED
-	margin                 int
+	margin int
 	// SCN_MARGINCLICK
-	list_type              int
+	list_type int
 	// SCN_USERLISTSELECTION
-	x                      int
+	x int
 	// SCN_DWELLSTART, SCN_DWELLEND
-	y                      int
+	y int
 	// SCN_DWELLSTART, SCN_DWELLEND
-	token                  int
+	token int
 	// SCN_MODIFIED with SC_MOD_CONTAINER
 	annotation_lines_added isize
 	// SCN_MODIFIED with SC_MOD_CHANGEANNOTATION
-	updated                int
+	updated int
 	// SCN_UPDATEUI
 	list_completion_method int
 	// SCN_AUTOCSELECTION, SCN_AUTOCCOMPLETED, SCN_USERLISTSELECTION,
-	character_source       int
+	character_source int
 	// SCN_CHARADDED
 }
 

@@ -11,7 +11,7 @@ diag_indicator_id = 12  # indicator used to draw the squiggle lines
 # the following colors, hex notation of a rgb value, are used by the diagnostics indicator, the annotation method and the console output window
 error_color = 0x756ce0  # values must be in the range 0 - 0xffffff
 warning_color = 0x64e0ff  # values must be in the range 0 - 0xffffff
-# these three colors are only used in the lsp console window
+# colors are used in the lsp console and in the reference window
 incoming_msg_color = 0x7bc399  # values must be in the range 0 - 0xffffff
 outgoing_msg_color = 0xffac59  # values must be in the range 0 - 0xffffff
 selected_text_color = 0x745227  # values must be in the range 0 - 0xffffff
@@ -25,6 +25,10 @@ highlight_indicator_color = 0x64e0ff  # values must be in the range 0 - 0xffffff
 
 # enable or disable logging functionality
 enable_logging = true  # values must be either false or true
+
+# references view settings
+# should be dialog emptied on each new search?
+clear_reference_view_always = false  # values must be either false or true
 
 # each configured lanugage server needs to start with a section called
 # [lspservers.NAME_OF_THE_LANGUAGE_SERVER] eg. [lspservers.python]
@@ -101,18 +105,19 @@ pub fn (mut sc ServerConfig) init_id() string {
 
 pub struct Configs {
 pub mut:
-	diag_indicator_id         int = 12
-	error_color               int = 0x756ce0
-	warning_color             int = 0x64e0ff
-	incoming_msg_color        int = 0x7bc399
-	outgoing_msg_color        int = 0xffac59
-	selected_text_color       int = 0x745227
-	enable_logging            bool
-	lspservers                map[string]ServerConfig
-	calltip_foreground_color  int = -1
-	calltip_background_color  int = -1
-	highlight_indicator_id    int = 13
-	highlight_indicator_color int = 0x64e0ff
+	diag_indicator_id           int = 12
+	error_color                 int = 0x756ce0
+	warning_color               int = 0x64e0ff
+	incoming_msg_color          int = 0x7bc399
+	outgoing_msg_color          int = 0xffac59
+	selected_text_color         int = 0x745227
+	enable_logging              bool
+	lspservers                  map[string]ServerConfig
+	calltip_foreground_color    int = -1
+	calltip_background_color    int = -1
+	highlight_indicator_id      int = 13
+	highlight_indicator_color   int = 0x64e0ff
+	clear_reference_view_always bool
 }
 
 pub fn create_default() string {
@@ -170,6 +175,10 @@ pub fn decode_config(full_file_path string) Configs {
 
 	if !is_null(doc.value('general.enable_logging')) {
 		lsp_config.enable_logging = doc.value('general.enable_logging').bool()
+	}
+
+	if !is_null(doc.value('general.clear_reference_view_always')) {
+		lsp_config.clear_reference_view_always = doc.value('general.clear_reference_view_always').bool()
 	}
 
 	if !is_null(doc.value('general.calltip_foreground_color')) {
@@ -300,6 +309,13 @@ pub fn analyze_config(full_file_path string) {
 					check_if_boolean_value(line)
 				} else {
 					p.console_window.log_error('enable_logging must be a field in general section')
+				}
+			}
+			line.starts_with('clear_reference_view_always') {
+				if in_general_section {
+					check_if_boolean_value(line)
+				} else {
+					p.console_window.log_error('clear_reference_view_always must be a field in general section')
 				}
 			}
 			line.starts_with('calltip_foreground_color') {

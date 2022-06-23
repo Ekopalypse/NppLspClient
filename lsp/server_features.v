@@ -450,12 +450,14 @@ pub fn (mut wc WorkspaceCapabilities) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'workspaceFolders' { wc.workspace_folders = json2.decode<WorkspaceFoldersServerCapabilities>(v.str()) or {
+			'workspaceFolders' {
+				wc.workspace_folders = json2.decode<WorkspaceFoldersServerCapabilities>(v.str()) or {
 					WorkspaceFoldersServerCapabilities{}
-				} }
-			'fileOperations' { wc.file_operations = json2.decode<FileOperation>(v.str()) or {
-					FileOperation{}
-				} }
+				}
+			}
+			'fileOperations' {
+				wc.file_operations = json2.decode<FileOperation>(v.str()) or { FileOperation{} }
+			}
 			else {}
 		}
 	}
@@ -567,10 +569,14 @@ pub fn (mut fof FileOperationFilter) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'scheme' { fof.scheme = v.str() }
-			'pattern' { fof.pattern = json2.decode<FileOperationPattern>(v.str()) or {
+			'scheme' {
+				fof.scheme = v.str()
+			}
+			'pattern' {
+				fof.pattern = json2.decode<FileOperationPattern>(v.str()) or {
 					FileOperationPattern{}
-				} }
+				}
+			}
 			else {}
 		}
 	}
@@ -600,11 +606,17 @@ pub fn (mut fop FileOperationPattern) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'glob' { fop.glob = v.str() }
-			'matches' { fop.matches = v.str() }
-			'options' { fop.options = json2.decode<FileOperationPatternOptions>(v.str()) or {
+			'glob' {
+				fop.glob = v.str()
+			}
+			'matches' {
+				fop.matches = v.str()
+			}
+			'options' {
+				fop.options = json2.decode<FileOperationPatternOptions>(v.str()) or {
 					FileOperationPatternOptions{}
-				} }
+				}
+			}
 			else {}
 		}
 	}
@@ -868,10 +880,14 @@ pub fn (mut sto SemanticTokensOptions) from_json(f json2.Any) {
 	obj := f.as_map()
 	for k, v in obj {
 		match k {
-			'workDoneProgress' { sto.work_done_progress = v.bool() }
-			'legend' { sto.legend = json2.decode<SemanticTokensLegend>(v.str()) or {
+			'workDoneProgress' {
+				sto.work_done_progress = v.bool()
+			}
+			'legend' {
+				sto.legend = json2.decode<SemanticTokensLegend>(v.str()) or {
 					SemanticTokensLegend{}
-				} }
+				}
+			}
 			'range' {}
 			'full' {}
 			else {}

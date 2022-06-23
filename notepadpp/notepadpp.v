@@ -1,25 +1,25 @@
 module notepadpp
 
-import util.winapi { RECT, send_message, create_unicode_buffer }
+import util.winapi { RECT, create_unicode_buffer, send_message }
 
 pub struct TbData {
 	client voidptr
 	// client Window Handle
-	name   &u16
+	name &u16
 	// name of plugin (shown in window)
 	dlg_id int
 	// a funcItem provides the function pointer to start a dialog. Please parse here these ID
 	// user modifications
-	mask     u32
+	mask u32
 	// mask params: look to above defines
 	icon_tab voidptr
 	// icon for tabs
 	add_info &u16
 	// for plugin to display additional informations
 	// internal data, do not use !!!  - except for inializing it.
-	rc_float    RECT
+	rc_float RECT
 	// floating position
-	prev_cont   int
+	prev_cont int
 	// stores the privious container (toggling between float and dock)
 	module_name &u16
 	// it's the plugin file name. It's used to identify the plugin
@@ -59,6 +59,7 @@ pub fn (n Npp) get_filename_from_id(buffer_id usize) string {
 	if buffer_size == 0 {
 		return ''
 	}
+
 	// nppm_getfullpathfrombufferid returns -1 on error
 	mut buffer := create_unicode_buffer(buffer_size)
 	n.call(nppm_getfullpathfrombufferid, buffer_id, isize(buffer))

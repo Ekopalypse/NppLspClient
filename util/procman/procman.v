@@ -94,7 +94,7 @@ fn (mut proc Process) start() bool {
 	}
 
 	// Create the child process.
-	success = // application name
+	// application name
 	// command line
 	// process security attributes
 	// primary thread security attributes
@@ -103,8 +103,8 @@ fn (mut proc Process) start() bool {
 	// use parent's environment
 	// use parent's current directory
 	// STARTUPINFO pointer
-	api.create_process(voidptr(0), cmdline, voidptr(0), voidptr(0), true, 0, voidptr(0),
-		working_dir, &start_info, &proc_info) // receives PROCESS_INFORMATION
+	success = api.create_process(voidptr(0), cmdline, voidptr(0), voidptr(0), true, 0,
+		voidptr(0), working_dir, &start_info, &proc_info) // receives PROCESS_INFORMATION
 	// If an error occurs, exit the application.
 	if !success {
 		proc.error_message = 'Error creating process. Error returned: $winapi_lasterr_str()'
