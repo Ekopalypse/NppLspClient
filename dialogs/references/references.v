@@ -3,7 +3,7 @@ module references
 /*
 A "poor man's search window result"-like view of the found references.
 
-	Here's how it should work:
+	Here's how it works:
 		each result of a new search is appended at the end of the view
 		and thus previous results are still available
 		but it cannot be guaranteed that they are still valid.
