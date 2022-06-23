@@ -140,7 +140,7 @@ pub fn (mut d DockableDialog) update(references []Reference) {
 			unsafe {
 				for i := 0; i < ref.len; i++ {
 					buffer[i * 2] = ref.str[i]
-					buffer[i * 2 + 1] = references.error_style
+					buffer[i * 2 + 1] = error_style
 				}
 			}
 			d.call(sci.sci_addstyledtext, usize(ref.len * 2), isize(buffer))
@@ -157,7 +157,7 @@ pub fn (mut d DockableDialog) update(references []Reference) {
 			unsafe {
 				for i := 0; i < search_header.len; i++ {
 					search_buffer[i * 2] = search_header.str[i]
-					search_buffer[i * 2 + 1] = references.search_style
+					search_buffer[i * 2 + 1] = search_style
 				}
 			}
 			d.call(sci.sci_addstyledtext, usize(search_header.len * 2), isize(search_buffer))
@@ -172,7 +172,7 @@ pub fn (mut d DockableDialog) update(references []Reference) {
 		unsafe {
 			for i := 0; i < file_name__.len; i++ {
 				buffer2[i * 2] = file_name__.str[i]
-				buffer2[i * 2 + 1] = references.header_style
+				buffer2[i * 2 + 1] = header_style
 			}
 		}
 		d.call(sci.sci_addstyledtext, usize(file_name__.len * 2), isize(buffer2))
@@ -222,11 +222,11 @@ pub fn (mut d DockableDialog) init_scintilla() {
 	d.call(sci.sci_stylesetfore, 32, d.fore_color)
 	d.call(sci.sci_stylesetback, 32, d.back_color)
 	d.call(sci.sci_styleclearall, 0, 0)
-	d.call(sci.sci_stylesetfore, references.search_style, d.search_style_color)
-	d.call(sci.sci_stylesetfore, references.header_style, d.header_style_color)
-	d.call(sci.sci_stylesetfore, references.line_style, d.fore_color)
-	d.call(sci.sci_stylesethotspot, references.line_style, 1)
-	d.call(sci.sci_stylesetfore, references.error_style, d.error_style_color)
+	d.call(sci.sci_stylesetfore, search_style, d.search_style_color)
+	d.call(sci.sci_stylesetfore, header_style, d.header_style_color)
+	d.call(sci.sci_stylesetfore, line_style, d.fore_color)
+	d.call(sci.sci_stylesethotspot, line_style, 1)
+	d.call(sci.sci_stylesetfore, error_style, d.error_style_color)
 	d.call(sci.sci_setselback, 1, d.selected_text_color)
 	d.call(sci.sci_setcaretfore, usize(d.back_color), 0)
 
