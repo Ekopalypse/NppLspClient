@@ -136,14 +136,20 @@ pub fn (mut d DockableDialog) update(references []Reference) {
 			}
 		} else {
 			ref = '  ERROR: expected maximum lines to be $lines.len but got $max_line_pos instead'
-			mut buffer := vcalloc(ref.len * 2)
-			unsafe {
-				for i := 0; i < ref.len; i++ {
-					buffer[i * 2] = ref.str[i]
-					buffer[i * 2 + 1] = error_style
-				}
-			}
-			d.call(sci.sci_addstyledtext, usize(ref.len * 2), isize(buffer))
+			// mut buffer := vcalloc(ref.len * 2)
+			// unsafe {
+				// for i := 0; i < ref.len; i++ {
+					// buffer[i * 2] = ref.str[i]
+					// buffer[i * 2 + 1] = error_style
+				// }
+			// }
+			// d.call(sci.sci_addstyledtext, usize(ref.len * 2), isize(buffer))
+			mut buffer := []u8{len: ref.len * 2}
+			for j := 0; j < ref.len; j++ {
+				buffer[j * 2] = ref[j]
+				buffer[j * 2 + 1] = error_style
+			}			
+			d.call(sci.sci_addstyledtext, usize(buffer.len), isize(buffer.data))
 		}
 
 		// goto end of buffer
@@ -153,14 +159,20 @@ pub fn (mut d DockableDialog) update(references []Reference) {
 		// add styled search term header
 		if search_header.len != 0 {
 			search_header = 'References found for $search_header\n'
-			mut search_buffer := vcalloc(search_header.len * 2)
-			unsafe {
-				for i := 0; i < search_header.len; i++ {
-					search_buffer[i * 2] = search_header.str[i]
-					search_buffer[i * 2 + 1] = search_style
-				}
-			}
-			d.call(sci.sci_addstyledtext, usize(search_header.len * 2), isize(search_buffer))
+			// mut search_buffer := vcalloc(search_header.len * 2)
+			// unsafe {
+				// for i := 0; i < search_header.len; i++ {
+					// search_buffer[i * 2] = search_header.str[i]
+					// search_buffer[i * 2 + 1] = search_style
+				// }
+			// }
+			// d.call(sci.sci_addstyledtext, usize(search_header.len * 2), isize(search_buffer))
+			mut buffer := []u8{len: search_header.len * 2}
+			for j := 0; j < search_header.len; j++ {
+				buffer[j * 2] = search_header[j]
+				buffer[j * 2 + 1] = search_style
+			}			
+			d.call(sci.sci_addstyledtext, usize(buffer.len), isize(buffer.data))
 			search_header = ''
 			d.call(sci.sci_setfoldlevel, usize(last_line), isize(sci.sc_foldlevelheaderflag | sci.sc_foldlevelbase))
 			last_line++
@@ -168,14 +180,20 @@ pub fn (mut d DockableDialog) update(references []Reference) {
 
 		// add styled file_header line
 		file_name__ := '  $file_name\n'
-		mut buffer2 := vcalloc(file_name__.len * 2)
-		unsafe {
-			for i := 0; i < file_name__.len; i++ {
-				buffer2[i * 2] = file_name__.str[i]
-				buffer2[i * 2 + 1] = header_style
-			}
-		}
-		d.call(sci.sci_addstyledtext, usize(file_name__.len * 2), isize(buffer2))
+		// mut buffer2 := vcalloc(file_name__.len * 2)
+		// unsafe {
+			// for i := 0; i < file_name__.len; i++ {
+				// buffer2[i * 2] = file_name__.str[i]
+				// buffer2[i * 2 + 1] = header_style
+			// }
+		// }
+		// d.call(sci.sci_addstyledtext, usize(file_name__.len * 2), isize(buffer2))
+		mut buffer := []u8{len: file_name__.len * 2}
+		for j := 0; j < file_name__.len; j++ {
+			buffer[j * 2] = file_name__[j]
+			buffer[j * 2 + 1] = header_style
+		}			
+		d.call(sci.sci_addstyledtext, usize(buffer.len), isize(buffer.data))
 		d.call(sci.sci_setfoldlevel, usize(last_line),
 			(sci.sc_foldlevelheaderflag | sci.sc_foldlevelbase) + 1)
 		last_line++

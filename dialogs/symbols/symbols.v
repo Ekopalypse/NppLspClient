@@ -28,7 +28,6 @@ const (
 	symbol_style   = u8(1)
 	symbol_map     = {
 			0: '?  '
-			// 1: rune(0x24D0).str() + '  '
 			1: '\u24BB\t'  // File Ⓕ
 			2: '\u24C2\t'  // Module Ⓜ
 			3: '\u24C3\t'  // Namespace Ⓝ
