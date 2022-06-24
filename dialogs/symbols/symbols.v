@@ -85,9 +85,6 @@ fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 						scnotification := &sci.SCNotification(lparam)
 						p.symbols_window.on_marginclick(scnotification.position)
 					}
-					sci.scn_focusin {
-						p.symbols_window.on_focusin()
-					}
 					else {}
 				}
 			}
@@ -265,10 +262,6 @@ pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
 pub fn (mut d DockableDialog) on_marginclick(position isize) {
 	line_number := d.call(sci.sci_linefromposition, usize(position), 0)
 	d.call(sci.sci_togglefold, usize(line_number), 0)
-}
-
-pub fn (mut d DockableDialog) on_focusin() {
-	if d.is_visible { d.call(sci.sci_setemptyselection, 0, 0) }
 }
 
 /*
