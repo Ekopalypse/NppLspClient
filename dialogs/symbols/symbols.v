@@ -212,23 +212,6 @@ pub fn (mut d DockableDialog) init_scintilla() {
 	// these two lines are responsible for the margin background coloring !!
 	d.call(sci.sci_setfoldmargincolour, 1, d.back_color)
 	d.call(sci.sci_setfoldmarginhicolour, 1, d.back_color)
-
-	// // symbol markers and margin setup
-	// for i in 0 .. 27 {
-		// if i > 0 {
-			// d.call(sci.sci_markerdefine, usize(i), isize(sci.sc_mark_character+0x24D0+i))
-		// } else {
-			// d.call(sci.sci_markerdefine, usize(i), isize(sci.sc_mark_character+0x3f))
-		// }
-		// d.call(sci.sci_markersetback, usize(i), isize(d.back_color))
-		// d.call(sci.sci_markersetfore, usize(i), isize(d.fore_color))
-		// d.call(sci.sci_markersetbackselected, usize(i), isize(0x70635C))
-	// }
-	
-	// d.call(sci.sci_setmarginmaskn, 1, 0x07FFFFFF)  // 1 - 26
-	// d.call(sci.sci_setmargintypen, 1, sci.sc_margin_colour)
-	// d.call(sci.sci_setmarginwidthn, 1, 16)
-	// d.call(sci.sci_setmarginbackn, 1, d.back_color)
 }
 
 pub fn (mut d DockableDialog) show() {
@@ -255,8 +238,6 @@ pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
 		p.npp.open_document(symbol.file_name)
 	}
 	p.editor.goto_line(symbol.line)
-
-	// d.call(sci.sci_togglefold, usize(line), 0)
 }
 
 pub fn (mut d DockableDialog) on_marginclick(position isize) {
