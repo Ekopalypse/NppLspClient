@@ -24,6 +24,40 @@ import common { Symbol }
 
 #include "resource.h"
 
+const (
+	symbol_style   = u8(1)
+	symbol_map     = {
+			0: '?  '
+			// 1: rune(0x24D0).str() + '  '
+			1: '\u24BB\t'  // File Ⓕ
+			2: '\u24C2\t'  // Module Ⓜ
+			3: '\u24C3\t'  // Namespace Ⓝ
+			4: '\u24C5\t'  // Package Ⓟ
+			5: '\u24B8\t'  // Class Ⓒ
+			6: '\u24DC\t'  // Method ⓜ
+			7: '\u24DF\t'  // Property ⓟ
+			8: '\u24D5\t'  // Field ⓕ
+			9: '\u24D2\t'  // Constructor ⓒ
+			10: '\u24BA\t'  // Enum Ⓔ
+			11: '\u24BE\t'  // Interface Ⓘ
+			12: '\u0192\t'  // Function ƒ
+			13: '\u24CB\t'  // Variable Ⓥ
+			14: '\u2282\t'  // Constant ⊂
+			15: '\u24E2\t'  // String ⓢ
+			16: '\u24DD\t'  // Number ⓝ
+			17: '\u24B7\t'  // Boolean Ⓑ
+			18: '\u24B6\t'  // Array Ⓐ
+			19: '\u24C4\t'  // Object Ⓞ
+			20: '\u24C0\t'  // Key Ⓚ
+			21: '\u00D8\t'  // Null Ø
+			22: '\u24D4\t'  // EnumMember ⓔ
+			23: '\u24C8\t'  // Struct Ⓢ
+			24: '\u0404\t'  // Event Є
+			25: '\u24DE\t'  // Operator ⓞ
+			26: '\u24C9\t'  // TypeParameter Ⓣ
+		}
+)
+
 [callconv: stdcall]
 fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 	match int(message) {
@@ -51,6 +85,9 @@ fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 					sci.scn_marginclick {
 						scnotification := &sci.SCNotification(lparam)
 						p.symbols_window.on_marginclick(scnotification.position)
+					}
+					sci.scn_focusin {
+						p.symbols_window.on_focusin()
 					}
 					else {}
 				}
@@ -93,41 +130,25 @@ pub fn (mut d DockableDialog) update(mut symbols []Symbol) {
 	d.call(sci.sci_setreadonly, 0, 0)
 	d.call(sci.sci_clearall, 0, 0)
 
-	// symbols.sort(a.name < b.name)
 	for i, symbol in symbols {
 		d.symbols_location[i] = symbol
-		if symbol.parent == 'null' {
-			d.call(sci.sci_setfoldlevel, usize(i), 0x2400)
-		} else {
-			if i > 0 {
-				prev_fold_level := d.call(sci.sci_getfoldlevel, usize(i - 1), 0)
-				match true {
-					prev_fold_level > sci.sc_foldlevelheaderflag {
-						d.call(sci.sci_setfoldlevel, usize(i),
-							(prev_fold_level & sci.sc_foldlevelnumbermask) + 1)
-					}
-					prev_fold_level & sci.sc_foldlevelnumbermask == sci.sc_foldlevelbase {
-						d.call(sci.sci_setfoldlevel, usize(i), sci.sc_foldlevelbase)
-					}
-					else {
-						d.call(sci.sci_setfoldlevel, usize(i), prev_fold_level)
-					}
-				}
-				if prev_fold_level == sci.sc_foldlevelbase {
-					d.call(sci.sci_setfoldlevel, usize(i), sci.sc_foldlevelbase)
-				} else {
-				}
-			} else {
-				d.call(sci.sci_setfoldlevel, usize(i), sci.sc_foldlevelbase)
-			}
+	
+		sym := symbol_map[symbol.kind]
+		mut buffer := []u8{len: sym.len * 2}
+		for j := 0; j < sym.len; j++ {
+			buffer[j * 2] = sym[j]
+			buffer[j * 2 + 1] = symbol_style
 		}
+
+		pos := d.call(sci.sci_gettextlength, 0, 0)
+		d.call(sci.sci_setcurrentpos, usize(pos), 0)
+		d.call(sci.sci_addstyledtext, usize(buffer.len), isize(buffer.data))
 		d.call(sci.sci_appendtext, usize(symbol.name.len), isize(symbol.name.str))
 		d.call(sci.sci_appendtext, usize(1), isize('\n'.str))
 	}
+	
 	d.call(sci.sci_setreadonly, 1, 0)
-	if !d.is_visible {
-		d.show()
-	}
+	d.show()
 }
 
 pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
@@ -159,43 +180,59 @@ pub fn (mut d DockableDialog) init_scintilla() {
 	d.call(sci.sci_stylesetback, 32, d.back_color)
 	d.call(sci.sci_styleclearall, 0, 0)
 
+	d.call(sci.sci_stylesetfore, symbol_style, 0x7FC0E5)
+	d.call(sci.sci_stylesetback, symbol_style, d.back_color)
 	d.call(sci.sci_stylesethotspot, 32, 1)
 	d.call(sci.sci_sethotspotactiveunderline, 0, 0)
 	d.call(sci.sci_sethotspotactiveback, 1, d.selected_text_color)
 	d.call(sci.sci_setselback, 1, d.selected_text_color)
+	d.call(sci.sci_setcaretfore, usize(d.back_color), 0)
 
-	for i in 0 .. 5 {
-		d.call(sci.sci_setmarginwidthn, usize(i), 0)
-	}
-
-	// folding margin setup
-	marker_definitions := [
-		[sci.sc_marknum_folderopen, sci.sc_mark_arrowdown, 0x70635C, d.back_color, d.fore_color],
-		[sci.sc_marknum_folder, sci.sc_mark_arrow, 0x70635C, d.back_color, d.fore_color],
-		[sci.sc_marknum_foldersub, sci.sc_mark_empty, 0x70635C, d.back_color, d.fore_color],
-		[sci.sc_marknum_foldertail, sci.sc_mark_empty, 0x70635C, d.back_color, d.fore_color],
-		[sci.sc_marknum_foldermidtail, sci.sc_mark_empty, 0x70635C, d.back_color, d.fore_color],
-		[sci.sc_marknum_folderopenmid, sci.sc_mark_empty, 0x70635C, d.back_color, d.fore_color],
-		[sci.sc_marknum_folderend, sci.sc_mark_empty, 0x70635C, d.back_color, d.fore_color],
+	d.call(sci.sci_setmargins, 1, 0)
+	
+	// folding markers and margin setup
+	folding_marker_definitions := [
+		[sci.sc_marknum_folderopen, sci.sc_mark_arrowdown, d.back_color, d.fore_color, 0x70635C],
+		[sci.sc_marknum_folder, sci.sc_mark_arrow, d.back_color, d.fore_color, 0x70635C],
+		[sci.sc_marknum_foldersub, sci.sc_mark_empty, d.back_color, d.fore_color, 0x70635C],
+		[sci.sc_marknum_foldertail, sci.sc_mark_empty, d.back_color, d.fore_color, 0x70635C],
+		[sci.sc_marknum_foldermidtail, sci.sc_mark_empty, d.back_color, d.fore_color, 0x70635C],
+		[sci.sc_marknum_folderopenmid, sci.sc_mark_empty, d.back_color, d.fore_color, 0x70635C],
+		[sci.sc_marknum_folderend, sci.sc_mark_empty, d.back_color, d.fore_color, 0x70635C],
 	]
 
-	for marker_defines in marker_definitions {
+	for marker_defines in folding_marker_definitions {
 		d.call(sci.sci_markerdefine, usize(marker_defines[0]), isize(marker_defines[1]))
-		d.call(sci.sci_markersetback, usize(marker_defines[0]), isize(marker_defines[2]))
-		d.call(sci.sci_markersetfore, usize(marker_defines[0]), isize(marker_defines[3]))
+		d.call(sci.sci_markersetback, usize(marker_defines[0]), isize(marker_defines[3]))
+		d.call(sci.sci_markersetfore, usize(marker_defines[0]), isize(marker_defines[2]))
 		d.call(sci.sci_markersetbackselected, usize(marker_defines[0]), isize(marker_defines[4]))
 	}
 
-	d.call(sci.sci_setmargintypen, 2, sci.sc_margin_symbol)
-	d.call(sci.sci_setmarginwidthn, 2, 24)
-	d.call(sci.sci_setmarginmaskn, 2, sci.sc_mask_folders)
-	d.call(sci.sci_setmarginsensitiven, 2, 1)
+	d.call(sci.sci_setmarginmaskn, 0, sci.sc_mask_folders)  // sci.sc_mask_folders
+	d.call(sci.sci_setmargintypen, 0, sci.sc_margin_symbol)
+	d.call(sci.sci_setmarginwidthn, 0, 14)
+	d.call(sci.sci_setmarginsensitiven, 0, 1)
+
+	// these two lines are responsible for the margin background coloring !!
 	d.call(sci.sci_setfoldmargincolour, 1, d.back_color)
 	d.call(sci.sci_setfoldmarginhicolour, 1, d.back_color)
-	d.call(sci.sci_setautomaticfold, 1, 0)
-	d.call(sci.sci_setfoldflags, 0, 0)
 
-	d.call(sci.sci_setcaretfore, usize(d.back_color), 0)
+	// // symbol markers and margin setup
+	// for i in 0 .. 27 {
+		// if i > 0 {
+			// d.call(sci.sci_markerdefine, usize(i), isize(sci.sc_mark_character+0x24D0+i))
+		// } else {
+			// d.call(sci.sci_markerdefine, usize(i), isize(sci.sc_mark_character+0x3f))
+		// }
+		// d.call(sci.sci_markersetback, usize(i), isize(d.back_color))
+		// d.call(sci.sci_markersetfore, usize(i), isize(d.fore_color))
+		// d.call(sci.sci_markersetbackselected, usize(i), isize(0x70635C))
+	// }
+	
+	// d.call(sci.sci_setmarginmaskn, 1, 0x07FFFFFF)  // 1 - 26
+	// d.call(sci.sci_setmargintypen, 1, sci.sc_margin_colour)
+	// d.call(sci.sci_setmarginwidthn, 1, 16)
+	// d.call(sci.sci_setmarginbackn, 1, d.back_color)
 }
 
 pub fn (mut d DockableDialog) show() {
@@ -229,6 +266,10 @@ pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
 pub fn (mut d DockableDialog) on_marginclick(position isize) {
 	line_number := d.call(sci.sci_linefromposition, usize(position), 0)
 	d.call(sci.sci_togglefold, usize(line_number), 0)
+}
+
+pub fn (mut d DockableDialog) on_focusin() {
+	if d.is_visible { d.call(sci.sci_setemptyselection, 0, 0) }
 }
 
 /*
