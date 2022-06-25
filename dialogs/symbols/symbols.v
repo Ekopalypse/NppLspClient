@@ -144,7 +144,6 @@ pub fn (mut d DockableDialog) update(mut symbols []Symbol) {
 	}
 	
 	d.call(sci.sci_setreadonly, 1, 0)
-	d.show()
 }
 
 pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
