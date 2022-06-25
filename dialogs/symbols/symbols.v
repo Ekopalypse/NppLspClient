@@ -27,34 +27,34 @@ import common { Symbol }
 const (
 	symbol_style   = u8(1)
 	symbol_map     = {
-			0: '?  '
-			1: '\u24BB\t'  // File Ⓕ
-			2: '\u24C2\t'  // Module Ⓜ
-			3: '\u24C3\t'  // Namespace Ⓝ
-			4: '\u24C5\t'  // Package Ⓟ
-			5: '\u24B8\t'  // Class Ⓒ
-			6: '\u24DC\t'  // Method ⓜ
-			7: '\u24DF\t'  // Property ⓟ
-			8: '\u24D5\t'  // Field ⓕ
-			9: '\u24D2\t'  // Constructor ⓒ
-			10: '\u24BA\t'  // Enum Ⓔ
-			11: '\u24BE\t'  // Interface Ⓘ
-			12: '\u0192\t'  // Function ƒ
-			13: '\u24CB\t'  // Variable Ⓥ
-			14: '\u2282\t'  // Constant ⊂
-			15: '\u24E2\t'  // String ⓢ
-			16: '\u24DD\t'  // Number ⓝ
-			17: '\u24B7\t'  // Boolean Ⓑ
-			18: '\u24B6\t'  // Array Ⓐ
-			19: '\u24C4\t'  // Object Ⓞ
-			20: '\u24C0\t'  // Key Ⓚ
-			21: '\u00D8\t'  // Null Ø
-			22: '\u24D4\t'  // EnumMember ⓔ
-			23: '\u24C8\t'  // Struct Ⓢ
-			24: '\u0404\t'  // Event Є
-			25: '\u24DE\t'  // Operator ⓞ
-			26: '\u24C9\t'  // TypeParameter Ⓣ
-		}
+		0: '?  '
+		1: '\u24BB\t'  // File Ⓕ
+		2: '\u24C2\t'  // Module Ⓜ
+		3: '\u24C3\t'  // Namespace Ⓝ
+		4: '\u24C5\t'  // Package Ⓟ
+		5: '\u24B8\t'  // Class Ⓒ
+		6: '\u24DC\t'  // Method ⓜ
+		7: '\u24DF\t'  // Property ⓟ
+		8: '\u24D5\t'  // Field ⓕ
+		9: '\u24D2\t'  // Constructor ⓒ
+		10: '\u24BA\t'  // Enum Ⓔ
+		11: '\u24BE\t'  // Interface Ⓘ
+		12: '\u0192\t'  // Function ƒ
+		13: '\u24CB\t'  // Variable Ⓥ
+		14: '\u2282\t'  // Constant ⊂
+		15: '\u24E2\t'  // String ⓢ
+		16: '\u24DD\t'  // Number ⓝ
+		17: '\u24B7\t'  // Boolean Ⓑ
+		18: '\u24B6\t'  // Array Ⓐ
+		19: '\u24C4\t'  // Object Ⓞ
+		20: '\u24C0\t'  // Key Ⓚ
+		21: '\u00D8\t'  // Null Ø
+		22: '\u24D4\t'  // EnumMember ⓔ
+		23: '\u24C8\t'  // Struct Ⓢ
+		24: '\u0404\t'  // Event Є
+		25: '\u24DE\t'  // Operator ⓞ
+		26: '\u24C9\t'  // TypeParameter Ⓣ
+	}
 )
 
 [callconv: stdcall]

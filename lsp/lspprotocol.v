@@ -358,11 +358,14 @@ pub fn goto_declaration(file_path DocumentUri, line u32, char_position u32) stri
 
 pub fn find_references(file_path DocumentUri, line u32, char_position u32) string {
 	uri_path := make_uri(file_path)
+	text_document := '"textDocument":{"uri":"$uri_path"}'
+	position := '"position":{"character":$char_position,"line":$line}'
+	context := '"context":{"includeDeclaration":true}'
 	m := Message{
 		msg_type: JsonRpcMessageType.request
 		id: p.lsp_config.lspservers[p.current_language].get_next_id()
 		method: '"textDocument/references"'
-		params: '{"textDocument":{"uri":"$uri_path"},"position":{"character":$char_position,"line":$line}}'
+		params: '{$text_document,$position,$context}'
 	}
 	p.lsp_config.lspservers[p.current_language].open_response_messages[m.id] = find_references_response
 	return m.encode()
