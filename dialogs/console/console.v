@@ -32,6 +32,9 @@ fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 			api.destroy_window(hwnd)
 			return 1
 		}
+		C.WM_SHOWWINDOW {
+			p.console_window.is_visible = if wparam == 0 { false } else { true }
+		}
 		else {}
 	}
 	return 0
