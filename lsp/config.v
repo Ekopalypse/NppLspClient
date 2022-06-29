@@ -74,6 +74,13 @@ clear_reference_view_always = false  # values must be either false or true
 # port = 12345
 # host = "127.0.0.1"
 # auto_start_server = false
+
+# language server configuration example with custom messages
+# [lspservers.rust]
+# mode = "io"
+# executable = \'WHATEVER_DIRECTORY\\.cargo\\bin\\rls.exe\'
+# auto_start_server = false
+# custom_messages = "window/progress"
 '
 )
 
@@ -87,6 +94,7 @@ pub mut:
 	port              int
 	host              string
 	auto_start_server bool
+	custom_messages   string
 	initialized       bool
 	// open_documents []string  // used to prevent sending didOpen multiple times
 	features               ServerCapabilities
@@ -227,6 +235,10 @@ pub fn decode_config(full_file_path string) Configs {
 
 			if !is_null(doc.value('lspservers.${k}.host')) {
 				sc.host = doc.value('lspservers.${k}.host').string()
+			}
+			
+			if !is_null(doc.value('lspservers.${k}.custom_messages')) {
+				sc.custom_messages = doc.value('lspservers.${k}.custom_messages').string()
 			}
 
 			lsp_config.lspservers[k] = sc
@@ -386,6 +398,13 @@ pub fn analyze_config(full_file_path string) {
 					check_if_string_value(line)
 				} else {
 					p.console_window.log_error('host must be in lspservers section')
+				}
+			}
+			line.starts_with('custom_messages') {
+				if in_lspservers_section {
+					check_if_string_value(line)
+				} else {
+					p.console_window.log_error('custom_messages must be in lspservers section')
 				}
 			}
 			else {

@@ -73,9 +73,9 @@ pub fn stop_ls() {
 	io.write_to(exit_msg())
 }
 
-pub fn on_initialize(npp_pid int, current_directory string) {
+pub fn on_initialize(npp_pid int, workspace_directory string) {
 	p.console_window.log_info('on_initialize: $npp_pid')
-	io.write_to(initialize(npp_pid, current_directory))
+	io.write_to(initialize(npp_pid, workspace_directory))
 }
 
 fn initialize_response(json_message string) {
@@ -985,7 +985,9 @@ fn notification_handler(json_message JsonMessage) {
 		// 'workspace/didRenameFiles' { decode_workspace_did_rename_files(json_message.params) }
 		// 'workspace/didDeleteFiles' { decode_workspace_did_delete_files(json_message.params) }
 		else {
-			p.console_window.log_warning('An unexpected notification has been received, ${lsp.report_at}.')
+			if ! p.lsp_config.lspservers[p.current_language].custom_messages.contains(json_message.method) {
+				p.console_window.log_warning('An unexpected notification has been received, ${lsp.report_at}.')
+			}
 		}
 	}
 }
