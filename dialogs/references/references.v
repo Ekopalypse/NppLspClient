@@ -1,13 +1,13 @@
 module references
 
-/*
-A "poor man's search window result"-like view of the found references.
 
-	Here's how it works:
-		each result of a new search is appended at the end of the view
-		and thus previous results are still available
-		but it cannot be guaranteed that they are still valid.
-*/
+// A "poor man's search window result"-like view of the found references.
+
+	// Here's how it works:
+		// each result of a new search is appended at the end of the view
+		// and thus previous results are still available
+		// but it cannot be guaranteed that they are still valid.
+
 import util.winapi as api
 import notepadpp
 import scintilla as sci
@@ -58,6 +58,12 @@ fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 		}
 		C.WM_SHOWWINDOW {
 			p.references_window.is_visible = if wparam == 0 { false } else { true }
+		}
+		C.WM_KEYUP {
+			println('wparam: $wparam ${C.VK_ESCAPE}')
+			if wparam == usize(C.VK_ESCAPE) {
+				p.editor.grab_focus()
+			}
 		}
 		else {}
 	}
@@ -210,12 +216,11 @@ pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
 	}
 	p.npp.register_dialog(d.tbdata)
 	d.hide()
-	d.output_editor_func = sci.SCI_FN_DIRECT(api.send_message(d.output_hwnd, 2184, 0,
-		0))
+	d.output_editor_func = sci.SCI_FN_DIRECT(api.send_message(d.output_hwnd, 2184, 0, 0))
 	d.output_editor_hwnd = voidptr(api.send_message(d.output_hwnd, 2185, 0, 0))
 }
 
-pub fn (mut d DockableDialog) init_scintilla() {
+fn (mut d DockableDialog) init_scintilla() {
 	d.call(sci.sci_stylesetfore, 32, d.fore_color)
 	d.call(sci.sci_stylesetback, 32, d.back_color)
 	d.call(sci.sci_styleclearall, 0, 0)
@@ -260,12 +265,17 @@ pub fn (mut d DockableDialog) init_scintilla() {
 	d.call(sci.sci_setfoldmarginhicolour, 1, d.back_color)
 }
 
-pub fn (mut d DockableDialog) show() {
-	p.npp.show_dialog(d.hwnd)
-	d.is_visible = true
+pub fn (mut d DockableDialog) toggle() {
+	if d.is_visible { d.hide() } else { d.show() }
 }
 
-pub fn (mut d DockableDialog) hide() {
+fn (mut d DockableDialog) show() {
+	p.npp.show_dialog(d.hwnd)
+	d.is_visible = true
+	d.call(sci.sci_grabfocus, 1, 0)
+}
+
+fn (mut d DockableDialog) hide() {
 	p.npp.hide_dialog(d.hwnd)
 	d.is_visible = false
 }
@@ -280,7 +290,7 @@ pub fn (mut d DockableDialog) update_settings(fore_color int, back_color int, se
 	d.init_scintilla()
 }
 
-pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
+fn (mut d DockableDialog) on_hotspot_click(position isize) {
 	line := u32(d.call(sci.sci_linefromposition, usize(position), 0))
 	reference := d.references_map[line]
 	if (reference.file_name.len > 0) && (p.current_file_path != reference.file_name) {
@@ -289,7 +299,7 @@ pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
 	p.editor.goto_line(reference.line)
 }
 
-pub fn (mut d DockableDialog) on_marginclick(position isize) {
+fn (mut d DockableDialog) on_marginclick(position isize) {
 	line_number := d.call(sci.sci_linefromposition, usize(position), 0)
 	d.call(sci.sci_togglefold, usize(line_number), 0)
 }

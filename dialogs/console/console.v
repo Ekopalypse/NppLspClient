@@ -1,15 +1,15 @@
 module console
 
-/*
-Mainly a view of the language server log communication,
-	but also some other information, like the messages reported by the language server to be logged or displayed
-	and some information about the plugin itself.
+
+// Mainly a view of the language server log communication,
+	// but also some other information, like the messages reported by the language server to be logged or displayed
+	// and some information about the plugin itself.
 	
-	Here's how it should work:
-		Any message sent to or received from a language server is logged.
-		The decoded result of showMessage and logMessage is logged additionally.
-		Basic plugin functionality is logged.
-*/
+	// Here's how it should work:
+		// Any message sent to or received from a language server is logged.
+		// The decoded result of showMessage and logMessage is logged additionally.
+		// Basic plugin functionality is logged.
+
 import util.winapi as api
 import notepadpp
 import scintilla as sci
@@ -158,7 +158,7 @@ pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
 	d.output_editor_hwnd = voidptr(api.send_message(d.output_hwnd, 2185, 0, 0))
 }
 
-pub fn (mut d DockableDialog) init_scintilla() {
+fn (mut d DockableDialog) init_scintilla() {
 	d.call(sci.sci_stylesetfore, 32, d.fore_color)
 	d.call(sci.sci_stylesetback, 32, d.back_color)
 	d.call(sci.sci_styleclearall, 0, 0)
@@ -172,12 +172,16 @@ pub fn (mut d DockableDialog) init_scintilla() {
 	d.call(sci.sci_setmargins, 0, 0)
 }
 
-pub fn (mut d DockableDialog) show() {
+pub fn (mut d DockableDialog) toggle() {
+	if d.is_visible { d.hide() } else { d.show() }
+}
+
+fn (mut d DockableDialog) show() {
 	p.npp.show_dialog(d.hwnd)
 	d.is_visible = true
 }
 
-pub fn (mut d DockableDialog) hide() {
+fn (mut d DockableDialog) hide() {
 	p.npp.hide_dialog(d.hwnd)
 	d.is_visible = false
 }

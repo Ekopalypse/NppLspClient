@@ -1,22 +1,22 @@
 module symbols
 
-/*
-A "poor man's function list"-like view of the symbols available in the current document.
-	Currently (as of version 3.16), the LSP API only provides the name of the various symbols
-	together with the start and end position.
-	To make it more user-friendly, it needs to include additional information,
-	such as the members of the structure/class, or the parameters of a function etc....
+// A "poor man's function list"-like view of the symbols available in the current document.
+	// Currently (as of version 3.16), the LSP API only provides the name of the various symbols
+	// together with the start and end position.
+	// To make it more user-friendly, it needs to include additional information,
+	// such as the members of the structure/class, or the parameters of a function etc....
 	
-	Here's how it should work:
-		Sort and update the view when
-			- opening a file
-			- current file is saved
-			- previous buffer is different from the current one
-		Clear the view when
-			- no symbols in current file
-			- language server shuts down
-			- document is not of interest
-*/
+	// Here's how it should work:
+		// Sort and update the view when
+			// - opening a file
+			// - current file is saved
+			// - previous buffer is different from the current one
+		// Clear the view when
+			// - no symbols in current file
+			// - language server shuts down
+			// - document is not of interest
+
+
 import util.winapi as api
 import notepadpp
 import scintilla as sci
@@ -173,7 +173,7 @@ pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
 	d.output_editor_hwnd = voidptr(api.send_message(d.output_hwnd, 2185, 0, 0))
 }
 
-pub fn (mut d DockableDialog) init_scintilla() {
+fn (mut d DockableDialog) init_scintilla() {
 	d.call(sci.sci_stylesetfore, 32, d.fore_color)
 	d.call(sci.sci_stylesetback, 32, d.back_color)
 	d.call(sci.sci_styleclearall, 0, 0)
@@ -214,14 +214,18 @@ pub fn (mut d DockableDialog) init_scintilla() {
 	// these two lines are responsible for the margin background coloring !!
 	d.call(sci.sci_setfoldmargincolour, 1, d.back_color)
 	d.call(sci.sci_setfoldmarginhicolour, 1, d.back_color)
+	d.call(sci.sci_setfocus, 0, 0)
+}
+pub fn (mut d DockableDialog) toggle() {
+	if d.is_visible { d.hide() } else { d.show() }
 }
 
-pub fn (mut d DockableDialog) show() {
+fn (mut d DockableDialog) show() {
 	p.npp.show_dialog(d.hwnd)
 	d.is_visible = true
 }
 
-pub fn (mut d DockableDialog) hide() {
+fn (mut d DockableDialog) hide() {
 	p.npp.hide_dialog(d.hwnd)
 	d.is_visible = false
 }
@@ -233,7 +237,7 @@ pub fn (mut d DockableDialog) update_settings(fore_color int, back_color int, se
 	d.init_scintilla()
 }
 
-pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
+fn (mut d DockableDialog) on_hotspot_click(position isize) {
 	line := int(d.call(sci.sci_linefromposition, usize(position), 0))
 	symbol := d.symbols_location[line]
 	if (symbol.file_name.len > 0) && (p.current_file_path != symbol.file_name) {
@@ -242,7 +246,7 @@ pub fn (mut d DockableDialog) on_hotspot_click(position isize) {
 	p.editor.goto_line(symbol.line)
 }
 
-pub fn (mut d DockableDialog) on_marginclick(position isize) {
+fn (mut d DockableDialog) on_marginclick(position isize) {
 	line_number := d.call(sci.sci_linefromposition, usize(position), 0)
 	d.call(sci.sci_togglefold, usize(line_number), 0)
 }
