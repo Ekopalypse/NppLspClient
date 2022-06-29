@@ -559,39 +559,23 @@ pub fn stop_all_server() {
 }
 
 pub fn toggle_console() {
-	if p.console_window.is_visible {
-		p.npp.hide_dialog(p.console_window.hwnd)
-	} else {
-		p.npp.show_dialog(p.console_window.hwnd)
-	}
-	p.console_window.is_visible = !p.console_window.is_visible
+	p.console_window.toggle()
+	p.editor.grab_focus()
 }
 
 pub fn toggle_diag_window() {
-	if p.diag_window.is_visible {
-		p.npp.hide_dialog(p.diag_window.hwnd)
-	} else {
-		p.npp.show_dialog(p.diag_window.hwnd)
-	}
-	p.diag_window.is_visible = !p.diag_window.is_visible
+	p.diag_window.toggle()
+	p.editor.grab_focus()
 }
 
 pub fn toggle_references_window() {
-	if p.references_window.is_visible {
-		p.npp.hide_dialog(p.references_window.hwnd)
-	} else {
-		p.npp.show_dialog(p.references_window.hwnd)
-	}
-	p.references_window.is_visible = !p.references_window.is_visible
+	p.references_window.toggle()
+	// p.editor.grab_focus()
 }
 
 pub fn toggle_symbols_window() {
-	if p.symbols_window.is_visible {
-		p.npp.hide_dialog(p.symbols_window.hwnd)
-	} else {
-		p.npp.show_dialog(p.symbols_window.hwnd)
-	}
-	p.symbols_window.is_visible = !p.symbols_window.is_visible
+	p.symbols_window.toggle()
+	p.editor.grab_focus()
 }
 
 pub fn about() {
@@ -630,14 +614,11 @@ fn start_ls(language string) ? {
 	p.proc_manager.start(language, p.lsp_config.lspservers[language]) or { return err }
 	match p.lsp_config.lspservers[language].mode {
 		'io' {
-			go io.read_from_stdout(p.proc_manager.running_processes[language].stdout,
-				p.message_queue)
-			go io.read_from_stderr(p.proc_manager.running_processes[language].stderr,
-				p.message_queue)
+			go io.read_from_stdout(p.proc_manager.running_processes[language].stdout, p.message_queue)
+			go io.read_from_stderr(p.proc_manager.running_processes[language].stderr, p.message_queue)
 		}
 		'tcp' {
-			go io.read_from_socket(p.proc_manager.running_processes[language].socket,
-				p.message_queue)
+			go io.read_from_socket(p.proc_manager.running_processes[language].socket, p.message_queue)
 		}
 		else {}
 	}
