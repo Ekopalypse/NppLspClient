@@ -103,21 +103,20 @@ pub fn (mut d DockableDialog) clear() {
 }
 
 pub fn (mut d DockableDialog) update(references []Reference) {
-	if p.lsp_config.clear_reference_view_always {
-		d.clear()
-	}
+	if p.lsp_config.clear_reference_view_always { d.clear() }
+	if references.len == 0 { return }
 
 	current_last_line := usize(d.reference_cursor)
 
 	mut file_map := map[string][]u32{}
 
 	mut search_header := ''
+	mut search_header_not_set := true
 	mut search_header_start := u32(0)
 	mut search_header_end := u32(0)
 	mut file_header := ''
 	for reference in references {
 		if search_header.len == 0 {
-			search_header = '\n'
 			search_header_start = reference.start_pos
 			search_header_end = reference.end_pos
 			d.reference_cursor++
@@ -138,8 +137,9 @@ pub fn (mut d DockableDialog) update(references []Reference) {
 		max_line_pos := arrays.max(file_map[file_name]) or { -1 }
 		if lines.len >= max_line_pos {
 			for position in line_positions {
-				if search_header.len == 1 {
+				if search_header_not_set {
 					search_header = lines[position][search_header_start..search_header_end]
+					search_header_not_set = false
 				}
 				ref += '    [line:${position + 1}] ${lines[position].trim_space()}\n'
 			}
