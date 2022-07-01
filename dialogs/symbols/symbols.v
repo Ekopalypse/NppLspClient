@@ -90,7 +90,7 @@ fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 			}
 		}
 		C.WM_SHOWWINDOW {
-			p.symbols_window.is_visible = if wparam == 0 { false } else { true }
+			p.symbols_window.is_visible = wparam != 0
 		}
 		else {}
 	}
