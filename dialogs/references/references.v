@@ -57,7 +57,7 @@ fn dialog_proc(hwnd voidptr, message u32, wparam usize, lparam isize) isize {
 			}
 		}
 		C.WM_SHOWWINDOW {
-			p.references_window.is_visible = if wparam == 0 { false } else { true }
+			p.references_window.is_visible = wparam != 0
 		}
 		C.WM_KEYUP {
 			println('wparam: $wparam ${C.VK_ESCAPE}')
@@ -119,6 +119,7 @@ pub fn (mut d DockableDialog) update(references []Reference) {
 		if search_header.len == 0 {
 			search_header_start = reference.start_pos
 			search_header_end = reference.end_pos
+			search_header = '\n'
 			d.reference_cursor++
 		}
 		if reference.file_name != file_header {
