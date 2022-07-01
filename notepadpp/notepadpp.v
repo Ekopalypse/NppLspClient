@@ -26,10 +26,10 @@ pub struct TbData {
 }
 
 pub struct CommunicationInfo {
-pub mut:
+pub:
 	internal_msg    int
 	src_module_name &u16
-	info            isize  // NOTE, this is normally a voidptr!! We misuse it for timestamping
+	info            voidptr
 }
 
 struct SessionInfo {
