@@ -8,13 +8,13 @@ If the current active file or another previously opened file needs to be reloade
 
 3. DO NOT USE CLONED buffers.
 
-4. Avoid using rectangular or multi-cursor inserts.
+4. Avoid using rectangular or multi-cursor inserts.  
 Although this works in most cases, we may either hit a deadlock situation or the server will crash from time to time. I am not 100% sure if this is a client or server issue.
 
-5. Restart the language server
+5. Restart the language server  
 In cases where Npp seems to hang, try stopping the language server. If this doesn't help, kill the process via task manager.
 
-6. Use the log dialog
+6. Use the log dialog  
 In debug mode, all client and server communication and other relevant actions are logged via the console log to help identify the cause in case of a problem.
 
 7. Use the documentation of the language servers  
