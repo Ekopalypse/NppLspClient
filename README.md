@@ -18,6 +18,8 @@ If no faw dialog is used or the file is not part of one of the root elements, th
 - Open a source file
 - Run "Start server for current language"
 
+See [tips](./tips.md) for more information about usage and language server setup.
+
 
 ## Building manually
 
