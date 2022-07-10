@@ -131,7 +131,7 @@ Use the binary from https://github.com/vlang/vls/releases
 
 ### Notes
 This is a wip project and therefore not yet as stable as the others.  
-It works more or less, but expect crashes.  
+It works more or less, but expect vls.exe crashes.  
 Also, when starting the server, watch out for a hanging v.exe process that is blocking vls. Kill this process via the task manager and communication to vls should work.
 
 ### Configuration
