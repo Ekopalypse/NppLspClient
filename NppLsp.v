@@ -40,7 +40,7 @@ pub mut:
 	npp          notepadpp.Npp
 	dll_instance voidptr
 
-	name              string = npp_plugin.plugin_name
+	name              string = plugin_name
 	main_config_file  string
 	console_window    console.DockableDialog
 	diag_window       diagnostics.DockableDialog
@@ -60,6 +60,8 @@ pub mut:
 	working_buffer_id    u64
 	file_version_map     map[u64]int
 	workspaces           []string
+
+	check_ls             fn(auto_start bool) = check_ls_status
 }
 
 pub struct NppData {
@@ -70,8 +72,9 @@ pub mut:
 }
 
 fn (nd NppData) is_valid(handle voidptr) bool {
-	return handle == nd.npp_handle || handle == nd.scintilla_main_handle
-		|| handle == nd.scintilla_second_handle
+	return handle == nd.npp_handle || 
+		   handle == nd.scintilla_main_handle ||
+		   handle == nd.scintilla_second_handle
 }
 
 struct FuncItem {
@@ -90,7 +93,7 @@ fn is_unicode() bool {
 
 [export: getName]
 fn get_name() &u16 {
-	return npp_plugin.plugin_name.to_wide()
+	return plugin_name.to_wide()
 }
 
 [export: setInfo]
@@ -101,13 +104,13 @@ fn set_info(nppData NppData) {
 
 	// Create as early as possible, as nppn_ready is NOT the first message received.
 	p.console_window = console.DockableDialog{}
-	p.console_window.create(p.npp_data.npp_handle, npp_plugin.plugin_name)
+	p.console_window.create(p.npp_data.npp_handle, plugin_name)
 	p.diag_window = diagnostics.DockableDialog{}
-	p.diag_window.create(p.npp_data.npp_handle, npp_plugin.plugin_name)
+	p.diag_window.create(p.npp_data.npp_handle, plugin_name)
 	p.references_window = references.DockableDialog{}
-	p.references_window.create(p.npp_data.npp_handle, npp_plugin.plugin_name)
+	p.references_window.create(p.npp_data.npp_handle, plugin_name)
 	p.symbols_window = symbols.DockableDialog{}
-	p.symbols_window.create(p.npp_data.npp_handle, npp_plugin.plugin_name)
+	p.symbols_window.create(p.npp_data.npp_handle, plugin_name)
 }
 
 [export: beNotified]
@@ -118,12 +121,12 @@ fn be_notified(notification &sci.SCNotification) {
 	match notification.nmhdr.code {
 		notepadpp.nppn_ready {
 			update_settings()
-			plugin_config_dir := os.join_path(p.npp.get_plugin_config_dir(), npp_plugin.plugin_name)
+			plugin_config_dir := os.join_path(p.npp.get_plugin_config_dir(), plugin_name)
 			if !os.exists(plugin_config_dir) {
 				os.mkdir(plugin_config_dir) or { return }
 			}
 
-			p.main_config_file = os.join_path(plugin_config_dir, npp_plugin.configuration_file)
+			p.main_config_file = os.join_path(plugin_config_dir, configuration_file)
 			if os.exists(p.main_config_file) {
 				read_main_config()
 			}
@@ -459,11 +462,11 @@ fn update_settings() {
 
 fn get_hwnd_infos(hwnd voidptr) (string, string) {
 	unsafe {
-		mut curr_class := api.create_unicode_buffer(npp_plugin.max_path)
+		mut curr_class := api.create_unicode_buffer(max_path)
 		length := api.get_window_text_length(hwnd)
 		mut buffer := api.create_unicode_buffer(length)
 		api.get_window_text(hwnd, &u16(buffer), length + 1)
-		api.get_class_name(hwnd, &u16(curr_class), npp_plugin.max_path)
+		api.get_class_name(hwnd, &u16(curr_class), max_path)
 		curr_class_value := string_from_wide(curr_class)
 		buffer_value := string_from_wide(buffer)
 		return curr_class_value, buffer_value
@@ -489,8 +492,8 @@ fn foreach_window(hwnd voidptr, lparam isize) bool {
 				0)
 			for root_handle != isize(0) {
 				tvitem.hitem = voidptr(root_handle)
-				tvitem.text_max = npp_plugin.max_path
-				mut buffer := api.create_unicode_buffer(npp_plugin.max_path)
+				tvitem.text_max = max_path
+				mut buffer := api.create_unicode_buffer(max_path)
 				tvitem.text = unsafe { &u16(buffer) }
 
 				if api.send_message(hwnd, u32(api.tvm_getitemw), 0, isize(&tvitem)) != 0 {
@@ -541,6 +544,9 @@ pub fn stop_lsp_server() {
 	p.console_window.log_info('initialized = ${p.lsp_config.lspservers[p.current_language].initialized}')
 	p.current_file_version = 0
 	p.editor.clear_indicators()
+	p.symbols_window.clear()
+	p.references_window.clear()
+	p.diag_window.clear(p.current_language)
 }
 
 pub fn restart_lsp_server() {
@@ -570,12 +576,12 @@ pub fn toggle_diag_window() {
 
 pub fn toggle_references_window() {
 	p.references_window.toggle()
-	// p.editor.grab_focus()
+	p.editor.grab_focus()
 }
 
 pub fn toggle_symbols_window() {
 	p.symbols_window.toggle()
-	p.editor.grab_focus()
+	// p.editor.grab_focus()
 }
 
 pub fn about() {
@@ -591,6 +597,7 @@ fn check_ls_status(check_auto_start bool) {
 		return
 	}
 
+	p.lsp_config.lspservers[p.current_language].initialized = false
 	if check_auto_start && !p.lsp_config.lspservers[p.current_language].auto_start_server {
 		p.console_window.log_info('  either unknown language or server should not be started automatically')
 		p.lsp_client.cur_lang_srv_running = false

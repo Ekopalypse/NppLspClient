@@ -178,10 +178,6 @@ pub fn (mut d DockableDialog) update_settings(fore_color int, back_color int, er
 	d.warning_color = warning_color
 	d.selected_text_color = selected_text_color
 	d.init_scintilla()
-	text := '1\n2\n3\n4\n5\n6\n7\n8'
-	d.call(sci.sci_appendtext, usize(text.len), isize(text.str))
-	position := d.call(sci.sci_getlength, 0, 0)
-	d.call(sci.sci_gotopos, usize(position), 0)
 }
 
 fn (mut d DockableDialog) on_hotspot_click(position isize) {

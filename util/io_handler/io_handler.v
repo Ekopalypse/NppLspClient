@@ -103,6 +103,8 @@ fn write_to_socket(message string) bool {
 pub fn write_to(message string) bool {
 	if p.proc_manager.running_processes[p.current_language].stdin == voidptr(0) {
 		p.console_window.log_error('ERROR: attempt to write to non-existent pipe\n: $message')
+		p.console_window.log_error('ERROR: removing ${p.current_language} from list of running servers')
+		p.check_ls(true)
 		return false
 	}
 	if p.lsp_config.lspservers[p.current_language].mode == 'io' {

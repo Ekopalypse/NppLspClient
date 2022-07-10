@@ -1066,7 +1066,7 @@ fn response_handler(json_message JsonMessage) {
 		if func_ptr != voidptr(0) {
 			func_ptr(json_message.result.str())
 		} else {
-			p.console_window.log_warning('An unexpected response has been received, ${lsp.report_at}.')
+			p.console_window.log_warning('An unexpected response message has been received, ${lsp.report_at}.')
 		}
 	}
 	p.lsp_config.lspservers[p.current_language].open_response_messages.delete(id)

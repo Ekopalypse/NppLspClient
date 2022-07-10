@@ -151,10 +151,8 @@ pub fn (mut d DockableDialog) update(mut symbols []Symbol) {
 
 pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
 	d.output_hwnd = p.npp.create_scintilla(voidptr(0))
-	d.hwnd = voidptr(api.create_dialog_param(p.dll_instance, api.make_int_resource(C.IDD_SYMBOLSDLG),
-		npp_hwnd, api.WndProc(dialog_proc), 0))
-	icon := api.load_image(p.dll_instance, api.make_int_resource(200), u32(C.IMAGE_ICON),
-		16, 16, 0)
+	d.hwnd = voidptr(api.create_dialog_param(p.dll_instance, api.make_int_resource(C.IDD_SYMBOLSDLG), npp_hwnd, api.WndProc(dialog_proc), 0))
+	icon := api.load_image(p.dll_instance, api.make_int_resource(200), u32(C.IMAGE_ICON), 16, 16, 0)
 	d.tbdata = notepadpp.TbData{
 		client: d.hwnd
 		name: d.name
@@ -168,8 +166,7 @@ pub fn (mut d DockableDialog) create(npp_hwnd voidptr, plugin_name string) {
 	}
 	p.npp.register_dialog(d.tbdata)
 	d.hide()
-	d.output_editor_func = sci.SCI_FN_DIRECT(api.send_message(d.output_hwnd, 2184, 0,
-		0))
+	d.output_editor_func = sci.SCI_FN_DIRECT(api.send_message(d.output_hwnd, 2184, 0, 0))
 	d.output_editor_hwnd = voidptr(api.send_message(d.output_hwnd, 2185, 0, 0))
 }
 
