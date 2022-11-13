@@ -143,6 +143,21 @@ args = '--vroot=D:\ProgramData\Compiler\v --timeout=10 --debug'
 auto_start_server = false
 ```
 
+## Terraform/HCL
+### Installation
+Use the binary from https://releases.hashicorp.com/terraform-ls/
+
+### Notes
+Terraform/HCL isn't an officially supported language, so you need to add it as a user defined language with name 'terraform'. One example how to do that could be found on [Notepad++ forum](https://community.notepad-plus-plus.org/topic/20295/terraform-hcl-syntax-highlighting-support/14).
+
+### Configuration
+```toml
+[lspservers.terraform]
+mode = "io"
+executable = 'C:\WHATEVER_PATH\terraform-ls.exe'
+args = 'serve'
+auto_start_server = false
+```
 
 *If you are using another language server and want to tell the community how to configure it, \
 I would ask you to either open an issue with the tag "Tips & Tricks" and explain it there or, \
