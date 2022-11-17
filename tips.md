@@ -148,7 +148,10 @@ auto_start_server = false
 Use the binary from https://releases.hashicorp.com/terraform-ls/
 
 ### Notes
+
 Terraform/HCL isn't an officially supported language, so you need to add it as a user defined language with name 'terraform'. One example how to do that could be found on [Notepad++ forum](https://community.notepad-plus-plus.org/topic/20295/terraform-hcl-syntax-highlighting-support/14).
+
+Terraform-ls has a bug [#791](https://github.com/hashicorp/terraform-ls/issues/791) that prevents it from exiting when receiving a SIGTERM signal from NppLspClient plugin. You may need to kill server manually to avoid memory leaks.
 
 ### Configuration
 ```toml
