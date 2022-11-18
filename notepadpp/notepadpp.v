@@ -5,7 +5,7 @@ import util.winapi { RECT, create_unicode_buffer, send_message }
 pub struct TbData {
 	client voidptr
 	// client Window Handle
-	name &u16
+	name &u16 = &u16(0)
 	// name of plugin (shown in window)
 	dlg_id int
 	// a funcItem provides the function pointer to start a dialog. Please parse here these ID
@@ -14,26 +14,26 @@ pub struct TbData {
 	// mask params: look to above defines
 	icon_tab voidptr
 	// icon for tabs
-	add_info &u16
+	add_info &u16 = &u16(0)
 	// for plugin to display additional informations
 	// internal data, do not use !!!  - except for inializing it.
 	rc_float RECT
 	// floating position
 	prev_cont int
 	// stores the privious container (toggling between float and dock)
-	module_name &u16
+	module_name &u16 = &u16(0)
 	// it's the plugin file name. It's used to identify the plugin
 }
 
 pub struct CommunicationInfo {
 pub:
 	internal_msg    int
-	src_module_name &u16
+	src_module_name &u16 = &u16(0)
 	info            voidptr
 }
 
 struct SessionInfo {
-	session_file_path_name &u16
+	session_file_path_name &u16 = &u16(0)
 	nb_file                int
 	files                  voidptr
 	// TCHAR**

@@ -191,10 +191,10 @@ fn completion_response(json_message string) {
 	mut ci := []CompletionItem{}
 	if json_message.contains('"items":') {
 		cl := json2.decode<CompletionList>(json_message) or { CompletionList{} }
-		ci = cl.items
+		ci = cl.items.clone()
 	} else {
 		cia := json2.decode<CompletionItemArray>(json_message) or { CompletionItemArray{} }
-		ci = cia.items
+		ci = cia.items.clone()
 	}
 	if ci.len > 0 {
 		mut ci__ := ci.map(fn (item CompletionItem) string {

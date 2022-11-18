@@ -114,10 +114,10 @@ pub fn write_to(message string) bool {
 	}
 }
 
-pub fn read_from_socket(socket net.TcpConn, msg_queue chan string) ? {
+pub fn read_from_socket(socket net.TcpConn, msg_queue chan string) ! {
 	// mut conn := &net.TcpConn(socket)
 	mut conn := socket
-	conn.set_blocking(true)?
+	conn.set_blocking(true)!
 	mut r := io.new_buffered_reader(reader: conn)
 	for {
 		mut buffer := []u8{len: 100_000}
