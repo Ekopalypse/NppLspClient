@@ -188,5 +188,5 @@ pub const (
 	dws_df_cont_right                    = (cont_right << 28) // default docking on right
 	dws_df_cont_top                      = (cont_top << 28) // default docking on top
 	dws_df_cont_bottom                   = (cont_bottom << 28) // default docking on bottom
-	dws_df_floating                      = 0x80000000 // default state is floating	
+	dws_df_floating                      = u32(0x80000000) // default state is floating	
 )
