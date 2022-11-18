@@ -106,7 +106,7 @@ pub const (
 	sc_marknum_foldersub                          = 29
 	sc_marknum_folder                             = 30
 	sc_marknum_folderopen                         = 31
-	sc_mask_folders                               = 0xfe000000
+	sc_mask_folders                               = u32(0xfe000000)
 	sci_markerdefine                              = 2040
 	sci_markersetfore                             = 2041
 	sci_markersetback                             = 2042
