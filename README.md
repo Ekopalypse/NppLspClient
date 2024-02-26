@@ -1,7 +1,7 @@
 # NppLSPClient
 A [LSP](https://microsoft.github.io/language-server-protocol/) client plugin for Notepad++.
 
-## Npp 8.6.4 has introduced changes that disable notifications that this plugin relies on, and is therefore not compatible with this (and future??) version. Sorry for the inconvenience.
+## Npp 8.6.3/8.6.4 have introduced changes that disable notifications that this plugin relies on, and is therefore not compatible with these versions. Sorry for the inconvenience.
 
 ***NOTE: The latest builds assume that the Folder as Workspace (faw) dialog is used.  
 This means that the rootUri component of the [initialize request](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#initializeParams) sent from the client to the server  
