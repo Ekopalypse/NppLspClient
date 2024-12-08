@@ -3,22 +3,16 @@
 1. USE Folder as Workspace(FAW).  
 The language server protocol (lsp) specifies that the client must specify the root directory of the current source code files. This makes sense when you consider how language servers work. They need to know where the source files are located in order to provide completions, hints, etc. NppLspClient uses the root element of the FAW dialog, to determine this directory. If the currently opened file is not contained in any of the configured root elements or the FAW dialog is not active, the directory of the current file will be used instead.
 
-2. DO NOT reload an open buffer.  
-If the current active file or another previously opened file needs to be reloaded because it has changed externally close the file and reopen it instead. Once you open a source file in Npp, the language servers assumes that the client is providing the information about changes. However, currently the client does not monitor these files.
+2. DO NOT USE CLONED buffers.
 
-3. DO NOT USE CLONED buffers.
+3. DO NOT use Npp internal builtin functions to reload an open buffer.  
+If an open file needs to be reloaded because it has changed externally, close the file and reopen it or use the 'Reload current file' function from the plug-in menu.
 
-4. Avoid using rectangular or multi-cursor inserts.  
-Although this works in most cases, we may either hit a deadlock situation or the server will crash from time to time. I am not 100% sure if this is a client or server issue.
+4. Use the console dialog  
+Starting and stopping of a language server and other relevant information is logged in the console dialog. In addition, the entire communication between client and server is logged in debug mode in order to determine the cause in the event of a problem. Note that using debug mode has a significant impact on overall performance.
 
-5. Restart the language server  
-In cases where Npp seems to hang, try stopping the language server. If this doesn't help, kill the process via task manager.
-
-6. Use the log dialog  
-In debug mode, all client and server communication and other relevant actions are logged via the console log to help identify the cause in case of a problem.
-
-7. Use the documentation of the language servers  
-There is no standard way to configure language servers. Each has its own parameters or additional information about what to do to make the communication between client and server good. For example, language servers like clangd need the  information on how to compile the code.
+5. Use the documentation of the language servers  
+There is no standard method for configuring language servers. Each has its own parameters or additional information about what needs to be done to make the communication between client and server work well. For example, language servers like clangd need information about how the code should be compiled.
 
 # Known working language servers and their sample configuration in alphabetical order
 
@@ -30,21 +24,21 @@ There is no standard way to configure language servers. Each has its own paramet
 See https://clangd.llvm.org
 
 ### Notes
-Checkout the information about compile_commands.  
+Checkout the information about compile_commands.
 Test was done using clangd from the GCC and MinGW-w64 for Windows bundle from https://winlibs.com/#download-release
 
 ### Configuration
 ```toml
 [lspservers."c++"]
 mode = "io"
-executable = 'C:\WHATEVER_PATH\clangd.exe'
-args = '--offset-encoding=utf-8 --pretty'
+executable = 'D:\WHATEVER_PATH\clangd.exe'
+args = '--offset-encoding=utf-8 --pretty --query-driver=D:/WHATEVER_PATH/clang++.exe'
 auto_start_server = false
 
 [lspservers."c"]
 mode = "io"
-executable = 'C:\WHATEVER_PATH\clangd.exe'
-args = '--offset-encoding=utf-8 --pretty'
+executable = 'D:\WHATEVER_PATH\clangd.exe'
+args = '--offset-encoding=utf-8 --log=verbose --query-driver=D:/WHATEVER_PATH/gcc.exe'
 auto_start_server = false
 ```
 ## Clojure
@@ -52,8 +46,8 @@ auto_start_server = false
 Use the binary from https://github.com/clojure-lsp/clojure-lsp/releases
 
 ### Notes
-There is known issue documented [here](https://github.com/Ekopalypse/NppLspClient/issues/6#issuecomment-1152931523).  
-Currently it seems that Npp and the initial source file used to start the language server must use the same drive.
+There is a known problem that is documented [here](https://github.com/Ekopalypse/NppLspClient/issues/6#issuecomment-1152931523).
+Currently it appears that Npp and the initial source file used to start the language server must use the same drive.
 
 ### Configuration
 ```toml
@@ -69,7 +63,7 @@ auto_start_server = false
 Use the binary from https://github.com/Pure-D/serve-d/releases
 
 ### Notes
-See https://github.com/Pure-D/serve-d for more details.  
+See https://github.com/Pure-D/serve-d for more details.
 When exiting Npp, the serve-d.exe may still be running.
 
 ### Configuration
@@ -111,35 +105,33 @@ auto_start_server = false
 
 ## Rust
 ### Installation
-Use *`rustup component add rls rust-analysis rust-src`*
+Use *`rustup component add rust-analyzer`*
 
 ### Notes
-See https://github.com/rust-lang/rls for more information about usage and installation.  
-There seems to be a problem when using comments, it slows down the communication between client and server noticeably. Needs to be investigated further.
+See https://rust-analyzer.github.io/manual.html for more information about usage and installation.
+
 
 ### Configuration
 ```toml
 [lspservers.rust]
 mode = "io"
-executable = 'C:\WHATEVER_PATH\rls.exe'
+executable = 'C:\WHATEVER_PATH\rust-analyzer.exe'
 auto_start_server = false
 ```
 
 ## V
 ### Installation
-Use the binary from https://github.com/vlang/vls/releases
+Use the binary from https://github.com/vlang/v-analyzer/releases
 
 ### Notes
-This is a wip project and therefore not yet as stable as the others.  
-It works more or less, but expect vls.exe crashes.  
-Also, when starting the server, watch out for a hanging v.exe process that is blocking vls. Kill this process via the task manager and communication to vls should work.
+This is a wip project and therefore not yet as stable as the others.
+It works more or less, but expect v-analyzer.exe crashes.
 
 ### Configuration
 ```toml
 [lspservers.vlang]
 mode = "io"
-executable = 'C:\WHATEVER_PATH\vls.exe'
-args = '--vroot=D:\ProgramData\Compiler\v --timeout=10 --debug'
+executable = 'C:\WHATEVER_PATH\v-analyzer.exe'
 auto_start_server = false
 ```
 
