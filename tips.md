@@ -75,6 +75,36 @@ args = '--wait true --logfile d:\serve_d.log --loglevel all'
 auto_start_server = false
 ```
 
+## F\#
+### Installation
+Install the [.NET SDK](https://dotnet.microsoft.com/download) and run:
+
+    dotnet tool install --global fsautocomplete
+
+Notepad++ does not yet have built-in F# language support. To enable it, install
+the *F# Interactive* plugin: <https://github.com/rdipardo/nppFSIPlugin#installation>
+
+### Notes
+See <https://www.nuget.org/packages/fsautocomplete#communication-protocol>
+for a list of supported LSP features.
+
+### Configuration
+
+> [!IMPORTANT]
+> For versions of *F# Interactive* before v0.2.3.0, use `[lspservers.fsharp]`
+> instead of `[lspservers."f#"]`.
+
+```toml
+[lspservers."f#"]
+mode = "io"
+executable = 'C:\WHATEVER_PATH\fsautocomplete.exe'
+args = '--background-service-enabled'
+initialization_options = '''{
+    "AutomaticWorkspaceInit": true
+}'''
+auto_start_server = false
+```
+
 ## Go
 ### Installation
 After installing the go compiler use *go install golang.org/x/tools/gopls@latest* to install gopls.
