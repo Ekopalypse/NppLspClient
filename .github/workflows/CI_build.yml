@@ -13,7 +13,7 @@ jobs:
           check-latest: true
 
     - name: Checkout repo ${{ github.event.repository.name }}
-      uses: actions/checkout@v3
+      uses: actions/checkout@v6
 
     - name: Build repository app
       run: v -cc gcc -g -d static_boehm -gc boehm -keepc -enable-globals -shared -d no_backtrace -cflags -static-libgcc -cflags -I"D:\a\NppLspClient\NppLspClient" .
